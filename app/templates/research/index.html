@@ -1,0 +1,88 @@
+﻿{% extends "base.html" %}
+{% block title %}Research Tasks â€” Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Research Tasks</h1>
+  <button class="btn btn-primary btn-sm"
+          hx-get="/research/new"
+          hx-target="#task-modal-body"
+          hx-swap="innerHTML"
+          data-bs-toggle="modal"
+          data-bs-target="#taskModal">
+    <i class="bi bi-plus-lg me-1"></i>Add Task
+  </button>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="statusTabs">
+  <li class="nav-item">
+    <a class="nav-link {% if not status_filter %}active{% endif %}"
+       href="#"
+       hx-get="/research/"
+       hx-target="#task-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      All <span class="badge bg-secondary ms-1">{{ total }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter == 'in_progress' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?status=in_progress"
+       hx-target="#task-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      In Progress <span class="badge bg-warning text-dark ms-1">{{ status_counts.in_progress }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter == 'blocked' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?status=blocked"
+       hx-target="#task-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      Blocked <span class="badge bg-danger ms-1">{{ status_counts.blocked }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter == 'not_started' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?status=not_started"
+       hx-target="#task-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      Not Started <span class="badge bg-secondary ms-1">{{ status_counts.not_started }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter == 'done' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?status=done"
+       hx-target="#task-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      Done <span class="badge bg-success ms-1">{{ status_counts.done }}</span>
+    </a>
+  </li>
+</ul>
+
+<div id="task-board">
+  {% include "research/_task_board.html" %}
+</div>
+
+<!-- Add/Edit Task Modal -->
+<div class="modal fade" id="taskModal" tabindex="-1" aria-labelledby="taskModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="taskModalLabel">Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="task-modal-body">
+        <!-- Loaded via HTMX -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.location import Location
+
+
+class MachineProForma(Base):
+    __tablename__ = "machine_proformas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    # Capital inputs
+    machine_cost: Mapped[float] = mapped_column(Float, nullable=False)
+    installation_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    initial_inventory_cost: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Revenue inputs
+    daily_transactions: Mapped[float] = mapped_column(Float, nullable=False)
+    avg_ticket_usd: Mapped[float] = mapped_column(Float, nullable=False)
+    cogs_pct: Mapped[float] = mapped_column(Float, nullable=False)
+
+    # Monthly operating costs
+    commission_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    restock_labor_monthly: Mapped[float] = mapped_column(Float, default=0.0)
+    supplies_monthly: Mapped[float] = mapped_column(Float, default=0.0)
+    insurance_monthly: Mapped[float] = mapped_column(Float, default=0.0)
+    other_opex_monthly: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # JSON list of 12 monthly multipliers, e.g. [0.7, 0.8, ..., 1.2]; NULL = flat (all 1.0)
+    seasonality_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+    location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
+    location: Mapped[Location | None] = relationship(back_populates="proformas")

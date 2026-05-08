@@ -1,0 +1,69 @@
+﻿{% extends "base.html" %}
+{% block title %}Suppliers â€” Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">Suppliers</h1>
+  <a href="/inventory/" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to Inventory
+  </a>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-7">
+    {% if suppliers %}
+    <div class="table-responsive">
+      <table class="table table-hover table-sm">
+        <thead class="table-light small">
+          <tr><th>Name</th><th>Type</th><th>Contact</th><th>Products</th></tr>
+        </thead>
+        <tbody>
+          {% for s in suppliers %}
+          <tr>
+            <td class="fw-medium">{{ s.name }}</td>
+            <td class="text-muted small">{{ s.supplier_type | replace("_", " ") | title if s.supplier_type else "â€”" }}</td>
+            <td class="small">{{ s.contact_name or "â€”" }}</td>
+            <td class="small">{{ s.products | length }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted">No suppliers yet.</p>
+    {% endif %}
+  </div>
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small">Add Supplier</div>
+      <div class="card-body">
+        <form method="post" action="/inventory/suppliers">
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control form-control-sm" required
+                   placeholder="e.g. Sam's Club">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Type</label>
+            <select name="supplier_type" class="form-select form-select-sm">
+              <option value="">â€” Select â€”</option>
+              {% for t in ['warehouse_club', 'broadline_distributor', 'specialty', 'direct_brand'] %}
+              <option value="{{ t }}">{{ t | replace("_", " ") | title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Contact Name</label>
+            <input type="text" name="contact_name" class="form-control form-control-sm">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Website</label>
+            <input type="url" name="website" class="form-control form-control-sm">
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Add Supplier</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

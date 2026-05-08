@@ -1,0 +1,27 @@
+/* Status badge colors */
+.status-not_started { background-color: #6c757d; color: #fff; }
+.status-in_progress { background-color: #ffc107; color: #000; }
+.status-blocked     { background-color: #dc3545; color: #fff; }
+.status-done        { background-color: #198754; color: #fff; }
+
+/* Priority badge colors */
+.priority-high   { background-color: #dc3545; color: #fff; }
+.priority-medium { background-color: #0dcaf0; color: #000; }
+.priority-low    { background-color: #adb5bd; color: #000; }
+
+/* Location status */
+.loc-status-prospect   { background-color: #6c757d; color: #fff; }
+.loc-status-pending    { background-color: #ffc107; color: #000; }
+.loc-status-active     { background-color: #198754; color: #fff; }
+.loc-status-maintenance{ background-color: #0d6efd; color: #fff; }
+.loc-status-inactive   { background-color: #dee2e6; color: #000; }
+
+/* Subtle navbar border */
+.navbar { border-bottom: 1px solid rgba(255,255,255,0.1); }
+
+/* Card header tighten */
+.card-header { font-size: 0.875rem; }
+
+/* HTMX loading indicator */
+.htmx-request .htmx-indicator { display: inline-block; }
+.htmx-indicator { display: none; }

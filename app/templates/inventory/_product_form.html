@@ -1,0 +1,82 @@
+{% set is_edit = product is not none %}
+<form method="post" action="{{ '/inventory/' ~ product.id if is_edit else '/inventory/' }}">
+  <div class="row g-2">
+    <div class="col-md-4">
+      <label class="form-label small fw-semibold">SKU <span class="text-danger">*</span></label>
+      <input type="text" name="sku" class="form-control form-control-sm" required
+             value="{{ product.sku if is_edit else '' }}"
+             {% if is_edit %}readonly{% endif %}>
+    </div>
+    <div class="col-md-8">
+      <label class="form-label small fw-semibold">Name <span class="text-danger">*</span></label>
+      <input type="text" name="name" class="form-control form-control-sm" required
+             value="{{ product.name if is_edit else '' }}">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small fw-semibold">Brand</label>
+      <input type="text" name="brand" class="form-control form-control-sm"
+             value="{{ product.brand or '' if is_edit else '' }}">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small fw-semibold">Category</label>
+      <select name="category" class="form-select form-select-sm">
+        <option value="">— Select —</option>
+        {% for cat in ['beverage_water','beverage_energy','beverage_soda','beverage_juice',
+                        'snack_chips','snack_candy','snack_healthy',
+                        'meal_sandwich','meal_salad','personal_care','other'] %}
+        <option value="{{ cat }}" {% if is_edit and product.category == cat %}selected{% endif %}>
+          {{ cat | replace("_", " ") | title }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold">Unit Cost ($)</label>
+      <input type="number" name="unit_cost" class="form-control form-control-sm" min="0" step="0.01"
+             value="{{ product.unit_cost or '' if is_edit else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold">Sell Price ($)</label>
+      <input type="number" name="sell_price" class="form-control form-control-sm" min="0" step="0.25"
+             value="{{ product.sell_price or '' if is_edit else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold">Unit Size</label>
+      <input type="text" name="unit_size" class="form-control form-control-sm"
+             value="{{ product.unit_size or '' if is_edit else '' }}"
+             placeholder="e.g. 12oz">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold">Par Level</label>
+      <input type="number" name="par_level" class="form-control form-control-sm" min="0"
+             value="{{ product.par_level or '' if is_edit else '' }}"
+             placeholder="Min on hand">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small fw-semibold">Primary Supplier</label>
+      <select name="primary_supplier_id" class="form-select form-select-sm">
+        <option value="">— Select —</option>
+        {% for s in suppliers %}
+        <option value="{{ s.id }}" {% if is_edit and product.primary_supplier_id == s.id %}selected{% endif %}>
+          {{ s.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12">
+      <label class="form-label small fw-semibold">Restock Notes</label>
+      <textarea name="restock_notes" class="form-control form-control-sm" rows="2"
+                placeholder="e.g. Sam's Club aisle 14, min order 4 cases">{{ product.restock_notes or '' if is_edit else '' }}</textarea>
+    </div>
+  </div>
+  <div class="d-flex justify-content-end gap-2 mt-3">
+    {% if is_edit %}
+    <a href="/inventory/" class="btn btn-secondary btn-sm">Cancel</a>
+    {% else %}
+    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+    {% endif %}
+    <button type="submit" class="btn btn-primary btn-sm">
+      {{ "Save Changes" if is_edit else "Add Product" }}
+    </button>
+  </div>
+</form>

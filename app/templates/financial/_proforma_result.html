@@ -1,0 +1,93 @@
+{% if summary %}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="card text-center border-success border-opacity-50">
+      <div class="card-body py-2">
+        <div class="small text-muted">Monthly Net</div>
+        <div class="fw-bold {% if summary.avg_monthly_net >= 0 %}text-success{% else %}text-danger{% endif %}">
+          ${{ "%.0f" | format(summary.avg_monthly_net) }}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center border-info border-opacity-50">
+      <div class="card-body py-2">
+        <div class="small text-muted">Gross Margin</div>
+        <div class="fw-bold text-info">{{ "%.1f" | format(summary.gross_margin_pct) }}%</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center border-warning border-opacity-50">
+      <div class="card-body py-2">
+        <div class="small text-muted">Payback</div>
+        <div class="fw-bold text-warning">
+          {% if summary.payback_months %}{{ summary.payback_months }} mo{% else %}N/A{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center border-primary border-opacity-50">
+      <div class="card-body py-2">
+        <div class="small text-muted">Annual Net</div>
+        <div class="fw-bold {% if summary.annual_net >= 0 %}text-primary{% else %}text-danger{% endif %}">
+          ${{ "%.0f" | format(summary.annual_net) }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-sm table-bordered small">
+    <thead class="table-dark">
+      <tr>
+        <th>Month</th>
+        <th class="text-end">Revenue</th>
+        <th class="text-end">COGS</th>
+        <th class="text-end">Gross Profit</th>
+        <th class="text-end">OpEx</th>
+        <th class="text-end">Net</th>
+        <th class="text-end">Cumulative</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in table %}
+      <tr>
+        <td>{{ row.month }}</td>
+        <td class="text-end">${{ "%.0f" | format(row.revenue) }}</td>
+        <td class="text-end">${{ "%.0f" | format(row.cogs) }}</td>
+        <td class="text-end">${{ "%.0f" | format(row.gross_profit) }}</td>
+        <td class="text-end">${{ "%.0f" | format(row.total_opex) }}</td>
+        <td class="text-end {% if row.net >= 0 %}text-success{% else %}text-danger{% endif %}">
+          ${{ "%.0f" | format(row.net) }}
+        </td>
+        <td class="text-end {% if row.cumulative >= 0 %}text-success{% else %}text-danger{% endif %}">
+          ${{ "%.0f" | format(row.cumulative) }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot class="table-secondary fw-bold">
+      <tr>
+        <td>Total</td>
+        <td class="text-end">${{ "%.0f" | format(table | sum(attribute='revenue')) }}</td>
+        <td class="text-end">${{ "%.0f" | format(table | sum(attribute='cogs')) }}</td>
+        <td class="text-end">${{ "%.0f" | format(table | sum(attribute='gross_profit')) }}</td>
+        <td class="text-end">${{ "%.0f" | format(table | sum(attribute='total_opex')) }}</td>
+        <td class="text-end {% if summary.annual_net >= 0 %}text-success{% else %}text-danger{% endif %}">
+          ${{ "%.0f" | format(summary.annual_net) }}
+        </td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-bar-chart-line fs-1 d-block mb-2"></i>
+  Enter inputs to see your 12-month projection.
+</div>
+{% endif %}

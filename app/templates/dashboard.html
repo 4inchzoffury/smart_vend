@@ -1,0 +1,140 @@
+﻿{% extends "base.html" %}
+{% block title %}Dashboard â€” Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">Dashboard</h1>
+  <small class="text-muted">Prime Vending Â· Panama City, FL</small>
+</div>
+
+<div class="row g-3">
+
+  <div class="col-md-4 col-lg-4">
+    <div class="card h-100 border-primary border-opacity-25">
+      <div class="card-body">
+        <h6 class="card-title text-primary">
+          <i class="bi bi-clipboard-check me-1"></i>Research Tasks
+        </h6>
+        <div class="mb-2">
+          <span class="badge bg-success me-1">{{ research_done }} done</span>
+          <span class="badge bg-warning text-dark me-1">{{ research_in_progress }} in progress</span>
+          <span class="badge bg-danger me-1">{{ research_blocked }} blocked</span>
+          <span class="badge bg-secondary">{{ research_not_started }} not started</span>
+        </div>
+        <p class="text-muted small mb-0">{{ research_total }} total tasks</p>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/research/" class="btn btn-sm btn-outline-primary">View Tasks</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 col-lg-4">
+    <div class="card h-100 border-success border-opacity-25">
+      <div class="card-body">
+        <h6 class="card-title text-success">
+          <i class="bi bi-calculator me-1"></i>Financial Models
+        </h6>
+        <p class="card-text">{{ financial_count }} scenario{{ "s" if financial_count != 1 else "" }} saved</p>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/financial/calculator" class="btn btn-sm btn-outline-success me-1">New Model</a>
+        <a href="/financial/" class="btn btn-sm btn-outline-secondary">View All</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 col-lg-4">
+    <div class="card h-100 border-info border-opacity-25">
+      <div class="card-body">
+        <h6 class="card-title text-info">
+          <i class="bi bi-geo-alt me-1"></i>Locations
+        </h6>
+        <p class="card-text">
+          <span class="badge bg-success me-1">{{ locations_active }} active</span>
+          <span class="badge bg-secondary">{{ locations_prospect }} prospects</span>
+        </p>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/locations/" class="btn btn-sm btn-outline-info">View Locations</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 col-lg-4">
+    <div class="card h-100 border-warning border-opacity-25">
+      <div class="card-body">
+        <h6 class="card-title text-warning">
+          <i class="bi bi-funnel me-1"></i>Sales Pipeline
+        </h6>
+        <p class="card-text">
+          <span class="badge bg-secondary me-1">{{ pipeline_leads }} leads</span>
+          <span class="badge bg-info me-1">{{ pipeline_site_visits }} site visits</span>
+          <span class="badge bg-success">{{ pipeline_signed }} signed</span>
+        </p>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/sales/" class="btn btn-sm btn-outline-warning">View Pipeline</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 col-lg-4">
+    <div class="card h-100 border-danger border-opacity-25">
+      <div class="card-body">
+        <h6 class="card-title text-danger">
+          <i class="bi bi-box me-1"></i>Inventory
+        </h6>
+        <p class="card-text">
+          <span class="badge bg-secondary me-1">{{ inventory_skus }} SKUs</span>
+          {% if inventory_low_stock > 0 %}
+          <span class="badge bg-danger">{{ inventory_low_stock }} below par</span>
+          {% endif %}
+        </p>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/inventory/" class="btn btn-sm btn-outline-danger">View Inventory</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 col-lg-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h6 class="card-title text-secondary">
+          <i class="bi bi-arrow-repeat me-1"></i>Google Sheets Sync
+        </h6>
+        <p class="text-muted small mb-0">Last sync: {{ last_sync or "Never" }}</p>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/sync/" class="btn btn-sm btn-outline-secondary">Sync Now</a>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="col-md-4 col-lg-4">
+    <div class="card h-100 border-purple border-opacity-25" style="border-color: #6f42c1 !important;">
+      <div class="card-body">
+        <h6 class="card-title" style="color: #6f42c1;">
+          <i class="bi bi-robot me-1"></i>AI Lead Generation
+          {% if leads_running > 0 %}
+          <span class="spinner-border spinner-border-sm ms-1" style="width:.7rem;height:.7rem;color:#6f42c1;"></span>
+          {% endif %}
+        </h6>
+        <p class="card-text">
+          <span class="badge bg-secondary me-1">{{ leads_research_runs }} research run{{ "s" if leads_research_runs != 1 }}</span>
+          <span class="badge bg-primary me-1">{{ leads_prospects_created }} prospects found</span>
+          {% if leads_drafts_ready > 0 %}
+          <span class="badge bg-warning text-dark">{{ leads_drafts_ready }} draft{{ "s" if leads_drafts_ready != 1 }} ready</span>
+          {% endif %}
+        </p>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/leads/" class="btn btn-sm btn-outline-secondary">Lead Gen</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

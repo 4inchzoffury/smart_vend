@@ -1,0 +1,42 @@
+<tr id="task-{{ task.id }}">
+  <td class="text-muted small">{{ task.task_number }}</td>
+  <td>
+    <div class="fw-medium small">{{ task.what }}</div>
+    {% if task.notes %}
+    <div class="text-muted" style="font-size:0.78rem">{{ task.notes }}</div>
+    {% endif %}
+  </td>
+  <td>
+    <span class="badge status-{{ task.status }} clickable-status"
+          hx-post="/research/{{ task.id }}/status"
+          hx-target="#task-{{ task.id }}"
+          hx-swap="outerHTML"
+          title="Click to advance status"
+          style="cursor:pointer">
+      {{ task.status | replace("_", " ") | title }}
+    </span>
+  </td>
+  <td>
+    <span class="badge priority-{{ task.priority }}">{{ task.priority | title }}</span>
+  </td>
+  <td class="small text-muted">{{ task.due_date_raw or "—" }}</td>
+  <td class="text-end">
+    <button class="btn btn-sm btn-outline-secondary py-0 px-1 me-1"
+            hx-get="/research/{{ task.id }}/edit"
+            hx-target="#task-modal-body"
+            hx-swap="innerHTML"
+            data-bs-toggle="modal"
+            data-bs-target="#taskModal"
+            title="Edit">
+      <i class="bi bi-pencil"></i>
+    </button>
+    <button class="btn btn-sm btn-outline-danger py-0 px-1"
+            hx-delete="/research/{{ task.id }}"
+            hx-target="#task-{{ task.id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Delete this task?"
+            title="Delete">
+      <i class="bi bi-trash"></i>
+    </button>
+  </td>
+</tr>

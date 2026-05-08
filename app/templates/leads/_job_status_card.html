@@ -1,0 +1,69 @@
+<div id="job-status-card"
+     hx-get="/leads/jobs/{{ job.id }}/poll"
+     hx-trigger="{{ 'every 2s' if job.status in ('pending', 'running') else 'none' }}"
+     hx-swap="outerHTML">
+
+  {% if job.status == 'pending' %}
+  <div class="alert alert-secondary d-flex align-items-center gap-3">
+    <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+    <div>
+      <strong>Pending</strong> — waiting to start…
+    </div>
+  </div>
+
+  {% elif job.status == 'running' %}
+  <div class="alert alert-info d-flex align-items-center gap-3">
+    <div class="spinner-border spinner-border-sm text-info" role="status"></div>
+    <div>
+      <strong>Running</strong> — agent is searching the web for prospects…
+      {% if job.started_at %}
+      <br><small class="text-muted">Started {{ job.started_at.strftime('%H:%M:%S') }}</small>
+      {% endif %}
+    </div>
+  </div>
+
+  {% elif job.status == 'done' %}
+  <div class="alert alert-success">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-check-circle-fill fs-5"></i>
+      <strong>Complete</strong>
+      {% if job.finished_at %}
+      <small class="text-muted ms-auto">Finished {{ job.finished_at.strftime('%H:%M:%S') }}</small>
+      {% endif %}
+    </div>
+
+    {% if job.job_type == 'research' %}
+    <div class="d-flex gap-3 flex-wrap">
+      <span><i class="bi bi-buildings me-1"></i><strong>{{ job.prospects_found }}</strong> businesses found</span>
+      <span><i class="bi bi-person-plus me-1"></i><strong>{{ job.prospects_created }}</strong> new prospects added</span>
+      {% if job.prospects_skipped > 0 %}
+      <span class="text-muted"><i class="bi bi-skip-forward me-1"></i>{{ job.prospects_skipped }} already existed</span>
+      {% endif %}
+    </div>
+    <div class="mt-2">
+      <a href="/sales/" class="btn btn-sm btn-success me-1">
+        <i class="bi bi-funnel me-1"></i>View Sales Pipeline
+      </a>
+      <a href="/leads/" class="btn btn-sm btn-outline-secondary">Run Another</a>
+    </div>
+
+    {% elif job.job_type == 'email_draft' %}
+    <p class="mb-2">Email draft is ready for review.</p>
+    <a href="/leads/jobs/{{ job.id }}/draft" class="btn btn-sm btn-success">
+      <i class="bi bi-envelope-open me-1"></i>Review &amp; Send
+    </a>
+    {% endif %}
+  </div>
+
+  {% elif job.status == 'error' %}
+  <div class="alert alert-danger">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+      <strong>Error</strong>
+    </div>
+    <p class="mb-2 font-monospace small">{{ job.error_message or "Unknown error" }}</p>
+    <a href="/leads/" class="btn btn-sm btn-outline-danger">Back to Lead Gen</a>
+  </div>
+  {% endif %}
+
+</div>

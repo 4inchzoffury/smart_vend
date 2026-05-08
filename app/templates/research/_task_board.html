@@ -1,0 +1,43 @@
+{% for section_num in sections.keys() | sort %}
+{% set section_tasks = sections[section_num] %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center py-2">
+    <button class="btn btn-link text-decoration-none p-0 fw-semibold text-start text-dark"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#section-{{ section_num }}">
+      <i class="bi bi-chevron-down me-1"></i>
+      §{{ section_num }} — {{ section_names[section_num] }}
+    </button>
+    <span class="badge bg-secondary rounded-pill">{{ section_tasks | length }}</span>
+  </div>
+  <div class="collapse show" id="section-{{ section_num }}">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 align-middle">
+        <thead class="table-light small">
+          <tr>
+            <th style="width:55px">#</th>
+            <th>Task</th>
+            <th style="width:110px">Status</th>
+            <th style="width:75px">Priority</th>
+            <th style="width:85px">Due</th>
+            <th style="width:75px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for task in section_tasks %}
+          {% include "research/_task_row.html" %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% if not sections %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-clipboard-x fs-1 d-block mb-2"></i>
+  No tasks match the current filter.
+</div>
+{% endif %}

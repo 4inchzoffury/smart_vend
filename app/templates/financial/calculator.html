@@ -1,0 +1,125 @@
+﻿{% extends "base.html" %}
+{% block title %}Financial Calculator â€” Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">{{ "Edit Scenario" if scenario else "New Financial Model" }}</h1>
+  <a href="/financial/" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+</div>
+
+<div class="row g-4">
+  <!-- Input Form -->
+  <div class="col-lg-5">
+    <form id="calc-form"
+          method="post"
+          action="/financial/calculator"
+          hx-get="/financial/calculate"
+          hx-trigger="input delay:500ms from:#calc-form"
+          hx-include="#calc-form"
+          hx-target="#results-panel"
+          hx-swap="innerHTML">
+
+      <div class="card mb-3">
+        <div class="card-header py-2 fw-semibold small">Capital Costs</div>
+        <div class="card-body pb-2">
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small">Scenario Name</label>
+              <input type="text" name="name" class="form-control form-control-sm" required
+                     value="{{ scenario.name if scenario else '' }}"
+                     placeholder="e.g. Scenario A â€” Hospital Lobby">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Machine Cost ($)</label>
+              <input type="number" name="machine_cost" class="form-control form-control-sm" min="0" step="100"
+                     value="{{ scenario.machine_cost if scenario else 8000 }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Installation ($)</label>
+              <input type="number" name="installation_cost" class="form-control form-control-sm" min="0" step="50"
+                     value="{{ scenario.installation_cost if scenario else 0 }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Initial Inventory ($)</label>
+              <input type="number" name="initial_inventory_cost" class="form-control form-control-sm" min="0" step="50"
+                     value="{{ scenario.initial_inventory_cost if scenario else 500 }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header py-2 fw-semibold small">Revenue Inputs</div>
+        <div class="card-body pb-2">
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label small">Daily Transactions</label>
+              <input type="number" name="daily_transactions" class="form-control form-control-sm" min="0" step="1"
+                     value="{{ scenario.daily_transactions if scenario else 20 }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Avg Ticket ($)</label>
+              <input type="number" name="avg_ticket_usd" class="form-control form-control-sm" min="0" step="0.25"
+                     value="{{ scenario.avg_ticket_usd if scenario else 3.50 }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">COGS % (0â€“100)</label>
+              <input type="number" name="cogs_pct" class="form-control form-control-sm" min="0" max="100" step="1"
+                     value="{{ (scenario.cogs_pct * 100) | int if scenario else 42 }}" required>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header py-2 fw-semibold small">Monthly Operating Costs</div>
+        <div class="card-body pb-2">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small">Location Commission % (0â€“100)</label>
+              <input type="number" name="commission_pct" class="form-control form-control-sm" min="0" max="100" step="1"
+                     value="{{ (scenario.commission_pct * 100) | int if scenario else 0 }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Restock Labor ($)</label>
+              <input type="number" name="restock_labor_monthly" class="form-control form-control-sm" min="0" step="10"
+                     value="{{ scenario.restock_labor_monthly if scenario else 200 }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Supplies ($)</label>
+              <input type="number" name="supplies_monthly" class="form-control form-control-sm" min="0" step="5"
+                     value="{{ scenario.supplies_monthly if scenario else 50 }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Insurance ($)</label>
+              <input type="number" name="insurance_monthly" class="form-control form-control-sm" min="0" step="5"
+                     value="{{ scenario.insurance_monthly if scenario else 75 }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Other OpEx ($)</label>
+              <input type="number" name="other_opex_monthly" class="form-control form-control-sm" min="0" step="10"
+                     value="{{ scenario.other_opex_monthly if scenario else 0 }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small">Notes</label>
+        <textarea name="notes" class="form-control form-control-sm" rows="2">{{ scenario.notes or '' if scenario else '' }}</textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-floppy me-1"></i>Save Scenario
+      </button>
+    </form>
+  </div>
+
+  <!-- Results Panel -->
+  <div class="col-lg-7" id="results-panel">
+    {% include "financial/_proforma_result.html" %}
+  </div>
+</div>
+{% endblock %}

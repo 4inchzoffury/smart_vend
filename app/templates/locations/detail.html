@@ -1,0 +1,86 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ location.name }} â€” Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">{{ location.name }}</h1>
+  <div class="d-flex gap-2">
+    <a href="/locations/{{ location.id }}/edit" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-pencil me-1"></i>Edit
+    </a>
+    <a href="/locations/" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small">Location Details</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-4">Status</dt>
+          <dd class="col-8"><span class="badge loc-status-{{ location.status }}">{{ location.status | title }}</span></dd>
+          <dt class="col-4">Address</dt>
+          <dd class="col-8">{{ location.address or "â€”" }}</dd>
+          <dt class="col-4">City</dt>
+          <dd class="col-8">{{ location.city }}, {{ location.state }} {{ location.zip_code or "" }}</dd>
+          <dt class="col-4">Venue Type</dt>
+          <dd class="col-8">{{ location.venue_type | title if location.venue_type else "â€”" }}</dd>
+          <dt class="col-4">Foot Traffic</dt>
+          <dd class="col-8">{{ location.foot_traffic_estimate | title if location.foot_traffic_estimate else "â€”" }}</dd>
+          <dt class="col-4">Contract</dt>
+          <dd class="col-8">{{ location.contract_status | replace("_", " ") | title }}</dd>
+          {% if location.commission_pct %}
+          <dt class="col-4">Commission</dt>
+          <dd class="col-8">{{ "%.0f" | format(location.commission_pct * 100) }}%</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small">Contact</div>
+      <div class="card-body small">
+        <p class="mb-1"><strong>{{ location.contact_name or "No contact on file" }}</strong></p>
+        {% if location.contact_email %}
+        <p class="mb-1"><i class="bi bi-envelope me-1"></i>{{ location.contact_email }}</p>
+        {% endif %}
+        {% if location.contact_phone %}
+        <p class="mb-1"><i class="bi bi-telephone me-1"></i>{{ location.contact_phone }}</p>
+        {% endif %}
+        {% if location.notes %}
+        <p class="mb-0 text-muted mt-2">{{ location.notes }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% if machines %}
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small">Machines ({{ machines | length }})</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light small">
+            <tr><th>Vendor</th><th>Model</th><th>Serial</th><th>Status</th><th>Deployed</th></tr>
+          </thead>
+          <tbody>
+            {% for m in machines %}
+            <tr>
+              <td>{{ m.vendor or "â€”" }}</td>
+              <td>{{ m.model_name or "â€”" }}</td>
+              <td class="text-muted small">{{ m.serial_number or "â€”" }}</td>
+              <td><span class="badge bg-secondary">{{ m.status | replace("_", " ") | title }}</span></td>
+              <td class="text-muted small">{{ m.deployment_date or "â€”" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

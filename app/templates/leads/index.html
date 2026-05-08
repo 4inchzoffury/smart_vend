@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Lead Generation – Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-robot me-2"></i>AI Lead Generation</h1>
+  <small class="text-muted">Claude + Tavily · Bay County, FL</small>
+</div>
+
+<div class="row g-4">
+
+  <!-- Research Form -->
+  <div class="col-md-5">
+    <div class="card border-primary border-opacity-25">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0 text-primary"><i class="bi bi-search me-1"></i>Find New Prospects</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" action="/leads/research">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Venue Types to Research</label>
+            <div class="row row-cols-1 row-cols-sm-2 g-1">
+              {% for opt in venue_options %}
+              <div class="col">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="venue_types" value="{{ opt }}" id="vt_{{ loop.index }}" checked>
+                  <label class="form-check-label" for="vt_{{ loop.index }}">{{ opt | title }}</label>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="form-text">Leave all checked to search all types.</div>
+          </div>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-play-fill me-1"></i>Start Research
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job History -->
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Jobs</h6>
+        <button class="btn btn-sm btn-outline-secondary"
+                hx-get="/leads/jobs/"
+                hx-target="#job-history-body"
+                hx-swap="innerHTML">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div id="job-history-body">
+          {% include "leads/_job_history.html" %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

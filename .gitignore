@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Prime Micro Markets
+smart_vend.db
+secrets/
+
+# Windows
+desktop.ini
+Thumbs.db
+
