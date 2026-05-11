@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.agent import AgentJob
+from app.models.email_approval import EmailApproval
+from app.models.equipment import EquipmentUnit
 from app.models.financial import MachineProForma
 from app.models.inventory import Product
 from app.models.location import Location
@@ -15,7 +17,7 @@ from app.views import templates
 router = APIRouter(tags=["root"])
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     research_counts = {
         s: db.query(ResearchTask).filter(ResearchTask.status == s).count()
@@ -49,7 +51,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
                 Product.on_hand_qty < Product.par_level,
             )
             .count(),
-            "last_sync": None,
+            "cs_pending_emails": db.query(EmailApproval)
+            .filter(EmailApproval.status == "pending")
+            .count(),
             "leads_research_runs": db.query(AgentJob)
             .filter(AgentJob.job_type == "research")
             .count(),
@@ -63,5 +67,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
             "leads_running": db.query(AgentJob)
             .filter(AgentJob.status.in_(["pending", "running"]))
             .count(),
+            "equipment_count": db.query(EquipmentUnit).count(),
         },
     )

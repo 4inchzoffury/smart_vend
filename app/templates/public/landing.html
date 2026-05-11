@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prime Micro Markets – Smart Vending for Modern Workplaces</title>
+  <meta name="description" content="Prime Micro Markets provides AI-powered smart cooler vending machines to offices, gyms, hotels, and more in the Panama City, FL area. Zero cost to you. Always stocked.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --pm-dark:   #0b1526;
+      --pm-navy:   #1a3254;
+      --pm-blue:   #0369a1;
+      --pm-sky:    #0ea5e9;
+      --pm-teal:   #0d9488;
+      --pm-orange: #ea580c;
+      --pm-light:  #f1f5f9;
+      --pm-muted:  #64748b;
+      --pm-border: #e2e8f0;
+    }
+
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1e293b; }
+    ::selection { background: rgba(14,165,233,.25); }
+
+    /* ── Navbar ─────────────────────────────────── */
+    .site-nav {
+      background: rgba(11,21,38,.97);
+      backdrop-filter: blur(12px);
+      padding: .8rem 0;
+      position: sticky; top: 0; z-index: 1030;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .nav-brand {
+      font-weight: 800; font-size: 1.86rem; color: #fff;
+      display: flex; align-items: center; gap: .3rem;
+      text-decoration: none; letter-spacing: -.01em; white-space: nowrap;
+    }
+    @media (max-width: 575px) {
+      .nav-brand { font-size: 1.3rem; flex: 1; }
+      .nav-brand-text { flex: 1; text-align: center; }
+    }
+    .nav-link-pub {
+      color: rgba(255,255,255,.65) !important; font-size: .875rem;
+      padding: .35rem .7rem !important; border-radius: .375rem;
+      transition: color .15s, background .15s; text-decoration: none;
+    }
+    .nav-link-pub:hover { color: #fff !important; background: rgba(255,255,255,.08); }
+    .btn-nav-cta {
+      background: var(--pm-orange); color: #fff; border: none;
+      border-radius: .4rem; padding: .42rem 1.1rem; font-size: .85rem;
+      font-weight: 700; text-decoration: none;
+      transition: background .15s, transform .1s;
+    }
+    .btn-nav-cta:hover { background: #c2410c; color: #fff; transform: translateY(-1px); }
+
+    /* ── Hero ─────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(150deg, #0b1526 0%, #0c2d50 50%, #083d4f 100%);
+      padding: 5.5rem 0 4rem; position: relative; overflow: hidden;
+      min-height: 88vh; display: flex; align-items: center;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 70% 50%, rgba(14,165,233,.08) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 20% 80%, rgba(13,148,136,.07) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: .45rem;
+      background: rgba(14,165,233,.12); border: 1px solid rgba(14,165,233,.3);
+      color: #7dd3fc; border-radius: 99px;
+      padding: .28rem .9rem; font-size: .72rem;
+      font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      margin-bottom: 1.3rem;
+    }
+    .hero h1 {
+      font-size: clamp(2.1rem, 5.5vw, 3.6rem);
+      font-weight: 900; color: #fff; line-height: 1.1;
+      margin-bottom: 1.2rem; letter-spacing: -.02em;
+    }
+    .hero h1 em { font-style: normal; color: #38bdf8; }
+    .hero-sub {
+      font-size: clamp(.95rem, 1.6vw, 1.1rem);
+      color: rgba(255,255,255,.65); max-width: 520px;
+      line-height: 1.7; margin-bottom: 2.2rem;
+    }
+    .hero-checks { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; margin-top: 1.75rem; }
+    .hero-checks span {
+      display: flex; align-items: center; gap: .4rem;
+      color: rgba(255,255,255,.55); font-size: .8rem;
+    }
+    .hero-checks span i { color: #4ade80; }
+
+    /* hero CTA buttons */
+    .btn-hero-p {
+      background: var(--pm-orange); color: #fff; border: none;
+      border-radius: .5rem; padding: .9rem 2.1rem; font-size: 1rem;
+      font-weight: 700; text-decoration: none;
+      box-shadow: 0 6px 20px rgba(234,88,12,.38);
+      transition: background .15s, transform .12s, box-shadow .12s; display: inline-flex; align-items: center; gap: .5rem;
+    }
+    .btn-hero-p:hover { background: #c2410c; color: #fff; transform: translateY(-2px); box-shadow: 0 10px 28px rgba(234,88,12,.45); }
+    .btn-hero-s {
+      background: transparent; color: #fff;
+      border: 1.5px solid rgba(255,255,255,.28);
+      border-radius: .5rem; padding: .9rem 2.1rem; font-size: 1rem;
+      font-weight: 600; text-decoration: none;
+      transition: background .15s, border-color .15s; display: inline-flex; align-items: center; gap: .5rem;
+    }
+    .btn-hero-s:hover { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.5); }
+
+    /* ── Machine visual (hero right) ─────────────── */
+    .machines-visual { position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 1.25rem; padding: 1rem 0; }
+
+    .mach-wrap { position: relative; display: flex; flex-direction: column; align-items: center; }
+    .mach-label {
+      font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: rgba(255,255,255,.35); margin-bottom: .5rem;
+    }
+
+    /* single-door cooler */
+    .mach-cooler {
+      width: 90px; height: 220px;
+      background: linear-gradient(180deg, #1e3a5f 0%, #0f2035 100%);
+      border-radius: 10px 10px 6px 6px;
+      border: 1.5px solid rgba(14,165,233,.35);
+      box-shadow: 0 0 28px rgba(14,165,233,.15), 0 20px 50px rgba(0,0,0,.5);
+      position: relative; overflow: hidden; padding: 6px 5px 5px;
+    }
+    .mach-screen {
+      height: 38%; background: linear-gradient(180deg, #075985, #0c4a6e);
+      border-radius: 5px 5px 2px 2px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 2px; margin-bottom: 5px;
+    }
+    .mach-screen i { font-size: .85rem; color: #7dd3fc; }
+    .mach-screen span { font-size: .38rem; color: rgba(255,255,255,.5); letter-spacing: .05em; }
+    .mach-shelves { display: flex; flex-direction: column; gap: 3px; }
+    .mach-shelf { display: grid; gap: 2px; }
+    .mach-shelf.cols4 { grid-template-columns: repeat(4,1fr); }
+    .mach-shelf.cols3 { grid-template-columns: repeat(3,1fr); }
+    .mach-item {
+      height: 14px; border-radius: 2px;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1);
+    }
+    .mach-item.b { background: rgba(14,165,233,.3); border-color: rgba(14,165,233,.4); }
+    .mach-item.g { background: rgba(13,148,136,.3); border-color: rgba(13,148,136,.4); }
+    .mach-item.o { background: rgba(234,88,12,.25); border-color: rgba(234,88,12,.35); }
+    .mach-base {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 18px;
+      background: rgba(255,255,255,.04);
+      border-top: 1px solid rgba(255,255,255,.08);
+      display: flex; align-items: center; justify-content: center; gap: 3px;
+    }
+    .pay-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    /* combo machine (wider) */
+    .mach-combo {
+      width: 120px; height: 240px;
+      background: linear-gradient(180deg, #1e2d3d 0%, #0f1a27 100%);
+      border-radius: 10px 10px 6px 6px;
+      border: 1.5px solid rgba(100,116,139,.3);
+      box-shadow: 0 0 20px rgba(0,0,0,.3), 0 20px 50px rgba(0,0,0,.4);
+      position: relative; overflow: hidden; padding: 6px 7px 5px;
+    }
+    .combo-top {
+      height: 55%; border-bottom: 1px solid rgba(255,255,255,.08);
+      margin-bottom: 4px; padding-bottom: 4px;
+    }
+    .combo-header {
+      height: 18px; background: rgba(255,255,255,.05);
+      border-radius: 3px; margin-bottom: 4px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .combo-header span { font-size: .35rem; color: rgba(255,255,255,.3); letter-spacing: .06em; }
+    .combo-coils { display: grid; grid-template-columns: repeat(5,1fr); gap: 2px; }
+    .combo-coil {
+      height: 10px; border-radius: 2px;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
+    }
+    .combo-coil.s { background: rgba(251,191,36,.2); border-color: rgba(251,191,36,.3); }
+    .combo-drinks { display: grid; grid-template-columns: repeat(4,1fr); gap: 2px; }
+    .combo-drink {
+      height: 28px; border-radius: 2px;
+      background: rgba(14,165,233,.15); border: 1px solid rgba(14,165,233,.25);
+    }
+
+    /* micro kiosk (tall narrow) */
+    .mach-kiosk {
+      width: 58px; height: 195px;
+      background: linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%);
+      border-radius: 8px 8px 4px 4px;
+      border: 1.5px solid rgba(139,92,246,.35);
+      box-shadow: 0 0 20px rgba(139,92,246,.12), 0 20px 50px rgba(0,0,0,.4);
+      position: relative; overflow: hidden; padding: 6px 5px;
+    }
+    .kiosk-screen {
+      height: 42%; background: linear-gradient(180deg, #3b0764, #1e1b4b);
+      border-radius: 4px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px; margin-bottom: 5px;
+    }
+    .kiosk-screen i { font-size: .9rem; color: #c4b5fd; }
+    .kiosk-screen span { font-size: .35rem; color: rgba(255,255,255,.4); letter-spacing: .04em; }
+    .kiosk-items { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+    .kiosk-item {
+      height: 12px; border-radius: 2px;
+      background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.25);
+    }
+
+    /* glow tags floating above machines */
+    .float-tag {
+      position: absolute; background: #fff; border-radius: 6px;
+      padding: .3rem .55rem; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+      font-size: .62rem; font-weight: 700; white-space: nowrap;
+      display: flex; align-items: center; gap: .25rem; z-index: 2;
+    }
+    .float-tag.tl { top: -.5rem; left: -.5rem; color: var(--pm-teal); }
+    .float-tag.tr { top: -.5rem; right: -.5rem; color: var(--pm-blue); }
+    .float-tag.br { bottom: 2rem; right: -4rem; color: var(--pm-orange); }
+
+    /* ── Stats bar ──────────────────────────────── */
+    .stats-bar {
+      background: var(--pm-dark);
+      border-top: 1px solid rgba(255,255,255,.06);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      padding: 1.25rem 0;
+    }
+    .stat-unit { text-align: center; padding: .5rem 1.25rem; }
+    .stat-val { font-size: 1.7rem; font-weight: 800; color: #38bdf8; line-height: 1; }
+    .stat-lbl { color: rgba(255,255,255,.45); font-size: .73rem; font-weight: 500; margin-top: .2rem; letter-spacing: .03em; text-transform: uppercase; }
+    .stat-sep { width: 1px; background: rgba(255,255,255,.08); margin: .25rem 0; }
+
+    /* ── Section shared ─────────────────────────── */
+    .sec-eyebrow {
+      display: inline-block;
+      background: linear-gradient(135deg, rgba(3,105,161,.15), rgba(13,148,136,.12));
+      color: var(--pm-blue); border: 1px solid rgba(3,105,161,.22);
+      border-radius: 99px; padding: .22rem .85rem;
+      font-size: .7rem; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; margin-bottom: .65rem;
+    }
+    .sec-title { font-size: clamp(1.6rem, 3.2vw, 2.35rem); font-weight: 800; line-height: 1.18; letter-spacing: -.02em; }
+    .sec-sub { color: var(--pm-muted); max-width: 560px; margin: .75rem auto 0; font-size: 1rem; line-height: 1.7; }
+
+    /* ── Features ───────────────────────────────── */
+    .feat-card {
+      background: #fff; border: 1px solid var(--pm-border);
+      border-radius: 1rem; padding: 1.75rem 1.5rem; height: 100%;
+      transition: transform .2s, box-shadow .2s, border-color .2s;
+    }
+    .feat-card:hover { transform: translateY(-5px); box-shadow: 0 16px 48px rgba(0,0,0,.09); border-color: #cbd5e1; }
+    .feat-icon {
+      width: 50px; height: 50px; border-radius: 13px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; margin-bottom: 1rem;
+    }
+    .fi-b { background: rgba(3,105,161,.1);   color: var(--pm-blue);   }
+    .fi-t { background: rgba(13,148,136,.1);  color: var(--pm-teal);   }
+    .fi-o { background: rgba(234,88,12,.1);   color: var(--pm-orange); }
+    .fi-g { background: rgba(22,163,74,.1);   color: #16a34a;          }
+    .fi-p { background: rgba(109,40,217,.1);  color: #7c3aed;          }
+    .fi-a { background: rgba(180,83,9,.1);    color: #b45309;          }
+    .feat-card h5 { font-size: .98rem; font-weight: 700; margin-bottom: .45rem; }
+    .feat-card p  { color: var(--pm-muted); font-size: .86rem; line-height: 1.62; margin: 0; }
+
+    /* ── How it works ───────────────────────────── */
+    .hiw-bg { background: var(--pm-light); }
+    .hiw-step { text-align: center; padding: 0 1rem; position: relative; }
+    .step-num {
+      width: 62px; height: 62px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--pm-blue), var(--pm-teal));
+      color: #fff; font-size: 1.35rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1.2rem;
+      box-shadow: 0 6px 20px rgba(3,105,161,.3);
+    }
+    .hiw-step h5 { font-weight: 700; font-size: 1.05rem; margin-bottom: .5rem; }
+    .hiw-step p  { color: var(--pm-muted); font-size: .875rem; line-height: 1.68; }
+    .step-arr { position: absolute; right: -1.2rem; top: 1.6rem; color: #cbd5e1; font-size: 1.5rem; }
+
+    /* ── Venue cards ────────────────────────────── */
+    .venue-card {
+      background: #fff; border: 1.5px solid var(--pm-border);
+      border-radius: .875rem; padding: 1.5rem 1rem;
+      text-align: center; text-decoration: none; color: inherit;
+      display: block; transition: transform .2s, box-shadow .2s, border-color .2s;
+    }
+    .venue-card:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(0,0,0,.09); border-color: var(--pm-sky); color: inherit; }
+    .venue-ic {
+      width: 54px; height: 54px; border-radius: 50%;
+      background: linear-gradient(135deg, rgba(3,105,161,.1), rgba(13,148,136,.1));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; color: var(--pm-blue); margin: 0 auto .875rem;
+    }
+    .venue-card h6 { font-weight: 700; font-size: .92rem; margin: 0; }
+
+    /* ── Equipment selector ─────────────────────── */
+    .equip-section { background: #f8fafc; }
+    .filter-bar { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin-bottom: 2.5rem; }
+    .filter-btn {
+      background: #fff; border: 1.5px solid var(--pm-border);
+      color: var(--pm-muted); border-radius: 99px;
+      padding: .38rem 1rem; font-size: .8rem; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--pm-blue); border-color: var(--pm-blue);
+      color: #fff;
+    }
+
+    .equip-card {
+      background: #fff; border: 1px solid var(--pm-border);
+      border-radius: 1.1rem; overflow: hidden; height: 100%;
+      transition: transform .2s, box-shadow .2s;
+      display: flex; flex-direction: column;
+    }
+    .equip-card:hover { transform: translateY(-6px); box-shadow: 0 24px 64px rgba(0,0,0,.14); }
+
+    /* machine illustration panel */
+    .equip-visual {
+      height: 235px; display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .equip-visual::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 52px; background: linear-gradient(transparent, rgba(0,0,0,.38));
+      pointer-events: none; z-index: 1;
+    }
+    /* per-type gradient themes */
+    .ev-cooler   { background: linear-gradient(160deg, #0c3262, #0e5278); }
+    .ev-combo    { background: linear-gradient(160deg, #1a2535, #0d1c2e); }
+    .ev-market   { background: linear-gradient(160deg, #1c1250, #100c34); }
+    .ev-fresh    { background: linear-gradient(160deg, #0a3220, #0c4232); }
+    .ev-volume   { background: linear-gradient(160deg, #201e08, #302808); }
+    .ev-outdoor  { background: linear-gradient(160deg, #1c1408, #102010); }
+
+    /* machine silhouette art */
+    .ms-body {
+      border-radius: 8px 8px 4px 4px;
+      border: 1.5px solid;
+      position: relative; overflow: hidden;
+    }
+    .ms-cooler { width: 72px; height: 145px; background: linear-gradient(180deg,#1e3a5f,#0c1f35); border-color: rgba(56,189,248,.55); box-shadow: 0 0 24px rgba(56,189,248,.2),inset 0 0 20px rgba(56,189,248,.05); animation: ai-glow 3s ease-in-out infinite; }
+    .ms-combo  { width: 105px; height: 155px; background: linear-gradient(180deg,#1e2d3d,#0c1625); border-color: rgba(148,163,184,.4); }
+    .ms-market-k { width: 46px; height: 140px; background: linear-gradient(180deg,#1e1040,#100828); border-color: rgba(167,139,250,.55); box-shadow: 0 0 28px rgba(167,139,250,.28); }
+    .ms-market-s { width: 90px; height: 110px; background: linear-gradient(180deg,#120c30,#08061a); border-color: rgba(139,92,246,.35); margin-left: 5px; align-self: flex-end; }
+    .ms-fresh  { width: 78px; height: 148px; background: linear-gradient(180deg,#0a2e1a,#051408); border-color: rgba(52,211,153,.55); box-shadow: 0 0 28px rgba(52,211,153,.25); }
+    .ms-volume { width: 130px; height: 155px; background: linear-gradient(180deg,#1a1608,#0c0e04); border-color: rgba(251,191,36,.45); box-shadow: 0 0 20px rgba(251,191,36,.1); animation: ai-glow-v 3.5s ease-in-out infinite; }
+    .ms-outdoor{ width: 90px; height: 150px; background: linear-gradient(180deg,#1a1008,#0c0d04); border-color: rgba(134,239,172,.4); box-shadow: 0 0 18px rgba(134,239,172,.12); }
+
+    .ms-screen {
+      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      border-radius: 4px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 2px;
+    }
+    .ms-screen i { font-size: .9rem; }
+    .ms-screen .ms-st { font-size: .3rem; letter-spacing: .06em; opacity: .55; }
+
+    .ms-grid { position: absolute; left: 4px; right: 4px; bottom: 20px; display: flex; flex-direction: column; gap: 2px; }
+    .ms-row  { display: grid; gap: 2px; }
+    .ms-dot  { height: 10px; border-radius: 2px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); }
+    .ms-dot.c { background: rgba(56,189,248,.42); border-color: rgba(56,189,248,.62); }
+    .ms-dot.g { background: rgba(52,211,153,.42); border-color: rgba(52,211,153,.62); }
+    .ms-dot.y { background: rgba(251,191,36,.35); border-color: rgba(251,191,36,.55); }
+    .ms-dot.o { background: rgba(234,88,12,.35);  border-color: rgba(234,88,12,.55); }
+    .ms-dot.p { background: rgba(167,139,250,.42);border-color: rgba(167,139,250,.62); }
+
+    .ms-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 16px; background: rgba(0,0,0,.2); border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center; gap: 3px; }
+    .ms-pdot { width: 5px; height: 5px; border-radius: 50%; }
+
+    /* outdoor canopy */
+    .ms-canopy { position: absolute; top: -8px; left: -8px; right: -8px; height: 12px; background: rgba(134,239,172,.2); border: 1px solid rgba(134,239,172,.3); border-radius: 3px 3px 0 0; }
+    /* volume dual door divider */
+    .ms-divider { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: rgba(0,0,0,.3); }
+
+    /* AI glow pulse animations */
+    @keyframes ai-glow {
+      0%, 100% { box-shadow: 0 0 24px rgba(56,189,248,.2), inset 0 0 20px rgba(56,189,248,.05); }
+      50%       { box-shadow: 0 0 44px rgba(56,189,248,.48), inset 0 0 32px rgba(56,189,248,.14); }
+    }
+    @keyframes ai-glow-v {
+      0%, 100% { box-shadow: 0 0 20px rgba(251,191,36,.12); }
+      50%       { box-shadow: 0 0 40px rgba(251,191,36,.32); }
+    }
+
+    /* equip card body */
+    .equip-body { padding: 1.4rem 1.4rem 1rem; flex: 1; display: flex; flex-direction: column; }
+    .equip-type-badge {
+      font-size: .68rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      padding: .2rem .6rem; border-radius: 99px; margin-bottom: .6rem; display: inline-block;
+    }
+    .badge-cooler  { background: rgba(56,189,248,.12);  color: #0369a1; }
+    .badge-combo   { background: rgba(148,163,184,.12); color: #475569; }
+    .badge-market  { background: rgba(139,92,246,.12);  color: #6d28d9; }
+    .badge-fresh   { background: rgba(52,211,153,.12);  color: #065f46; }
+    .badge-volume  { background: rgba(251,191,36,.12);  color: #92400e; }
+    .badge-outdoor { background: rgba(134,239,172,.12); color: #14532d; }
+
+    .equip-name { font-size: 1.05rem; font-weight: 800; margin-bottom: .3rem; letter-spacing: -.01em; }
+    .equip-tagline { color: var(--pm-muted); font-size: .82rem; line-height: 1.5; margin-bottom: 1rem; }
+
+    /* specs row */
+    .specs-row { display: grid; grid-template-columns: repeat(3,1fr); gap: .4rem; margin-bottom: 1rem; }
+    .spec-cell {
+      background: var(--pm-light); border-radius: .5rem;
+      padding: .45rem .5rem; text-align: center;
+    }
+    .spec-val { font-size: .78rem; font-weight: 800; color: #1e293b; line-height: 1.1; }
+    .spec-key { font-size: .62rem; color: var(--pm-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-top: .1rem; }
+
+    /* best for */
+    .best-for { margin-bottom: 1rem; }
+    .best-for-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--pm-muted); margin-bottom: .35rem; }
+    .venue-tags { display: flex; flex-wrap: wrap; gap: .3rem; }
+    .vtag {
+      background: var(--pm-light); border: 1px solid var(--pm-border);
+      border-radius: .35rem; padding: .18rem .5rem;
+      font-size: .68rem; font-weight: 600; color: #475569;
+    }
+
+    /* pros cons */
+    .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1rem; }
+    .pc-col h6 { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; margin-bottom: .4rem; }
+    .pc-pro h6 { color: #15803d; }
+    .pc-con h6 { color: #b45309; }
+    .pc-list { list-style: none; padding: 0; margin: 0; }
+    .pc-list li { font-size: .73rem; color: var(--pm-muted); line-height: 1.4; margin-bottom: .2rem; display: flex; gap: .3rem; }
+    .pc-list li i { flex-shrink: 0; margin-top: .05rem; }
+    .pc-pro .pc-list li i { color: #16a34a; }
+    .pc-con .pc-list li i { color: #d97706; }
+
+    /* equip card footer */
+    .equip-foot {
+      padding: .9rem 1.4rem; border-top: 1px solid var(--pm-border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .equip-ideal { font-size: .72rem; color: var(--pm-muted); }
+    .equip-ideal strong { color: #1e293b; }
+    .btn-equip-cta {
+      background: var(--pm-blue); color: #fff; border: none;
+      border-radius: .4rem; padding: .38rem .85rem;
+      font-size: .78rem; font-weight: 700; text-decoration: none;
+      transition: background .15s, transform .1s;
+    }
+    .btn-equip-cta:hover { background: #075985; color: #fff; transform: translateY(-1px); }
+
+    /* ── About ───────────────────────────────────── */
+    .about-sec { background: var(--pm-dark); color: #fff; }
+    .about-metric { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; padding: 1.5rem; text-align: center; }
+    .about-metric i { font-size: 1.6rem; margin-bottom: .6rem; display: block; }
+    .about-metric .num { font-size: 2rem; font-weight: 800; color: #38bdf8; line-height: 1; }
+    .about-metric .lbl { color: rgba(255,255,255,.5); font-size: .75rem; margin-top: .25rem; }
+    .trust-pill {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+      border-radius: .5rem; padding: .5rem .875rem;
+      font-size: .82rem; color: rgba(255,255,255,.8); margin: .25rem;
+    }
+    .trust-pill i { color: #38bdf8; }
+
+    /* ── Contact ─────────────────────────────────── */
+    .contact-sec { background: var(--pm-light); }
+    .contact-card {
+      background: #fff; border-radius: 1.25rem;
+      box-shadow: 0 8px 48px rgba(0,0,0,.09); padding: 2.5rem 2rem;
+    }
+    .form-label { font-size: .82rem; font-weight: 700; color: #374151; margin-bottom: .3rem; }
+    .form-control, .form-select {
+      border-color: var(--pm-border); border-radius: .45rem;
+      font-size: .88rem; padding: .6rem .875rem;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--pm-sky);
+      box-shadow: 0 0 0 3px rgba(14,165,233,.15);
+    }
+    .btn-submit {
+      background: linear-gradient(135deg, var(--pm-blue), var(--pm-teal));
+      color: #fff; border: none; border-radius: .45rem;
+      padding: .8rem 2rem; font-size: .95rem; font-weight: 700;
+      width: 100%; transition: opacity .15s, transform .1s;
+    }
+    .btn-submit:hover { opacity: .9; color: #fff; transform: translateY(-1px); }
+    .success-block {
+      background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+      border: 1.5px solid #6ee7b7; border-radius: 1rem;
+      padding: 1.5rem 2rem; text-align: center;
+    }
+
+    /* ── Footer ──────────────────────────────────── */
+    .site-footer { background: #020817; color: rgba(255,255,255,.45); padding: 2.75rem 0 1.5rem; }
+    .footer-brand { color: #fff; font-weight: 800; font-size: 1rem; display: flex; align-items: center; gap: .4rem; }
+    .footer-link { color: rgba(255,255,255,.45); text-decoration: none; font-size: .83rem; transition: color .15s; }
+    .footer-link:hover { color: rgba(255,255,255,.8); }
+    .nav-staff { color: rgba(255,255,255,.28); font-size: .78rem; text-decoration: none; transition: color .2s; }
+    .nav-staff:hover { color: rgba(255,255,255,.55); }
+    .footer-divider { border-color: rgba(255,255,255,.07); margin: 1.75rem 0 1.25rem; }
+
+    @media (max-width: 767px) {
+      .hero { padding: 3.5rem 0 2rem; min-height: auto; }
+      .machines-visual { margin-top: 2.5rem; transform: scale(.85); transform-origin: center top; }
+      .float-tag { display: none; }
+      .step-arr { display: none; }
+      .pros-cons { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ NAVBAR ═══════════ -->
+<nav class="site-nav">
+  <div class="container">
+    <div class="d-flex align-items-center justify-content-between">
+      <a href="/" class="nav-brand">
+        <img src="/static/images/primeMM_Logo.png?v=2" alt="Prime Micro Markets" height="48" style="display:block;flex-shrink:0;">
+        <span class="nav-brand-text">Prime Micro Markets</span>
+      </a>
+      <div class="d-none d-md-flex align-items-center gap-1">
+        <a href="#features"   class="nav-link-pub">Features</a>
+        <a href="#equipment"  class="nav-link-pub">Equipment</a>
+        <a href="#how-it-works" class="nav-link-pub">How It Works</a>
+        <a href="#locations"  class="nav-link-pub">Locations</a>
+        <a href="#about"      class="nav-link-pub">About</a>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <a href="#contact" class="btn-nav-cta d-none d-md-inline-flex align-items-center gap-1">
+          <i class="bi bi-calendar-check"></i> Free Assessment
+        </a>
+        <a href="/login" class="nav-staff d-none d-md-inline" style="margin-left:2rem;">Staff Login</a>
+        <button class="d-md-none btn btn-sm btn-outline-secondary text-white border-secondary"
+                data-bs-toggle="collapse" data-bs-target="#mobNav">
+          <i class="bi bi-list"></i>
+        </button>
+      </div>
+    </div>
+    <div class="collapse d-md-none" id="mobNav">
+      <div class="pt-2 pb-1 d-flex flex-column gap-1">
+        <a href="#features"     class="nav-link-pub">Features</a>
+        <a href="#equipment"    class="nav-link-pub">Equipment</a>
+        <a href="#how-it-works" class="nav-link-pub">How It Works</a>
+        <a href="#locations"    class="nav-link-pub">Locations</a>
+        <a href="#about"        class="nav-link-pub">About</a>
+        <a href="#contact" class="btn-nav-cta mt-1 text-center">Get Free Assessment</a>
+        <div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid rgba(255,255,255,.07);display:flex;justify-content:flex-end;">
+          <a href="/login" class="nav-staff" style="display:flex;align-items:center;gap:.3rem;">
+            <i class="bi bi-lock-fill" style="font-size:.65rem;"></i>Staff Login
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero" id="home">
+  <div class="container">
+    <div class="row align-items-center gy-5">
+      <div class="col-lg-6">
+        <div class="hero-eyebrow"><i class="bi bi-cpu-fill"></i> AI-Powered Smart Vending</div>
+        <h1>Smart Coolers for<br><em>Modern Workplaces</em></h1>
+        <p class="hero-sub">
+          Premium AI smart coolers and micro markets placed at your location — completely free.
+          Your team gets 24/7 access to fresh snacks and beverages. You get a better workplace benefit
+          with zero effort.
+        </p>
+        <div class="d-flex flex-wrap gap-3">
+          <a href="#contact" class="btn-hero-p">
+            <i class="bi bi-calendar-check"></i> Request Free Assessment
+          </a>
+          <a href="#equipment" class="btn-hero-s">
+            View Equipment <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+        <div class="hero-checks">
+          <span><i class="bi bi-check-circle-fill"></i>Zero upfront cost</span>
+          <span><i class="bi bi-check-circle-fill"></i>Cashless &amp; contactless</span>
+          <span><i class="bi bi-check-circle-fill"></i>Full service &amp; maintenance</span>
+          <span><i class="bi bi-check-circle-fill"></i>SDVOB certified</span>
+        </div>
+      </div>
+
+      <!-- Machine photo -->
+      <div class="col-lg-6 d-flex align-items-center justify-content-center">
+        <div style="position:relative;border-radius:1.25rem;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.65);max-width:520px;width:100%;">
+          <img src="/static/images/fresh_market_multiple_units.png"
+               alt="Prime Micro Markets Fresh Market Setup"
+               style="width:100%;height:auto;display:block;">
+          <div style="position:absolute;top:.875rem;left:.875rem;background:rgba(56,189,248,.18);border:1px solid rgba(56,189,248,.4);border-radius:.5rem;padding:.3rem .8rem;font-size:.72rem;font-weight:700;color:#7dd3fc;letter-spacing:.05em;display:flex;align-items:center;gap:.35rem;backdrop-filter:blur(4px);"><i class="bi bi-cpu-fill"></i> AI Vision Stocked</div>
+          <div style="position:absolute;bottom:.875rem;right:.875rem;background:rgba(255,255,255,.92);border-radius:.5rem;padding:.3rem .8rem;font-size:.72rem;font-weight:700;color:#0369a1;display:flex;align-items:center;gap:.35rem;box-shadow:0 4px 16px rgba(0,0,0,.18);"><i class="bi bi-thermometer-half"></i> 38°F — Always Chilled</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ STATS ═══════════ -->
+<div class="stats-bar">
+  <div class="container">
+    <div class="row g-0 justify-content-center align-items-center">
+      <div class="col-6 col-md-3"><div class="stat-unit"><div class="stat-val">100%</div><div class="stat-lbl">Free to your location</div></div></div>
+      <div class="d-none d-md-flex col-auto"><div class="stat-sep" style="height:52px;"></div></div>
+      <div class="col-6 col-md-3"><div class="stat-unit"><div class="stat-val">24 / 7</div><div class="stat-lbl">Always available</div></div></div>
+      <div class="d-none d-md-flex col-auto"><div class="stat-sep" style="height:52px;"></div></div>
+      <div class="col-6 col-md-3"><div class="stat-unit"><div class="stat-val">150+</div><div class="stat-lbl">Product options</div></div></div>
+      <div class="d-none d-md-flex col-auto"><div class="stat-sep" style="height:52px;"></div></div>
+      <div class="col-6 col-md-3"><div class="stat-unit"><div class="stat-val">$0</div><div class="stat-lbl">Your maintenance cost</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ FEATURES ═══════════ -->
+<section id="features" style="padding:5rem 0;">
+  <div class="container">
+    <div class="text-center mb-5">
+      <div class="sec-eyebrow">Why Prime Micro Markets</div>
+      <h2 class="sec-title">Everything handled.<br>Nothing on your plate.</h2>
+      <p class="sec-sub">We manage every detail so you can focus on your business — not a vending machine.</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-4">
+        <div class="feat-card">
+          <div class="feat-icon fi-o"><i class="bi bi-cash-coin"></i></div>
+          <h5>Zero Cost to You</h5>
+          <p>We provide, install, stock, and maintain the smart cooler completely free. No purchase, no rental, no hidden fees — ever.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="feat-card">
+          <div class="feat-icon fi-b"><i class="bi bi-cpu-fill"></i></div>
+          <h5>AI-Powered Inventory</h5>
+          <p>Our smart system tracks real-time sales and automatically optimizes what's stocked — so the machine is always full of what people actually want.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="feat-card">
+          <div class="feat-icon fi-t"><i class="bi bi-credit-card-2-front-fill"></i></div>
+          <h5>All Payment Methods</h5>
+          <p>Tap-to-pay, Apple Pay, Google Pay, credit/debit, and cash — modern touchscreen interfaces with the latest cashless payment technology built in.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="feat-card">
+          <div class="feat-icon fi-p"><i class="bi bi-tools"></i></div>
+          <h5>Full-Service Maintenance</h5>
+          <p>Restocking, repairs, cleaning — we handle it all. When something needs attention, our local team responds fast. No 800 numbers or waiting weeks.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="feat-card">
+          <div class="feat-icon fi-g"><i class="bi bi-stars"></i></div>
+          <h5>Premium Product Selection</h5>
+          <p>Name-brand snacks, healthy options, beverages, and local favorites — curated specifically for your workforce and visitor profile.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="feat-card">
+          <div class="feat-icon fi-a"><i class="bi bi-graph-up-arrow"></i></div>
+          <h5>Real-Time Monitoring</h5>
+          <p>Every machine is connected and monitored around the clock. We know what's selling, what's running low, and what needs service before you do.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ EQUIPMENT SELECTOR ═══════════ -->
+<section id="equipment" class="equip-section" style="padding:5rem 0;">
+  <div class="container">
+    <div class="text-center mb-5">
+      <div class="sec-eyebrow">Equipment Guide</div>
+      <h2 class="sec-title">Find the right fit<br>for your space</h2>
+      <p class="sec-sub">
+        Not all machines are created equal. We'll help you match the right equipment to your
+        location's size, traffic, and product needs.
+      </p>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all">All Types</button>
+      <button class="filter-btn" data-filter="compact">Compact Spaces</button>
+      <button class="filter-btn" data-filter="highvolume">High Volume</button>
+      <button class="filter-btn" data-filter="freshfood">Fresh Food</button>
+      <button class="filter-btn" data-filter="outdoor">Outdoor</button>
+    </div>
+
+    <div class="row g-4" id="equipGrid">
+
+      <!-- ── CARD 1: Smart AI Cooler ── -->
+      <div class="col-md-6 col-xl-4 equip-item" data-tags="all compact">
+        <div class="equip-card">
+          <div class="equip-visual ev-cooler" style="padding:0;">
+            <img src="/static/images/single_unit.png"
+                 alt="Single-Door AI Smart Cooler"
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;">
+            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(56,189,248,.18);border:1px solid rgba(56,189,248,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#7dd3fc;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-eye-fill"></i>AI VISION</div>
+          </div>
+          <div class="equip-body">
+            <span class="equip-type-badge badge-cooler">Smart AI Cooler</span>
+            <div class="equip-name">Single-Door AI Smart Cooler</div>
+            <div class="equip-tagline">The most popular choice — space-efficient, AI-stocked, and always chilled.</div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">23″ × 26″</div><div class="spec-key">W × D</div></div>
+              <div class="spec-cell"><div class="spec-val">71″</div><div class="spec-key">Height</div></div>
+              <div class="spec-cell"><div class="spec-val">~250</div><div class="spec-key">Items</div></div>
+            </div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">34–50°F</div><div class="spec-key">Temp Range</div></div>
+              <div class="spec-cell"><div class="spec-val">21.5″</div><div class="spec-key">Touchscreen</div></div>
+              <div class="spec-cell"><div class="spec-val">120V</div><div class="spec-key">Power</div></div>
+            </div>
+            <div class="best-for">
+              <div class="best-for-label">Best For</div>
+              <div class="venue-tags">
+                <span class="vtag">Offices (50–200 staff)</span>
+                <span class="vtag">Gyms</span>
+                <span class="vtag">Hotel Lobbies</span>
+                <span class="vtag">Breakrooms</span>
+              </div>
+            </div>
+            <div class="pros-cons">
+              <div class="pc-col pc-pro">
+                <h6>Strengths</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-plus-circle-fill"></i>Minimal floor footprint</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>AI video recognition stocking</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Quiet, energy-efficient operation</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Premium, modern appearance</li>
+                </ul>
+              </div>
+              <div class="pc-col pc-con">
+                <h6>Considerations</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-dash-circle-fill"></i>Best for beverages &amp; small snacks</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Requires Wi-Fi connectivity</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Lower capacity than wide units</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="equip-foot">
+            <div class="equip-ideal"><strong>Ideal traffic:</strong> 50–300 daily</div>
+            <a href="#contact" class="btn-equip-cta">Request This</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CARD 2: Combo Snack & Drink ── -->
+      <div class="col-md-6 col-xl-4 equip-item" data-tags="all highvolume">
+        <div class="equip-card">
+          <div class="equip-visual ev-combo">
+            <div class="ms-body ms-combo" style="position:relative;">
+              <div style="position:absolute;top:8px;left:6px;right:6px;height:16px;background:rgba(255,255,255,.04);border-radius:3px;display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:.32rem;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;">Snack Selections</span>
+              </div>
+              <div style="position:absolute;top:28px;left:5px;right:5px;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;">
+                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);"></div>
+                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
+              </div>
+              <div style="position:absolute;top:89px;left:4px;right:4px;height:1px;background:rgba(255,255,255,.08);"></div>
+              <div style="position:absolute;top:95px;left:5px;font-size:.3rem;color:rgba(255,255,255,.25);letter-spacing:.07em;text-transform:uppercase;">Beverages</div>
+              <div style="position:absolute;top:105px;left:5px;right:5px;display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
+                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.25);"></div>
+                <div style="height:26px;border-radius:3px;background:rgba(13,148,136,.2);border:1px solid rgba(13,148,136,.3);"></div>
+                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                <div style="height:26px;border-radius:3px;background:rgba(13,148,136,.15);border:1px solid rgba(13,148,136,.25);"></div>
+                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.15);"></div>
+                <div style="height:26px;border-radius:3px;background:rgba(13,148,136,.2);border:1px solid rgba(13,148,136,.3);"></div>
+              </div>
+              <div class="ms-bottom" style="bottom:0;left:0;right:0;height:16px;position:absolute;">
+                <div class="ms-pdot" style="background:#60a5fa;width:5px;height:5px;border-radius:50%;"></div>
+                <div class="ms-pdot" style="background:#34d399;width:5px;height:5px;border-radius:50%;"></div>
+              </div>
+            </div>
+            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(148,163,184,.14);border:1px solid rgba(148,163,184,.35);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-grid-3x3-gap"></i>50 SELECTIONS</div>
+          </div>
+          <div class="equip-body">
+            <span class="equip-type-badge badge-combo">Combo Machine</span>
+            <div class="equip-name">Snack &amp; Drink Combo</div>
+            <div class="equip-tagline">One machine covers every craving — the highest capacity traditional option.</div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">39″ × 35″</div><div class="spec-key">W × D</div></div>
+              <div class="spec-cell"><div class="spec-val">72″</div><div class="spec-key">Height</div></div>
+              <div class="spec-cell"><div class="spec-val">~450</div><div class="spec-key">Items</div></div>
+            </div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">Ambient</div><div class="spec-key">Temp</div></div>
+              <div class="spec-cell"><div class="spec-val">50 slots</div><div class="spec-key">Selections</div></div>
+              <div class="spec-cell"><div class="spec-val">120V</div><div class="spec-key">Power</div></div>
+            </div>
+            <div class="best-for">
+              <div class="best-for-label">Best For</div>
+              <div class="venue-tags">
+                <span class="vtag">Large Offices</span>
+                <span class="vtag">Warehouses</span>
+                <span class="vtag">Schools</span>
+                <span class="vtag">Manufacturing</span>
+              </div>
+            </div>
+            <div class="pros-cons">
+              <div class="pc-col pc-pro">
+                <h6>Strengths</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-plus-circle-fill"></i>Maximum product variety</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Proven, reliable mechanics</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Handles heavy daily use</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Single machine, full service</li>
+                </ul>
+              </div>
+              <div class="pc-col pc-con">
+                <h6>Considerations</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-dash-circle-fill"></i>Larger floor footprint</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Traditional coil dispensing</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Less premium aesthetic</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="equip-foot">
+            <div class="equip-ideal"><strong>Ideal traffic:</strong> 200–600 daily</div>
+            <a href="#contact" class="btn-equip-cta">Request This</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CARD 3: Micro Market ── -->
+      <div class="col-md-6 col-xl-4 equip-item" data-tags="all highvolume freshfood">
+        <div class="equip-card">
+          <div class="equip-visual ev-market" style="padding:0;">
+            <img src="/static/images/fresh_market_multiple_units.png"
+                 alt="Micro Market Setup"
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;">
+            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#c4b5fd;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-shop"></i>OPEN MARKET</div>
+          </div>
+          <div class="equip-body">
+            <span class="equip-type-badge badge-market">Micro Market</span>
+            <div class="equip-name">Micro Market Kiosk Setup</div>
+            <div class="equip-tagline">A café-like open-shelf experience with self-checkout — the ultimate breakroom upgrade.</div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">10–20 ft²</div><div class="spec-key">Floor Space</div></div>
+              <div class="spec-cell"><div class="spec-val">Kiosk 54″</div><div class="spec-key">Kiosk Height</div></div>
+              <div class="spec-cell"><div class="spec-val">500+</div><div class="spec-key">Items</div></div>
+            </div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">Mixed</div><div class="spec-key">Temp Zones</div></div>
+              <div class="spec-cell"><div class="spec-val">Unlimited</div><div class="spec-key">Selections</div></div>
+              <div class="spec-cell"><div class="spec-val">Camera</div><div class="spec-key">Checkout</div></div>
+            </div>
+            <div class="best-for">
+              <div class="best-for-label">Best For</div>
+              <div class="venue-tags">
+                <span class="vtag">200+ Employee Offices</span>
+                <span class="vtag">Corporate Campuses</span>
+                <span class="vtag">Large Medical Facilities</span>
+              </div>
+            </div>
+            <div class="pros-cons">
+              <div class="pc-col pc-pro">
+                <h6>Strengths</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-plus-circle-fill"></i>Widest product variety possible</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Fresh food &amp; hot items capable</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Premium café-like experience</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Highest revenue potential</li>
+                </ul>
+              </div>
+              <div class="pc-col pc-con">
+                <h6>Considerations</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-dash-circle-fill"></i>Needs dedicated breakroom space</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>More complex initial setup</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Open layout (low-theft areas)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="equip-foot">
+            <div class="equip-ideal"><strong>Ideal traffic:</strong> 200+ daily</div>
+            <a href="#contact" class="btn-equip-cta">Request This</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CARD 4: Fresh Food Cooler ── -->
+      <div class="col-md-6 col-xl-4 equip-item" data-tags="all freshfood">
+        <div class="equip-card">
+          <div class="equip-visual ev-fresh">
+            <div class="ms-body ms-fresh" style="position:relative;">
+              <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);width:60px;height:42px;background:linear-gradient(180deg,#052e16,#031a0d);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(52,211,153,.2);">
+                <i class="bi bi-egg-fried" style="font-size:.9rem;color:#6ee7b7;"></i>
+                <span style="font-size:.28rem;color:rgba(255,255,255,.4);letter-spacing:.05em;">FRESH FOOD</span>
+              </div>
+              <div style="position:absolute;top:58px;left:5px;right:5px;display:flex;flex-direction:column;gap:2px;">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;">
+                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.2);border:1px solid rgba(52,211,153,.3);"></div>
+                  <div style="height:14px;border-radius:2px;background:rgba(134,239,172,.15);border:1px solid rgba(134,239,172,.25);"></div>
+                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.2);border:1px solid rgba(52,211,153,.3);"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;">
+                  <div style="height:14px;border-radius:2px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.25);"></div>
+                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.15);"></div>
+                  <div style="height:14px;border-radius:2px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.25);"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;">
+                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.1);"></div>
+                  <div style="height:14px;border-radius:2px;background:rgba(134,239,172,.2);border:1px solid rgba(134,239,172,.3);"></div>
+                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.1);"></div>
+                </div>
+              </div>
+              <div class="ms-bottom" style="position:absolute;bottom:0;left:0;right:0;height:16px;background:rgba(0,0,0,.3);border-top:1px solid rgba(52,211,153,.1);display:flex;align-items:center;justify-content:center;gap:3px;">
+                <div style="width:5px;height:5px;border-radius:50%;background:#34d399;"></div>
+                <div style="width:5px;height:5px;border-radius:50%;background:#6ee7b7;"></div>
+              </div>
+            </div>
+            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(52,211,153,.18);border:1px solid rgba(52,211,153,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#6ee7b7;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-thermometer-low"></i>34–38°F</div>
+          </div>
+          <div class="equip-body">
+            <span class="equip-type-badge badge-fresh">Fresh Food</span>
+            <div class="equip-name">Refrigerated Fresh Food Cooler</div>
+            <div class="equip-tagline">Sandwiches, salads, and meals at full refrigeration — a real lunch alternative.</div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">29″ × 29″</div><div class="spec-key">W × D</div></div>
+              <div class="spec-cell"><div class="spec-val">72″</div><div class="spec-key">Height</div></div>
+              <div class="spec-cell"><div class="spec-val">~180</div><div class="spec-key">Items</div></div>
+            </div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">34–38°F</div><div class="spec-key">Temp</div></div>
+              <div class="spec-cell"><div class="spec-val">30 slots</div><div class="spec-key">Selections</div></div>
+              <div class="spec-cell"><div class="spec-val">120V</div><div class="spec-key">Power</div></div>
+            </div>
+            <div class="best-for">
+              <div class="best-for-label">Best For</div>
+              <div class="venue-tags">
+                <span class="vtag">Hospitals</span>
+                <span class="vtag">Corporate HQ</span>
+                <span class="vtag">University Campuses</span>
+                <span class="vtag">No Cafeteria</span>
+              </div>
+            </div>
+            <div class="pros-cons">
+              <div class="pc-col pc-pro">
+                <h6>Strengths</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-plus-circle-fill"></i>Real lunch &amp; meal option</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Healthier fresh selections</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Higher per-sale value</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Strong 24/7 demand in hospitals</li>
+                </ul>
+              </div>
+              <div class="pc-col pc-con">
+                <h6>Considerations</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-dash-circle-fill"></i>3–5 day product shelf life</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>More frequent restocking</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Higher product cost per item</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="equip-foot">
+            <div class="equip-ideal"><strong>Ideal traffic:</strong> 75–300 daily</div>
+            <a href="#contact" class="btn-equip-cta">Request This</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CARD 5: High-Volume Dual-Door ── -->
+      <div class="col-md-6 col-xl-4 equip-item" data-tags="all highvolume">
+        <div class="equip-card">
+          <div class="equip-visual ev-volume">
+            <div class="ms-body ms-volume" style="position:relative;">
+              <div class="ms-divider"></div>
+              <!-- Left door -->
+              <div style="position:absolute;top:8px;left:5px;width:54px;">
+                <div style="height:36px;background:linear-gradient(180deg,#1a1600,#0c0f00);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(251,191,36,.15);">
+                  <i class="bi bi-display" style="font-size:.7rem;color:#fbbf24;"></i>
+                  <span style="font-size:.26rem;color:rgba(255,255,255,.3);letter-spacing:.04em;">TOUCH TO PAY</span>
+                </div>
+                <div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;">
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.25);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);"></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
+                  </div>
+                </div>
+              </div>
+              <!-- Right door mirror -->
+              <div style="position:absolute;top:8px;right:5px;width:54px;">
+                <div style="height:36px;background:linear-gradient(180deg,#1a1600,#0c0f00);border-radius:4px;border:1px solid rgba(251,191,36,.1);"></div>
+                <div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;">
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);"></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
+                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="ms-bottom" style="position:absolute;bottom:0;left:0;right:0;height:16px;background:rgba(0,0,0,.35);border-top:1px solid rgba(251,191,36,.1);display:flex;align-items:center;justify-content:center;gap:3px;">
+                <div style="width:5px;height:5px;border-radius:50%;background:#fbbf24;"></div>
+                <div style="width:5px;height:5px;border-radius:50%;background:#60a5fa;"></div>
+                <div style="width:5px;height:5px;border-radius:50%;background:#34d399;"></div>
+              </div>
+            </div>
+            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#fbbf24;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-layers-fill"></i>DUAL DOOR</div>
+          </div>
+          <div class="equip-body">
+            <span class="equip-type-badge badge-volume">High-Volume</span>
+            <div class="equip-name">High-Volume Dual-Door AI Tower</div>
+            <div class="equip-tagline">Built for peak demand — massive capacity with AI intelligence across two full doors.</div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">55″ × 33″</div><div class="spec-key">W × D</div></div>
+              <div class="spec-cell"><div class="spec-val">72″</div><div class="spec-key">Height</div></div>
+              <div class="spec-cell"><div class="spec-val">~750</div><div class="spec-key">Items</div></div>
+            </div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">34–50°F</div><div class="spec-key">Temp</div></div>
+              <div class="spec-cell"><div class="spec-val">96+ slots</div><div class="spec-key">Selections</div></div>
+              <div class="spec-cell"><div class="spec-val">220V</div><div class="spec-key">Power</div></div>
+            </div>
+            <div class="best-for">
+              <div class="best-for-label">Best For</div>
+              <div class="venue-tags">
+                <span class="vtag">Large Hotels</span>
+                <span class="vtag">Transit Hubs</span>
+                <span class="vtag">Convention Centers</span>
+                <span class="vtag">500+ Daily Traffic</span>
+              </div>
+            </div>
+            <div class="pros-cons">
+              <div class="pc-col pc-pro">
+                <h6>Strengths</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-plus-circle-fill"></i>Highest capacity available</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Fewer restocking visits needed</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Handles peak rush demand</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Commanding visual presence</li>
+                </ul>
+              </div>
+              <div class="pc-col pc-con">
+                <h6>Considerations</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-dash-circle-fill"></i>Needs 55″+ wall clearance</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>220V outlet may be required</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Best where traffic justifies it</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="equip-foot">
+            <div class="equip-ideal"><strong>Ideal traffic:</strong> 500+ daily</div>
+            <a href="#contact" class="btn-equip-cta">Request This</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CARD 6: Outdoor ── -->
+      <div class="col-md-6 col-xl-4 equip-item" data-tags="all outdoor">
+        <div class="equip-card">
+          <div class="equip-visual ev-outdoor">
+            <div style="position:relative;">
+              <div class="ms-body ms-outdoor" style="position:relative;">
+                <!-- Canopy -->
+                <div class="ms-canopy"></div>
+                <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);width:66px;height:40px;background:linear-gradient(180deg,#0a1f06,#051208);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(134,239,172,.2);">
+                  <i class="bi bi-sun-fill" style="font-size:.75rem;color:#86efac;"></i>
+                  <span style="font-size:.27rem;color:rgba(255,255,255,.35);letter-spacing:.05em;">OUTDOOR READY</span>
+                </div>
+                <div style="position:absolute;top:62px;left:5px;right:5px;display:flex;flex-direction:column;gap:2px;">
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;">
+                    <div style="height:11px;border-radius:2px;background:rgba(134,239,172,.2);border:1px solid rgba(134,239,172,.3);"></div>
+                    <div style="height:11px;border-radius:2px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                    <div style="height:11px;border-radius:2px;background:rgba(134,239,172,.15);"></div>
+                    <div style="height:11px;border-radius:2px;background:rgba(56,189,248,.15);"></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;">
+                    <div style="height:11px;border-radius:2px;background:rgba(56,189,248,.15);"></div>
+                    <div style="height:11px;border-radius:2px;background:rgba(134,239,172,.2);border:1px solid rgba(134,239,172,.3);"></div>
+                    <div style="height:11px;border-radius:2px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                    <div style="height:11px;border-radius:2px;background:rgba(134,239,172,.15);"></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;">
+                    <div style="height:22px;border-radius:2px;background:rgba(134,239,172,.15);border:1px solid rgba(134,239,172,.2);"></div>
+                    <div style="height:22px;border-radius:2px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
+                    <div style="height:22px;border-radius:2px;background:rgba(134,239,172,.15);"></div>
+                  </div>
+                </div>
+                <!-- Anti-vandal corner indicators -->
+                <div style="position:absolute;top:4px;left:3px;width:5px;height:5px;border-left:2px solid rgba(134,239,172,.4);border-top:2px solid rgba(134,239,172,.4);"></div>
+                <div style="position:absolute;top:4px;right:3px;width:5px;height:5px;border-right:2px solid rgba(134,239,172,.4);border-top:2px solid rgba(134,239,172,.4);"></div>
+                <div class="ms-bottom" style="position:absolute;bottom:0;left:0;right:0;height:16px;background:rgba(0,0,0,.4);border-top:1px solid rgba(134,239,172,.1);display:flex;align-items:center;justify-content:center;gap:3px;">
+                  <div style="width:5px;height:5px;border-radius:50%;background:#86efac;"></div>
+                  <div style="width:5px;height:5px;border-radius:50%;background:#60a5fa;"></div>
+                </div>
+              </div>
+            </div>
+            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(134,239,172,.15);border:1px solid rgba(134,239,172,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#86efac;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-shield-check"></i>WEATHERPROOF</div>
+          </div>
+          <div class="equip-body">
+            <span class="equip-type-badge badge-outdoor">Outdoor</span>
+            <div class="equip-name">Outdoor Weatherproof Machine</div>
+            <div class="equip-tagline">All-weather construction for pools, sports complexes, and any outdoor facility.</div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">39″ × 35″</div><div class="spec-key">W × D</div></div>
+              <div class="spec-cell"><div class="spec-val">72″</div><div class="spec-key">Height</div></div>
+              <div class="spec-cell"><div class="spec-val">~350</div><div class="spec-key">Items</div></div>
+            </div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">All-weather</div><div class="spec-key">Rating</div></div>
+              <div class="spec-cell"><div class="spec-val">45 slots</div><div class="spec-key">Selections</div></div>
+              <div class="spec-cell"><div class="spec-val">120V GFCI</div><div class="spec-key">Power</div></div>
+            </div>
+            <div class="best-for">
+              <div class="best-for-label">Best For</div>
+              <div class="venue-tags">
+                <span class="vtag">Pool Facilities</span>
+                <span class="vtag">Sports Complexes</span>
+                <span class="vtag">Outdoor Break Areas</span>
+                <span class="vtag">Parks &amp; Recreation</span>
+              </div>
+            </div>
+            <div class="pros-cons">
+              <div class="pc-col pc-pro">
+                <h6>Strengths</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-plus-circle-fill"></i>Operates in all weather</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Anti-vandal steel construction</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Serves spaces with no indoor option</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>UV-resistant display panel</li>
+                </ul>
+              </div>
+              <div class="pc-col pc-con">
+                <h6>Considerations</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-dash-circle-fill"></i>Needs covered/shaded placement</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Requires GFCI outdoor outlet</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>No fresh/refrigerated items</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="equip-foot">
+            <div class="equip-ideal"><strong>Ideal traffic:</strong> 100–400 daily</div>
+            <a href="#contact" class="btn-equip-cta">Request This</a>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /row equipGrid -->
+
+    <p class="text-center text-muted mt-5" style="font-size:.875rem;">
+      Not sure which type fits your space?
+      <a href="#contact" style="color:var(--pm-blue);font-weight:600;">Tell us about your location</a>
+      and we'll recommend the best option — at no cost or obligation.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════ HOW IT WORKS ═══════════ -->
+<section id="how-it-works" class="hiw-bg" style="padding:5rem 0;">
+  <div class="container">
+    <div class="text-center mb-5">
+      <div class="sec-eyebrow">Simple Process</div>
+      <h2 class="sec-title">Up and running<br>in three easy steps</h2>
+      <p class="sec-sub">From first contact to first sale in as little as two weeks — with zero effort on your part.</p>
+    </div>
+    <div class="row justify-content-center g-4">
+      <div class="col-md-4">
+        <div class="hiw-step">
+          <div class="step-num">1</div>
+          <h5>Request Your Assessment</h5>
+          <p>Fill out our quick form. A member of our local team will reach out within 24 hours to evaluate your location, foot traffic, and the best equipment fit.</p>
+          <i class="bi bi-chevron-right step-arr"></i>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="hiw-step">
+          <div class="step-num">2</div>
+          <h5>We Install &amp; Stock</h5>
+          <p>Our crew delivers, installs, and fully stocks your machine with products handpicked for your location. Clean install, no disruption to your operations.</p>
+          <i class="bi bi-chevron-right step-arr"></i>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="hiw-step">
+          <div class="step-num">3</div>
+          <h5>Sit Back &amp; Enjoy</h5>
+          <p>Your machine serves your team 24/7 while we handle all restocking, maintenance, and service. Your only job is to enjoy the benefit — we handle the rest.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ GRAB. PAY. GO. ═══════════ -->
+<section id="experience" style="padding:5rem 0;background:#fff;">
+  <div class="container">
+    <div class="text-center mb-4">
+      <div class="sec-eyebrow">The Customer Experience</div>
+      <h2 class="sec-title">Grab. Pay. Go.</h2>
+      <p class="sec-sub">Four steps. Ten seconds. No app, no PIN, no friction. Tap your card, open the door, take what you want — AI tracks every item and charges your card only for what you grab.</p>
+    </div>
+    <div class="text-center">
+      <img src="/static/images/grab_pay_goV2.png"
+           alt="Smart Cooler experience: Tap to Pay, Open and Grab, Close Door, All Set"
+           style="max-width:100%;height:auto;border-radius:1rem;box-shadow:0 12px 48px rgba(0,0,0,.1);">
+    </div>
+    <div class="row justify-content-center mt-4">
+      <div class="col-md-10 col-lg-7 text-center">
+        <a href="#contact" class="btn-hero-p d-inline-flex mt-2" style="font-size:.9rem;padding:.75rem 1.75rem;">
+          <i class="bi bi-calendar-check"></i> Get This for Your Location
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ LOCATION TYPES ═══════════ -->
+<section id="locations" style="padding:5rem 0;">
+  <div class="container">
+    <div class="text-center mb-5">
+      <div class="sec-eyebrow">Ideal Locations</div>
+      <h2 class="sec-title">Perfect for any<br>high-traffic venue</h2>
+      <p class="sec-sub">If your location sees steady foot traffic, a smart cooler is a natural — and free — upgrade.</p>
+    </div>
+    <div class="row g-3">
+      <div class="col-6 col-md-4 col-lg-2">
+        <a href="#contact" class="venue-card">
+          <div class="venue-ic"><i class="bi bi-building"></i></div>
+          <h6>Corporate Offices</h6>
+        </a>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <a href="#contact" class="venue-card">
+          <div class="venue-ic"><i class="bi bi-trophy-fill"></i></div>
+          <h6>Gyms &amp; Fitness</h6>
+        </a>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <a href="#contact" class="venue-card">
+          <div class="venue-ic"><i class="bi bi-house-door-fill"></i></div>
+          <h6>Hotels &amp; Resorts</h6>
+        </a>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <a href="#contact" class="venue-card">
+          <div class="venue-ic"><i class="bi bi-heart-pulse-fill"></i></div>
+          <h6>Medical Facilities</h6>
+        </a>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <a href="#contact" class="venue-card">
+          <div class="venue-ic"><i class="bi bi-mortarboard-fill"></i></div>
+          <h6>Schools &amp; Universities</h6>
+        </a>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <a href="#contact" class="venue-card">
+          <div class="venue-ic"><i class="bi bi-people-fill"></i></div>
+          <h6>Apartment Complexes</h6>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ ABOUT ═══════════ -->
+<section id="about" class="about-sec" style="padding:5rem 0;">
+  <div class="container">
+    <div class="row align-items-center gy-5">
+      <div class="col-lg-5">
+        <div class="sec-eyebrow" style="background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.28);color:#7dd3fc;">Our Story</div>
+        <h2 class="sec-title text-white mt-2 mb-3">Local. SDVOB.<br>Built to Serve.</h2>
+        <p style="color:rgba(255,255,255,.65);line-height:1.78;font-size:.95rem;">
+          Prime Micro Markets is a Service-Disabled Veteran-Owned Business (SDVOB) based in Panama City, FL.
+          We built this company to bring Fortune-500-level smart vending technology to local businesses —
+          modern, reliable, and at zero cost to the locations we partner with.
+        </p>
+        <p style="color:rgba(255,255,255,.65);line-height:1.78;font-size:.95rem;margin-top:.75rem;">
+          We believe your team deserves better than a machine that's always empty or broken.
+          Our commitment to every location: fully stocked, always working, and backed by a local team
+          that actually picks up the phone.
+        </p>
+        <div class="mt-4">
+          <span class="trust-pill"><i class="bi bi-shield-fill-check"></i>Service-Disabled Veteran-Owned (SDVOB)</span>
+          <span class="trust-pill"><i class="bi bi-geo-alt-fill"></i>Panama City, FL — Local &amp; Responsive</span>
+          <span class="trust-pill"><i class="bi bi-patch-check-fill"></i>Fully Licensed &amp; Insured</span>
+          <span class="trust-pill"><i class="bi bi-telephone-fill"></i>Real Local Support — No 800 Numbers</span>
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="about-metric">
+              <i class="bi bi-clock-fill" style="color:#38bdf8;"></i>
+              <div class="num">24 / 7</div>
+              <div class="lbl">Machine uptime monitoring</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="about-metric">
+              <i class="bi bi-lightning-charge-fill" style="color:#fbbf24;"></i>
+              <div class="num">&lt; 48h</div>
+              <div class="lbl">Average service response time</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="about-metric">
+              <i class="bi bi-cpu-fill" style="color:#6ee7b7;"></i>
+              <div class="num">AI</div>
+              <div class="lbl">Inventory optimization on every unit</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="about-metric">
+              <i class="bi bi-award-fill" style="color:#c4b5fd;"></i>
+              <div class="num">SDVOB</div>
+              <div class="lbl">Service-Disabled Veteran-Owned</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CONTACT ═══════════ -->
+<section id="contact" class="contact-sec" style="padding:5rem 0;">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="text-center mb-4">
+          <div class="sec-eyebrow">Get Started</div>
+          <h2 class="sec-title">Request Your Free Location Assessment</h2>
+          <p class="sec-sub">Tell us about your location. We'll follow up within 24 hours to talk through the best fit.</p>
+        </div>
+
+        {% if contact_success %}
+        <div class="success-block mb-4">
+          <i class="bi bi-check-circle-fill text-success fs-3 mb-2 d-block"></i>
+          <h5 class="fw-bold text-success mb-1">Request Received!</h5>
+          <p class="text-success mb-0" style="font-size:.9rem;">
+            Thank you! A member of our team will be in touch within 24 business hours.
+          </p>
+        </div>
+        {% endif %}
+
+        <div class="contact-card">
+          <form method="POST" action="/contact">
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="first_name">First Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="first_name" name="first_name" required placeholder="John">
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="last_name">Last Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="last_name" name="last_name" required placeholder="Smith">
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="email">Email Address <span class="text-danger">*</span></label>
+                <input type="email" class="form-control" id="email" name="email" required placeholder="john@company.com">
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="phone">Phone Number</label>
+                <input type="tel" class="form-control" id="phone" name="phone" placeholder="(850) 555-0100">
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="company">Company / Organization <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="company" name="company" required placeholder="Acme Corp">
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="venue_type">Venue Type <span class="text-danger">*</span></label>
+                <select class="form-select" id="venue_type" name="venue_type" required>
+                  <option value="" disabled selected>Select venue type…</option>
+                  <option value="corporate_office">Corporate Office</option>
+                  <option value="gym_fitness">Gym / Fitness Center</option>
+                  <option value="hotel_resort">Hotel / Resort</option>
+                  <option value="medical_facility">Medical Facility</option>
+                  <option value="school_university">School / University</option>
+                  <option value="apartment_complex">Apartment Complex</option>
+                  <option value="outdoor_facility">Outdoor / Sports Facility</option>
+                  <option value="industrial">Industrial / Warehouse</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="daily_traffic">Estimated Daily Foot Traffic</label>
+                <select class="form-select" id="daily_traffic" name="daily_traffic">
+                  <option value="" selected>Not sure</option>
+                  <option value="under_50">Under 50 people / day</option>
+                  <option value="50_150">50–150 people / day</option>
+                  <option value="150_500">150–500 people / day</option>
+                  <option value="500_plus">500+ people / day</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="message">Additional Details</label>
+                <textarea class="form-control" id="message" name="message" rows="3"
+                  placeholder="Tell us about your space, any product preferences, or questions you have…"></textarea>
+              </div>
+              <div class="col-12 mt-2">
+                <button type="submit" class="btn-submit">
+                  <i class="bi bi-send-fill me-2"></i>Submit Assessment Request
+                </button>
+                <p class="text-center text-muted mt-2 mb-0" style="font-size:.75rem;">
+                  We respect your privacy. Your information is never sold or shared.
+                </p>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <p class="text-center text-muted mt-4" style="font-size:.875rem;">
+          Prefer to reach us directly?
+          <a href="mailto:primemicromarkets@gmail.com" style="color:var(--pm-blue);font-weight:600;">primemicromarkets@gmail.com</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="row gy-4">
+      <div class="col-md-4">
+        <div class="footer-brand">
+          <i class="bi bi-box-seam-fill" style="color:#38bdf8;"></i>
+          Prime Micro Markets
+        </div>
+        <p style="font-size:.77rem;margin-top:.4rem;color:rgba(255,255,255,.3);line-height:1.6;">
+          Service-Disabled Veteran-Owned smart vending<br>Panama City, FL
+        </p>
+      </div>
+      <div class="col-md-4">
+        <div class="d-flex flex-wrap gap-x-4 gap-3">
+          <a href="#features"     class="footer-link">Features</a>
+          <a href="#equipment"    class="footer-link">Equipment</a>
+          <a href="#how-it-works" class="footer-link">How It Works</a>
+          <a href="#locations"    class="footer-link">Locations</a>
+          <a href="#about"        class="footer-link">About</a>
+          <a href="#contact"      class="footer-link">Contact</a>
+        </div>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <a href="mailto:primemicromarkets@gmail.com" class="footer-link d-block mb-1">
+          <i class="bi bi-envelope me-1"></i>primemicromarkets@gmail.com
+        </a>
+        <span style="font-size:.73rem;color:rgba(255,255,255,.25);">
+          &copy; 2025 Prime Micro Markets LLC. All rights reserved.
+        </span>
+      </div>
+    </div>
+    <hr class="footer-divider">
+    <div class="d-flex justify-content-between align-items-center">
+      <span style="font-size:.7rem;color:rgba(255,255,255,.2);">SDVOB · Panama City, FL · AI-Powered Micro Markets</span>
+      <a href="/login" class="nav-staff" style="display:flex;align-items:center;gap:.25rem;font-size:.68rem;">
+        <i class="bi bi-lock-fill" style="font-size:.6rem;"></i>Staff
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Equipment filter
+  const btns  = document.querySelectorAll('.filter-btn');
+  const items = document.querySelectorAll('.equip-item');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      btns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const f = btn.dataset.filter;
+      items.forEach(item => {
+        const tags = item.dataset.tags.split(' ');
+        item.style.display = (f === 'all' || tags.includes(f)) ? '' : 'none';
+      });
+    });
+  });
+</script>
+
+<!-- HTMX for chatbot widget -->
+<script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
+{% include "chatbot/_widget.html" %}
+</body>
+</html>

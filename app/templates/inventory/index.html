@@ -1,23 +1,28 @@
 ﻿{% extends "base.html" %}
-{% block title %}Inventory â€” Prime Vending{% endblock %}
+{% block title %}Product Inventory – Prime Vending{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3 mb-0">Inventory</h1>
-  <div class="d-flex gap-2">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Product Inventory</h1>
+  <div class="d-flex gap-2 flex-wrap">
     <a href="/inventory/suppliers" class="btn btn-outline-secondary btn-sm">Suppliers</a>
+    <a href="/inventory/search" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-robot me-1"></i>AI Sourcing
+    </a>
     <button class="btn btn-primary btn-sm"
-            hx-get="/inventory/new"
+            hx-get="/inventory/new{% if init_supplier_id %}?supplier_id={{ init_supplier_id }}{% endif %}"
             hx-target="#product-modal-body"
             hx-swap="innerHTML"
             data-bs-toggle="modal"
-            data-bs-target="#productModal">
+            data-bs-target="#productModal"
+            id="add-product-btn">
       <i class="bi bi-plus-lg me-1"></i>Add Product
     </button>
   </div>
 </div>
 
-<form class="row g-2 mb-3" method="get" action="/inventory/">
+<form class="row g-2 mb-3" method="get" action="/inventory/"
+      onsubmit="Array.from(this.elements).forEach(el=>{if(el.name&&!el.value)el.disabled=true})"
   <div class="col-md-3">
     <select name="category" class="form-select form-select-sm"
             onchange="this.form.submit()">
@@ -51,15 +56,15 @@
   <table class="table table-sm table-hover align-middle">
     <thead class="table-light small">
       <tr>
-        <th>SKU</th>
+        <th class="d-none d-sm-table-cell">SKU</th>
         <th>Name</th>
-        <th>Category</th>
-        <th>Supplier</th>
-        <th class="text-end">Cost</th>
+        <th class="d-none d-md-table-cell">Category</th>
+        <th class="d-none d-md-table-cell">Supplier</th>
+        <th class="text-end d-none d-sm-table-cell">Cost</th>
         <th class="text-end">Price</th>
         <th class="text-end">Margin%</th>
         <th class="text-end">On Hand</th>
-        <th class="text-end">Par</th>
+        <th class="text-end d-none d-sm-table-cell">Par</th>
         <th></th>
       </tr>
     </thead>
@@ -67,23 +72,23 @@
       {% for p in products %}
       {% set margin = ((p.sell_price - p.unit_cost) / p.sell_price * 100) if p.sell_price and p.unit_cost else none %}
       <tr {% if p.par_level and p.on_hand_qty < p.par_level %}class="table-warning"{% endif %}>
-        <td class="text-muted small">{{ p.sku }}</td>
+        <td class="text-muted small d-none d-sm-table-cell">{{ p.sku }}</td>
         <td class="fw-medium small">{{ p.name }}</td>
-        <td class="small text-muted">{{ p.category | replace("_", " ") | title if p.category else "â€”" }}</td>
-        <td class="small text-muted">{{ p.primary_supplier.name if p.primary_supplier else "â€”" }}</td>
-        <td class="text-end small">${{ "%.2f" | format(p.unit_cost) if p.unit_cost else "â€”" }}</td>
-        <td class="text-end small">${{ "%.2f" | format(p.sell_price) if p.sell_price else "â€”" }}</td>
+        <td class="small text-muted d-none d-md-table-cell">{{ p.category | replace("_", " ") | title if p.category else "-" }}</td>
+        <td class="small text-muted d-none d-md-table-cell">{{ p.primary_supplier.name if p.primary_supplier else "-" }}</td>
+        <td class="text-end small d-none d-sm-table-cell">${{ "%.2f" | format(p.unit_cost) if p.unit_cost else "-" }}</td>
+        <td class="text-end small">${{ "%.2f" | format(p.sell_price) if p.sell_price else "-" }}</td>
         <td class="text-end small">
           {% if margin is not none %}
           <span class="{% if margin < 30 %}text-danger{% elif margin < 45 %}text-warning{% else %}text-success{% endif %} fw-medium">
             {{ "%.0f" | format(margin) }}%
           </span>
-          {% else %}â€”{% endif %}
+          {% else %}–{% endif %}
         </td>
         <td class="text-end small {% if p.par_level and p.on_hand_qty < p.par_level %}text-danger fw-bold{% endif %}">
           {{ p.on_hand_qty }}
         </td>
-        <td class="text-end small text-muted">{{ p.par_level or "â€”" }}</td>
+        <td class="text-end small text-muted d-none d-sm-table-cell">{{ p.par_level or "-" }}</td>
         <td class="text-end">
           <button class="btn btn-sm btn-outline-success py-0 px-1"
                   onclick="document.getElementById('restock-product-id').value='{{ p.id }}'; document.getElementById('restock-product-name').textContent='{{ p.name }}';"
@@ -153,5 +158,16 @@
     const pid = document.getElementById('restock-product-id').value;
     document.getElementById('restock-form').action = '/inventory/' + pid + '/restock';
   });
+
+  {% if init_supplier_id %}
+  document.addEventListener('DOMContentLoaded', function () {
+    htmx.ajax('GET', '/inventory/new?supplier_id={{ init_supplier_id }}', {
+      target: '#product-modal-body',
+      swap: 'innerHTML'
+    }).then(function () {
+      new bootstrap.Modal(document.getElementById('productModal')).show();
+    });
+  });
+  {% endif %}
 </script>
 {% endblock %}

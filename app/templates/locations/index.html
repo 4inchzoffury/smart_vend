@@ -1,8 +1,8 @@
-﻿{% extends "base.html" %}
-{% block title %}Locations â€” Prime Vending{% endblock %}
+{% extends "base.html" %}
+{% block title %}Locations – Prime Micro Markets{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Locations</h1>
   <button class="btn btn-primary btn-sm"
           hx-get="/locations/new"
@@ -14,6 +14,39 @@
   </button>
 </div>
 
+{# ── Leaflet Map ── #}
+<div class="card mb-3">
+  <div class="card-body p-0 position-relative">
+    <div id="location-map" style="height:520px;border-radius:0.375rem;"></div>
+
+    {# Legend #}
+    <div id="map-legend" class="position-absolute bg-white border rounded shadow-sm p-2"
+         style="bottom:28px;right:10px;z-index:1000;font-size:0.75rem;min-width:140px;">
+      <div class="fw-semibold mb-1 text-muted text-uppercase" style="font-size:0.65rem;letter-spacing:.05em">Legend</div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#198754;border:2px solid #fff;box-shadow:0 0 0 1px #198754"></span>Active
+      </div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#ffc107;border:2px solid #fff;box-shadow:0 0 0 1px #ffc107"></span>Pending
+      </div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#6c757d;border:2px solid #fff;box-shadow:0 0 0 1px #6c757d"></span>Prospect
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#fd7e14;border:2px solid #fff;box-shadow:0 0 0 1px #fd7e14"></span>Pipeline Lead
+      </div>
+    </div>
+
+    {# Geocoding status #}
+    <div id="geo-status" class="position-absolute bg-white border rounded px-2 py-1 shadow-sm"
+         style="top:10px;left:50%;transform:translateX(-50%);z-index:1000;font-size:0.75rem;display:none;">
+      <span class="spinner-border spinner-border-sm me-1" style="width:.75rem;height:.75rem;"></span>
+      <span id="geo-status-text">Locating addresses…</span>
+    </div>
+  </div>
+</div>
+
+{# ── Filter tabs ── #}
 <ul class="nav nav-pills mb-3">
   {% for s, label in [('', 'All'), ('prospect', 'Prospects'), ('active', 'Active'), ('pending', 'Pending')] %}
   <li class="nav-item me-1">
@@ -23,8 +56,9 @@
   {% endfor %}
 </ul>
 
+{# ── Location cards ── #}
 {% if locations %}
-<div class="row g-3">
+<div class="row g-3 mb-4">
   {% for loc in locations %}
   <div class="col-md-4">
     <div class="card h-100">
@@ -35,7 +69,7 @@
           </h6>
           <span class="badge loc-status-{{ loc.status }}">{{ loc.status | title }}</span>
         </div>
-        <p class="text-muted small mb-1">{{ loc.venue_type | title if loc.venue_type else "â€”" }} Â· {{ loc.city }}, {{ loc.state }}</p>
+        <p class="text-muted small mb-1">{{ loc.venue_type | title if loc.venue_type else "-" }} · {{ loc.city }}, {{ loc.state }}</p>
         {% if loc.contact_name %}
         <p class="small mb-0"><i class="bi bi-person me-1"></i>{{ loc.contact_name }}</p>
         {% endif %}
@@ -48,13 +82,51 @@
   </div>
   {% endfor %}
 </div>
-{% else %}
-<div class="text-center text-muted py-5">
-  <i class="bi bi-geo-alt fs-1 d-block mb-2"></i>
-  No locations yet. Add your first prospect.
+{% endif %}
+
+{# ── Pipeline leads list ── #}
+{% if pipeline_leads %}
+<div class="d-flex align-items-center gap-2 mb-2">
+  <h6 class="mb-0 text-muted fw-semibold small text-uppercase">Pipeline Leads</h6>
+  <span class="badge bg-secondary">{{ pipeline_leads | length }}</span>
+  <a href="/sales/" class="btn btn-sm btn-outline-secondary py-0 ms-1" style="font-size:0.75rem">View Pipeline</a>
+</div>
+<div class="row g-3">
+  {% for p in pipeline_leads %}
+  <div class="col-md-4">
+    <div class="card h-100 border-0 shadow-sm" style="border-left: 3px solid #fd7e14 !important;">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <h6 class="card-title mb-1">
+            <a href="/sales/{{ p.id }}" class="text-decoration-none">{{ p.company_name }}</a>
+          </h6>
+          <span class="badge bg-warning text-dark" style="font-size:0.65rem">{{ p.pipeline_stage | replace("_", " ") | title }}</span>
+        </div>
+        <p class="text-muted small mb-1">
+          {{ p.venue_type | title if p.venue_type else "-" }}
+          {% if p.city %} · {{ p.city }}{% endif %}
+        </p>
+        {% if p.contact_name %}
+        <p class="small mb-0"><i class="bi bi-person me-1"></i>{{ p.contact_name }}</p>
+        {% endif %}
+      </div>
+      <div class="card-footer bg-transparent py-1">
+        <a href="/sales/{{ p.id }}" class="btn btn-sm btn-outline-secondary py-0">View Lead</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
 </div>
 {% endif %}
 
+{% if not locations and not pipeline_leads %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-geo-alt fs-1 d-block mb-2"></i>
+  No locations yet. Add your first prospect or generate leads.
+</div>
+{% endif %}
+
+{# ── Add Location modal ── #}
 <div class="modal fade" id="locationModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -66,4 +138,141 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  // Panama City, FL center
+  var map = L.map('location-map').setView([30.1588, -85.6602], 12);
+
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  var STATUS_COLORS = {
+    'active':       '#198754',
+    'pending':      '#ffc107',
+    'prospect':     '#6c757d',
+    'maintenance':  '#0d6efd',
+    'inactive':     '#adb5bd',
+    'lead':         '#fd7e14'
+  };
+
+  var geoStatus = document.getElementById('geo-status');
+  var geoStatusText = document.getElementById('geo-status-text');
+  var totalToGeocode = 0;
+  var geocodedCount = 0;
+
+  function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+  async function geocode(address) {
+    if (!address) return null;
+    var key = 'pmm_geo:' + address;
+    var cached = localStorage.getItem(key);
+    if (cached) {
+      try { return JSON.parse(cached); } catch(e) {}
+    }
+    try {
+      var params = new URLSearchParams({ format: 'json', limit: '1', q: address });
+      var resp = await fetch('https://nominatim.openstreetmap.org/search?' + params);
+      if (!resp.ok) return null;
+      var data = await resp.json();
+      if (data.length > 0) {
+        var result = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        localStorage.setItem(key, JSON.stringify(result));
+        return result;
+      }
+    } catch(e) {}
+    return null;
+  }
+
+  function makeMarker(coords, color, popupHtml) {
+    var marker = L.circleMarker([coords.lat, coords.lng], {
+      radius: 10,
+      fillColor: color,
+      color: '#fff',
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.85
+    });
+    marker.bindPopup(popupHtml, { minWidth: 160 });
+    return marker;
+  }
+
+  function locPopup(item) {
+    var stage = item.status ? item.status.replace(/_/g, ' ') : '';
+    var vt = item.venue_type ? '<br><small class="text-muted">' + item.venue_type + '</small>' : '';
+    var cn = item.contact_name ? '<br><small><i class="bi bi-person me-1"></i>' + item.contact_name + '</small>' : '';
+    return '<strong><a href="' + item.url + '">' + item.name + '</a></strong>' +
+           '<br><small class="text-muted">' + stage + '</small>' + vt + cn +
+           '<br><a href="' + item.url + '" class="btn btn-sm btn-outline-secondary py-0 mt-1" style="font-size:0.75rem">View</a>';
+  }
+
+  function leadPopup(item) {
+    var stage = item.stage ? item.stage.replace(/_/g, ' ') : '';
+    var vt = item.venue_type ? '<br><small class="text-muted">' + item.venue_type + '</small>' : '';
+    var cn = item.contact_name ? '<br><small><i class="bi bi-person me-1"></i>' + item.contact_name + '</small>' : '';
+    return '<strong><a href="' + item.url + '">' + item.name + '</a></strong>' +
+           '<br><small class="text-muted">Lead &mdash; ' + stage + '</small>' + vt + cn +
+           '<br><a href="' + item.url + '" class="btn btn-sm btn-outline-secondary py-0 mt-1" style="font-size:0.75rem">View Lead</a>';
+  }
+
+  var allMarkers = [];
+
+  async function addItems(items, isLead) {
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (!item.address) { geocodedCount++; continue; }
+
+      var fromCache = !!localStorage.getItem('pmm_geo:' + item.address);
+      var coords = await geocode(item.address);
+      geocodedCount++;
+      geoStatusText.textContent = 'Locating ' + geocodedCount + ' / ' + totalToGeocode + '...';
+
+      if (!coords) continue;
+
+      var color = isLead ? STATUS_COLORS['lead'] : (STATUS_COLORS[item.status] || '#6c757d');
+      var popup = isLead ? leadPopup(item) : locPopup(item);
+      var marker = makeMarker(coords, color, popup);
+      marker.addTo(map);
+      allMarkers.push(marker);
+
+      if (!fromCache) await sleep(300);
+    }
+  }
+
+  async function loadMap() {
+    try {
+      var resp = await fetch('/locations/map-data');
+      var data = await resp.json();
+
+      totalToGeocode = data.locations.length + data.leads.length;
+      if (totalToGeocode > 0) {
+        geoStatus.style.display = 'block';
+        geoStatusText.textContent = 'Locating addresses...';
+      }
+
+      await addItems(data.locations, false);
+      await addItems(data.leads, true);
+
+      geoStatus.style.display = 'none';
+
+      // Fit map to markers if any were added
+      if (allMarkers.length > 0) {
+        var group = L.featureGroup(allMarkers);
+        map.fitBounds(group.getBounds().pad(0.2));
+      }
+    } catch(e) {
+      geoStatus.style.display = 'none';
+      console.error('Map load failed:', e);
+    }
+  }
+
+  loadMap();
+})();
+</script>
 {% endblock %}

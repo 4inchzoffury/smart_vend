@@ -36,6 +36,18 @@
              value="{{ prospect.contact_phone or '' if is_edit else '' }}">
     </div>
     <div class="col-md-6">
+      <label class="form-label small fw-semibold">LinkedIn URL</label>
+      <input type="url" name="linkedin_url" class="form-control form-control-sm"
+             value="{{ prospect.linkedin_url or '' if is_edit else '' }}"
+             placeholder="https://linkedin.com/in/...">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small fw-semibold">Website</label>
+      <input type="url" name="website" class="form-control form-control-sm"
+             value="{{ prospect.website or '' if is_edit else '' }}"
+             placeholder="https://...">
+    </div>
+    <div class="col-md-6">
       <label class="form-label small fw-semibold">Venue Type</label>
       <select name="venue_type" class="form-select form-select-sm">
         <option value="">— Select —</option>
@@ -49,7 +61,13 @@
       <input type="text" name="city" class="form-control form-control-sm"
              value="{{ prospect.city if is_edit else 'Panama City' }}">
     </div>
-    <div class="col-md-6">
+    <div class="col-12">
+      <label class="form-label small fw-semibold">Address</label>
+      <input type="text" name="address" class="form-control form-control-sm"
+             value="{{ prospect.address or '' if is_edit else '' }}"
+             placeholder="Street address">
+    </div>
+    <div class="col-md-4">
       <label class="form-label small fw-semibold">Source</label>
       <select name="source" class="form-select form-select-sm">
         <option value="">— Select —</option>
@@ -60,16 +78,45 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col-12">
+    <div class="col-md-4">
+      <label class="form-label small fw-semibold">Est. Machines</label>
+      <input type="number" name="estimated_machines" class="form-control form-control-sm"
+             min="1" value="{{ prospect.estimated_machines if is_edit else 1 }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small fw-semibold">Foot Traffic</label>
+      <input type="text" name="foot_traffic_estimate" class="form-control form-control-sm"
+             value="{{ prospect.foot_traffic_estimate or '' if is_edit else '' }}"
+             placeholder="e.g. 500/day">
+    </div>
+    <div class="col-md-8">
       <label class="form-label small fw-semibold">Next Action</label>
       <input type="text" name="next_action" class="form-control form-control-sm"
              value="{{ prospect.next_action or '' if is_edit else '' }}"
              placeholder="e.g. Send intro email, Schedule site visit">
     </div>
+    <div class="col-md-4">
+      <label class="form-label small fw-semibold">Action Date</label>
+      <input type="date" name="next_action_date" class="form-control form-control-sm"
+             value="{{ prospect.next_action_date.isoformat() if is_edit and prospect.next_action_date else '' }}">
+    </div>
     <div class="col-12">
       <label class="form-label small fw-semibold">Notes</label>
       <textarea name="notes" class="form-control form-control-sm" rows="2">{{ prospect.notes or '' if is_edit else '' }}</textarea>
     </div>
+    {% if locations %}
+    <div class="col-12">
+      <label class="form-label small fw-semibold">Link to Location</label>
+      <select name="location_id" class="form-select form-select-sm">
+        <option value="0">— None —</option>
+        {% for loc in locations %}
+        <option value="{{ loc.id }}" {% if is_edit and prospect.location_id == loc.id %}selected{% endif %}>
+          {{ loc.name }} ({{ loc.city }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
   </div>
   <div class="d-flex justify-content-end gap-2 mt-3">
     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>

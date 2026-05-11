@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Sourcing Results #{{ job.id }} – Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">
+    <i class="bi bi-robot me-2 text-primary"></i>Sourcing Results
+    <span class="text-muted fw-normal fs-6 ms-2">#{{ job.id }}</span>
+  </h1>
+  <div class="d-flex gap-2">
+    <a href="/inventory/suppliers" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-building me-1"></i>All Suppliers
+    </a>
+    <a href="/inventory/search" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-search me-1"></i>New Search
+    </a>
+  </div>
+</div>
+
+{# Job summary bar #}
+<div class="card border-0 bg-light mb-4">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap" style="font-size:.85rem">
+      {% if input_params.product_categories %}
+      <div>
+        <i class="bi bi-tags me-1 text-muted"></i>
+        <span class="text-muted">Categories:</span>
+        <span class="fw-semibold">{{ input_params.product_categories | join(", ") }}</span>
+      </div>
+      {% endif %}
+      {% if input_params.location %}
+      <div>
+        <i class="bi bi-geo-alt me-1 text-muted"></i>
+        <span class="fw-semibold">{{ input_params.location }}</span>
+      </div>
+      {% endif %}
+      <div>
+        <i class="bi bi-search me-1 text-muted"></i>
+        <span class="text-muted">Provider:</span>
+        <span class="fw-semibold">{{ input_params.search_provider | default("duckduckgo") | title }}</span>
+        {% if input_params.search_provider == 'duckduckgo' %}
+        <span class="badge bg-success ms-1" style="font-size:.7rem">Free</span>
+        {% endif %}
+      </div>
+      {% if job.tokens_used %}
+      <div>
+        <i class="bi bi-lightning-charge me-1 text-warning"></i>
+        <span class="text-muted">Tokens used:</span>
+        <span class="fw-semibold">{{ "{:,}".format(job.tokens_used) }}</span>
+      </div>
+      {% endif %}
+      {% if job.started_at and job.finished_at %}
+      {% set duration = (job.finished_at - job.started_at).seconds %}
+      <div class="text-muted">
+        <i class="bi bi-clock me-1"></i>{{ duration }}s
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# Status card (polling if still running) #}
+{% include "inventory/_search_job_status_card.html" %}
+
+{# Results grid — only shown when done #}
+{% if job.status == 'done' and supplier_results %}
+<div class="d-flex justify-content-between align-items-center mb-3 mt-4">
+  <h5 class="mb-0">
+    <i class="bi bi-truck me-2"></i>{{ supplier_results | length }} Supplier{{ 's' if supplier_results | length != 1 else '' }} Found
+  </h5>
+  <span class="text-muted small">
+    <span class="badge bg-success me-1">Added</span> new to your supplier list &nbsp;
+    <span class="badge bg-secondary me-1">Existing</span> already in your database
+  </span>
+</div>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+  {% for s in supplier_results %}
+  {% set is_existing = s.supplier_name.strip().lower() in existing_names %}
+  {% set s_db_id = supplier_id_map.get(s.supplier_name.strip().lower()) %}
+  <div class="col">
+    <div class="card h-100 shadow-sm {% if is_existing %}border-secondary border-opacity-25{% else %}border-success border-opacity-25{% endif %}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <h6 class="card-title mb-0 fw-semibold">{{ s.supplier_name }}</h6>
+          {% if is_existing %}
+          <span class="badge bg-secondary ms-2 flex-shrink-0">Existing</span>
+          {% else %}
+          <span class="badge bg-success ms-2 flex-shrink-0">Added</span>
+          {% endif %}
+        </div>
+
+        {% if s.supplier_type %}
+        <div class="mb-2">
+          <span class="badge bg-light text-dark border" style="font-size:.73rem">{{ s.supplier_type }}</span>
+        </div>
+        {% endif %}
+
+        {% if s.categories_served %}
+        <p class="small text-muted mb-2">
+          <i class="bi bi-tags me-1"></i>{{ s.categories_served }}
+        </p>
+        {% endif %}
+
+        <div class="small mb-1">
+          {% if s.contact_name %}
+          <div class="text-muted"><i class="bi bi-person me-1"></i>{{ s.contact_name }}</div>
+          {% endif %}
+          {% if s.contact_phone %}
+          <div class="text-muted"><i class="bi bi-telephone me-1"></i>{{ s.contact_phone }}</div>
+          {% endif %}
+          {% if s.website %}
+          <div>
+            <a href="{{ s.website }}" target="_blank" rel="noopener" class="text-decoration-none">
+              <i class="bi bi-globe me-1"></i>
+              <span class="text-truncate d-inline-block" style="max-width:200px;vertical-align:bottom">{{ s.website }}</span>
+            </a>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if s.pricing_notes or s.delivery_notes %}
+        <hr class="my-2">
+        {% if s.pricing_notes %}
+        <p class="small mb-1">
+          <i class="bi bi-tag me-1 text-muted"></i>{{ s.pricing_notes }}
+        </p>
+        {% endif %}
+        {% if s.delivery_notes %}
+        <p class="small mb-1">
+          <i class="bi bi-box-seam me-1 text-muted"></i>{{ s.delivery_notes }}
+        </p>
+        {% endif %}
+        {% endif %}
+
+        {% if s.notes %}
+        <p class="small text-muted mb-0 mt-1">{{ s.notes }}</p>
+        {% endif %}
+      </div>
+      {% if s_db_id %}
+      <div class="card-footer bg-transparent pt-0 border-top-0">
+        <a href="/inventory/?init_supplier={{ s_db_id }}" class="btn btn-sm btn-outline-primary w-100">
+          <i class="bi bi-plus-lg me-1"></i>Add Product from this Supplier
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% elif job.status == 'done' and not supplier_results %}
+<div class="text-center text-muted py-5 mt-3">
+  <i class="bi bi-search fs-1 d-block mb-2"></i>
+  No suppliers were extracted from this search. Try a different location or category.
+</div>
+{% endif %}
+
+{% endblock %}

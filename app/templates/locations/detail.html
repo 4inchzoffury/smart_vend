@@ -1,5 +1,5 @@
 ﻿{% extends "base.html" %}
-{% block title %}{{ location.name }} â€” Prime Vending{% endblock %}
+{% block title %}{{ location.name }} – Prime Vending{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -23,13 +23,13 @@
           <dt class="col-4">Status</dt>
           <dd class="col-8"><span class="badge loc-status-{{ location.status }}">{{ location.status | title }}</span></dd>
           <dt class="col-4">Address</dt>
-          <dd class="col-8">{{ location.address or "â€”" }}</dd>
+          <dd class="col-8">{{ location.address or "-" }}</dd>
           <dt class="col-4">City</dt>
           <dd class="col-8">{{ location.city }}, {{ location.state }} {{ location.zip_code or "" }}</dd>
           <dt class="col-4">Venue Type</dt>
-          <dd class="col-8">{{ location.venue_type | title if location.venue_type else "â€”" }}</dd>
+          <dd class="col-8">{{ location.venue_type | title if location.venue_type else "-" }}</dd>
           <dt class="col-4">Foot Traffic</dt>
-          <dd class="col-8">{{ location.foot_traffic_estimate | title if location.foot_traffic_estimate else "â€”" }}</dd>
+          <dd class="col-8">{{ location.foot_traffic_estimate | title if location.foot_traffic_estimate else "-" }}</dd>
           <dt class="col-4">Contract</dt>
           <dd class="col-8">{{ location.contract_status | replace("_", " ") | title }}</dd>
           {% if location.commission_pct %}
@@ -69,11 +69,11 @@
           <tbody>
             {% for m in machines %}
             <tr>
-              <td>{{ m.vendor or "â€”" }}</td>
-              <td>{{ m.model_name or "â€”" }}</td>
-              <td class="text-muted small">{{ m.serial_number or "â€”" }}</td>
+              <td>{{ m.vendor or "-" }}</td>
+              <td>{{ m.model_name or "-" }}</td>
+              <td class="text-muted small">{{ m.serial_number or "-" }}</td>
               <td><span class="badge bg-secondary">{{ m.status | replace("_", " ") | title }}</span></td>
-              <td class="text-muted small">{{ m.deployment_date or "â€”" }}</td>
+              <td class="text-muted small">{{ m.deployment_date or "-" }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -82,5 +82,60 @@
     </div>
   </div>
   {% endif %}
+
+  {% set all_prospects = prospects_by_group.Prospects + prospects_by_group.Pending + prospects_by_group.Active + prospects_by_group.Other %}
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small d-flex justify-content-between align-items-center">
+        <span>Leads &amp; Prospects ({{ all_prospects | length }})</span>
+        <a href="/sales/?location_id={{ location.id }}" class="btn btn-sm btn-outline-secondary py-0" style="font-size:0.7rem">
+          <i class="bi bi-funnel me-1"></i>View in Pipeline
+        </a>
+      </div>
+      <div class="card-body">
+        {% if all_prospects %}
+        {% for group_name, group_items in [('Prospects', prospects_by_group.Prospects), ('Pending', prospects_by_group.Pending), ('Active', prospects_by_group.Active), ('Other', prospects_by_group.Other)] %}
+        {% if group_items %}
+        <div class="mb-2">
+          <div class="text-muted small fw-semibold mb-1">{{ group_name }}</div>
+          <div class="d-flex flex-wrap gap-2">
+            {% for p in group_items %}
+            <div class="d-flex align-items-center gap-1">
+              <a href="/sales/{{ p.id }}" class="btn btn-sm btn-outline-secondary py-0" style="font-size:0.75rem">
+                {{ p.company_name }}
+                <span class="badge bg-secondary ms-1" style="font-size:0.6rem">{{ p.pipeline_stage | replace("_", " ") }}</span>
+              </a>
+              <form method="post" action="/locations/{{ location.id }}/unlink-prospect/{{ p.id }}" class="d-inline">
+                <button class="btn btn-sm btn-link text-danger p-0" title="Unlink" style="font-size:0.7rem">
+                  <i class="bi bi-x-circle"></i>
+                </button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% else %}
+        <p class="text-muted small mb-2">No prospects linked yet.</p>
+        {% endif %}
+
+        {% if unlinked_prospects %}
+        <div class="mt-3 pt-3 border-top">
+          <div class="text-muted small fw-semibold mb-2">Link a prospect to this location</div>
+          <form method="post" action="/locations/{{ location.id }}/link-prospect" class="d-flex gap-2 align-items-center">
+            <select name="prospect_id" class="form-select form-select-sm" style="max-width:300px">
+              <option value="">— Select prospect —</option>
+              {% for p in unlinked_prospects %}
+              <option value="{{ p.id }}">{{ p.company_name }} ({{ p.pipeline_stage | replace("_", " ") }})</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">Link</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}

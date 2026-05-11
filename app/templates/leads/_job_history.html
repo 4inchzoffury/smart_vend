@@ -12,48 +12,70 @@
   </thead>
   <tbody>
     {% for job in jobs %}
-    <tr>
-      <td class="text-muted">{{ job.id }}</td>
+    <tr id="lead-job-row-{{ job.id }}">
+      <td class="text-muted">{{ loop.index }}</td>
       <td>
         {% if job.job_type == 'research' %}
         <span class="badge bg-primary">Research</span>
         {% else %}
-        <span class="badge bg-info text-dark">Email Draft</span>
+        <span class="badge bg-purple" style="background:#6f42c1">Email Draft</span>
         {% endif %}
       </td>
       <td>
-        {% if job.status == 'done' %}
-        <span class="badge bg-success">Done</span>
-        {% elif job.status == 'running' %}
-        <span class="badge bg-info text-dark">
-          <span class="spinner-border spinner-border-sm" style="width:.65rem;height:.65rem"></span>
-          Running
-        </span>
-        {% elif job.status == 'pending' %}
-        <span class="badge bg-secondary">Pending</span>
+        {% if job.job_type == 'research' %}
+          {% if job.status == 'done' %}
+          <span class="badge bg-success">Done</span>
+          {% elif job.status == 'running' %}
+          <span class="badge bg-info text-dark">
+            <span class="spinner-border spinner-border-sm" style="width:.65rem;height:.65rem"></span>
+            Running
+          </span>
+          {% elif job.status == 'pending' %}
+          <span class="badge bg-secondary">Pending</span>
+          {% else %}
+          <span class="badge bg-danger">Error</span>
+          {% endif %}
         {% else %}
-        <span class="badge bg-danger">Error</span>
+          {% if job.status == 'done' and job.draft_body %}
+          <span class="badge bg-success">Draft Ready</span>
+          {% elif job.status == 'done' and not job.draft_body %}
+          <span class="badge bg-warning text-dark">Draft Empty</span>
+          {% elif job.status == 'running' %}
+          <span class="badge bg-info text-dark">
+            <span class="spinner-border spinner-border-sm" style="width:.65rem;height:.65rem"></span>
+            Drafting…
+          </span>
+          {% elif job.status == 'pending' %}
+          <span class="badge bg-secondary">Pending</span>
+          {% else %}
+          <span class="badge bg-danger">Draft Failed</span>
+          {% endif %}
         {% endif %}
       </td>
       <td class="small text-muted">{{ job.created_at.strftime('%m/%d %H:%M') }}</td>
       <td class="small">
         {% if job.job_type == 'research' and job.status == 'done' %}
         +{{ job.prospects_created }} new
-        {% elif job.job_type == 'email_draft' and job.status == 'done' %}
-        Draft ready
+        {% elif job.job_type == 'email_draft' %}
+        {% set pname = prospect_names.get(job.prospect_id, '') if prospect_names is defined else '' %}
+        {% if pname %}<span class="text-muted">{{ pname }}</span>{% else %}—{% endif %}
         {% else %}
         —
         {% endif %}
       </td>
       <td class="text-end">
+        {% if job.job_type == 'email_draft' and job.status == 'done' and job.draft_body %}
+        <a href="/leads/jobs/{{ job.id }}/draft" class="btn btn-xs btn-primary py-0 px-1 me-1">Review Draft</a>
+        {% else %}
         <a href="/leads/jobs/{{ job.id }}" class="btn btn-xs btn-outline-secondary py-0 px-1 me-1">View</a>
         {% if job.job_type == 'email_draft' and job.status == 'done' %}
-        <a href="/leads/jobs/{{ job.id }}/draft" class="btn btn-xs btn-outline-primary py-0 px-1 me-1">Review</a>
+        <a href="/leads/jobs/{{ job.id }}/draft" class="btn btn-xs btn-outline-warning py-0 px-1 me-1">Review</a>
         {% endif %}
-        <button class="btn btn-xs btn-outline-danger py-0 px-1"
+        {% endif %}
+        <button type="button" class="btn btn-xs btn-outline-danger py-0 px-1"
                 hx-delete="/leads/jobs/{{ job.id }}"
-                hx-target="closest tr"
-                hx-swap="outerHTML"
+                hx-target="#lead-job-row-{{ job.id }}"
+                hx-swap="delete"
                 hx-confirm="Delete this job?">
           <i class="bi bi-trash"></i>
         </button>

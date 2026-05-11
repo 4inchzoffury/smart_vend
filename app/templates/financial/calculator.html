@@ -1,5 +1,5 @@
-﻿{% extends "base.html" %}
-{% block title %}Financial Calculator â€” Prime Vending{% endblock %}
+{% extends "base.html" %}
+{% block title %}Financial Calculator — Prime Vending{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -21,6 +21,7 @@
           hx-target="#results-panel"
           hx-swap="innerHTML">
 
+      <!-- Capital Costs -->
       <div class="card mb-3">
         <div class="card-header py-2 fw-semibold small">Capital Costs</div>
         <div class="card-body pb-2">
@@ -29,7 +30,7 @@
               <label class="form-label small">Scenario Name</label>
               <input type="text" name="name" class="form-control form-control-sm" required
                      value="{{ scenario.name if scenario else '' }}"
-                     placeholder="e.g. Scenario A â€” Hospital Lobby">
+                     placeholder="e.g. Scenario A — Hospital Lobby">
             </div>
             <div class="col-md-4">
               <label class="form-label small">Machine Cost ($)</label>
@@ -50,22 +51,38 @@
         </div>
       </div>
 
+      <!-- Revenue Inputs -->
       <div class="card mb-3">
         <div class="card-header py-2 fw-semibold small">Revenue Inputs</div>
         <div class="card-body pb-2">
           <div class="row g-2">
             <div class="col-md-4">
-              <label class="form-label small">Daily Transactions</label>
+              <label class="form-label small d-flex align-items-center gap-1">
+                Daily Transactions
+                <i class="bi bi-info-circle text-muted"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Estimated number of sales per day across all products in this machine."></i>
+              </label>
               <input type="number" name="daily_transactions" class="form-control form-control-sm" min="0" step="1"
                      value="{{ scenario.daily_transactions if scenario else 20 }}" required>
             </div>
             <div class="col-md-4">
-              <label class="form-label small">Avg Ticket ($)</label>
+              <label class="form-label small d-flex align-items-center gap-1">
+                Avg Ticket ($)
+                <i class="bi bi-info-circle text-muted"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Average dollar amount per sale. Multiply by daily transactions to get gross daily revenue."></i>
+              </label>
               <input type="number" name="avg_ticket_usd" class="form-control form-control-sm" min="0" step="0.25"
                      value="{{ scenario.avg_ticket_usd if scenario else 3.50 }}" required>
             </div>
             <div class="col-md-4">
-              <label class="form-label small">COGS % (0â€“100)</label>
+              <label class="form-label small d-flex align-items-center gap-1">
+                COGS % (0–100)
+                <i class="bi bi-info-circle text-muted"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Cost of Goods Sold — the percentage of revenue spent on wholesale product cost. Vending machines typically run 30–55% depending on product mix and retail pricing."></i>
+              </label>
               <input type="number" name="cogs_pct" class="form-control form-control-sm" min="0" max="100" step="1"
                      value="{{ (scenario.cogs_pct * 100) | int if scenario else 42 }}" required>
             </div>
@@ -73,17 +90,28 @@
         </div>
       </div>
 
+      <!-- Monthly Operating Costs -->
       <div class="card mb-3">
         <div class="card-header py-2 fw-semibold small">Monthly Operating Costs</div>
         <div class="card-body pb-2">
           <div class="row g-2">
             <div class="col-md-6">
-              <label class="form-label small">Location Commission % (0â€“100)</label>
+              <label class="form-label small d-flex align-items-center gap-1">
+                Location Commission % (0–100)
+                <i class="bi bi-info-circle text-muted"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Percentage of gross revenue paid to the property owner or host for machine placement rights. Typically 5–20%."></i>
+              </label>
               <input type="number" name="commission_pct" class="form-control form-control-sm" min="0" max="100" step="1"
                      value="{{ (scenario.commission_pct * 100) | int if scenario else 0 }}">
             </div>
             <div class="col-md-6">
-              <label class="form-label small">Restock Labor ($)</label>
+              <label class="form-label small d-flex align-items-center gap-1">
+                Restock Labor ($)
+                <i class="bi bi-info-circle text-muted"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Monthly labor cost for restocking — your hourly rate multiplied by hours spent driving and filling the machine each month."></i>
+              </label>
               <input type="number" name="restock_labor_monthly" class="form-control form-control-sm" min="0" step="10"
                      value="{{ scenario.restock_labor_monthly if scenario else 200 }}">
             </div>
@@ -98,13 +126,67 @@
                      value="{{ scenario.insurance_monthly if scenario else 75 }}">
             </div>
             <div class="col-md-4">
-              <label class="form-label small">Other OpEx ($)</label>
+              <label class="form-label small">Other Expenses ($)</label>
               <input type="number" name="other_opex_monthly" class="form-control form-control-sm" min="0" step="10"
                      value="{{ scenario.other_opex_monthly if scenario else 0 }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small d-flex align-items-center gap-1">
+                Connectivity ($)
+                <i class="bi bi-info-circle text-muted"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Monthly cost for cellular data or WiFi used by the smart cooler for telemetry, remote monitoring, and cashless payment processing. Typically $10–$40/mo."></i>
+              </label>
+              <input type="number" name="connectivity_monthly" class="form-control form-control-sm" min="0" step="5"
+                     value="{{ scenario.connectivity_monthly if scenario else 0 }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small d-flex align-items-center gap-1">
+                Software / Platform ($)
+                <i class="bi bi-info-circle text-muted"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Monthly subscription for vending management software, remote monitoring platform, or cashless payment processing fees. Typically $20–$80/mo."></i>
+              </label>
+              <input type="number" name="software_monthly" class="form-control form-control-sm" min="0" step="5"
+                     value="{{ scenario.software_monthly if scenario else 0 }}">
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Seasonality -->
+      <div class="card mb-3">
+        <div class="card-header py-2 fw-semibold small">
+          Seasonality
+          <span class="badge bg-secondary ms-2 fw-normal" style="font-size:.7rem">Optional</span>
+        </div>
+        <div class="card-body pb-2">
+          <p class="text-muted small mb-2">
+            Set monthly demand multipliers relative to your baseline (1.0 = average month).
+          </p>
+          <div class="mb-2 d-flex gap-1 flex-wrap">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setSeasonPreset('flat')">Flat</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setSeasonPreset('summer')">Summer Peak (FL)</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setSeasonPreset('holiday')">Holiday Peak</button>
+          </div>
+          <div class="row g-1 mb-1">
+            {% set month_labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+            {% for i in range(12) %}
+            <div class="col-3 col-sm-2">
+              <label class="form-label text-muted mb-0" style="font-size:.65rem">{{ month_labels[i] }}</label>
+              <input type="number" name="season_{{ i }}"
+                     class="form-control form-control-sm season-input text-center px-1"
+                     min="0.1" max="3" step="0.05"
+                     value="{{ '%.2f' | format(season_vals[i]) }}">
+            </div>
+            {% endfor %}
+          </div>
+          <div class="form-text">Above 1.0 = busier than average; below 1.0 = slower.</div>
+        </div>
+      </div>
+
+      <!-- Hidden field populated before form submit -->
+      <input type="hidden" name="seasonality_json" id="seasonality-json-input">
 
       <div class="mb-3">
         <label class="form-label small">Notes</label>
@@ -122,4 +204,31 @@
     {% include "financial/_proforma_result.html" %}
   </div>
 </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+
+  const SEASON_PRESETS = {
+    flat:    [1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+    summer:  [0.80, 0.80, 0.85, 0.95, 1.10, 1.25, 1.35, 1.30, 1.10, 0.90, 0.80, 0.80],
+    holiday: [1.10, 0.90, 0.85, 0.90, 0.95, 0.95, 0.95, 0.95, 0.90, 1.05, 1.15, 1.25],
+  };
+
+  function setSeasonPreset(name) {
+    const vals = SEASON_PRESETS[name];
+    document.querySelectorAll('.season-input').forEach((el, i) => el.value = vals[i].toFixed(2));
+    htmx.trigger(document.getElementById('calc-form'), 'input');
+  }
+
+  document.getElementById('calc-form').addEventListener('submit', function () {
+    const vals = Array.from({length: 12}, (_, i) => {
+      const el = document.querySelector(`[name="season_${i}"]`);
+      return el ? (parseFloat(el.value) || 1.0) : 1.0;
+    });
+    document.getElementById('seasonality-json-input').value = JSON.stringify(vals);
+  });
+</script>
 {% endblock %}

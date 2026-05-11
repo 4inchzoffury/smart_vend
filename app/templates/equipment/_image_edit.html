@@ -1,0 +1,80 @@
+{# Inline image edit form — swapped in/out via HTMX on the detail page #}
+
+{% if success %}
+{# OOB swap: refresh the hero image area at the top of the page #}
+<div id="detail-hero-wrap" hx-swap-oob="innerHTML:#detail-hero-wrap">
+{% if unit.image_url %}
+<div class="mb-3" style="max-height:320px;overflow:hidden;border-radius:.5rem;">
+  <img src="{{ unit.image_url }}" alt="{{ unit.product_name }}"
+       style="width:100%;max-height:320px;object-fit:cover;"
+       onerror="this.style.display='none'">
+</div>
+{% endif %}
+</div>
+{% endif %}
+
+{% if success %}
+<div class="alert alert-success alert-dismissible d-flex align-items-center gap-2 mb-2 py-2" role="alert">
+  <i class="bi bi-check-circle-fill"></i>
+  Image saved.
+  <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if error is defined and error %}
+<div class="alert alert-danger alert-dismissible d-flex align-items-center gap-2 mb-2 py-2" role="alert">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  {{ error }}
+  <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if unit.image_url %}
+<div class="mb-2">
+  <img src="{{ unit.image_url }}" alt="{{ unit.product_name }}"
+       class="img-thumbnail" style="max-height:120px;max-width:100%;"
+       onerror="this.outerHTML='<p class=\'text-muted small\'><i class=\'bi bi-exclamation-circle me-1\'></i>Saved URL could not be loaded in preview.</p>'">
+</div>
+{% endif %}
+
+<form hx-post="/equipment/{{ unit.id }}/update-image"
+      hx-target="#image-edit-section"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      class="vstack gap-2">
+
+  <div>
+    <label class="form-label small fw-semibold mb-1">Upload image file</label>
+    <input type="file" name="image_file" class="form-control form-control-sm"
+           accept=".jpg,.jpeg,.png,.webp,.gif">
+    <div class="form-text">Saved locally — always displays reliably.</div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2 text-muted small">
+    <hr class="flex-grow-1 my-0"> or <hr class="flex-grow-1 my-0">
+  </div>
+
+  <div>
+    <label class="form-label small fw-semibold mb-1">Image URL</label>
+    <input type="url" name="image_url" class="form-control form-control-sm"
+           placeholder="https://example.com/product.jpg"
+           value="{{ unit.image_url or '' }}">
+    <div class="form-text">Paste a direct link to a .jpg, .png, or .webp image.</div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-sm btn-primary">
+      <span class="htmx-indicator spinner-border spinner-border-sm me-1"></span>
+      Save Image
+    </button>
+    {% if unit.image_url %}
+    <button type="button" class="btn btn-sm btn-outline-danger"
+            hx-post="/equipment/{{ unit.id }}/clear-image"
+            hx-target="#image-edit-section"
+            hx-swap="innerHTML"
+            hx-confirm="Remove the current image?">
+      Remove
+    </button>
+    {% endif %}
+  </div>
+</form>

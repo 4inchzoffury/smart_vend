@@ -1,16 +1,16 @@
 {% if summary %}
 <div class="row g-2 mb-3">
-  <div class="col-6 col-md-3">
+  <div class="col-6 col-sm">
     <div class="card text-center border-success border-opacity-50">
       <div class="card-body py-2">
-        <div class="small text-muted">Monthly Net</div>
+        <div class="small text-muted">Avg Monthly Net</div>
         <div class="fw-bold {% if summary.avg_monthly_net >= 0 %}text-success{% else %}text-danger{% endif %}">
           ${{ "%.0f" | format(summary.avg_monthly_net) }}
         </div>
       </div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+  <div class="col-6 col-sm">
     <div class="card text-center border-info border-opacity-50">
       <div class="card-body py-2">
         <div class="small text-muted">Gross Margin</div>
@@ -18,7 +18,17 @@
       </div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+  <div class="col-6 col-sm">
+    <div class="card text-center border-secondary border-opacity-50">
+      <div class="card-body py-2">
+        <div class="small text-muted">ROI (Yr 1)</div>
+        <div class="fw-bold {% if summary.roi_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+          {{ "%.1f" | format(summary.roi_pct) }}%
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm">
     <div class="card text-center border-warning border-opacity-50">
       <div class="card-body py-2">
         <div class="small text-muted">Payback</div>
@@ -28,7 +38,7 @@
       </div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+  <div class="col-6 col-sm">
     <div class="card text-center border-primary border-opacity-50">
       <div class="card-body py-2">
         <div class="small text-muted">Annual Net</div>
@@ -56,7 +66,12 @@
     <tbody>
       {% for row in table %}
       <tr>
-        <td>{{ row.month }}</td>
+        <td>
+          {{ row.month }}
+          {% if row.multiplier != 1.0 %}
+          <small class="text-muted ms-1" style="font-size:.7em">×{{ "%.2f" | format(row.multiplier) }}</small>
+          {% endif %}
+        </td>
         <td class="text-end">${{ "%.0f" | format(row.revenue) }}</td>
         <td class="text-end">${{ "%.0f" | format(row.cogs) }}</td>
         <td class="text-end">${{ "%.0f" | format(row.gross_profit) }}</td>

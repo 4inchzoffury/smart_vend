@@ -1,0 +1,82 @@
+{% set cat_colors = {
+  'tone': 'primary',
+  'info_policy': 'warning',
+  'escalation': 'danger',
+  'knowledge': 'success',
+  'custom': 'secondary'
+} %}
+{% set cat_labels = {
+  'tone': 'Tone',
+  'info_policy': 'Info Policy',
+  'escalation': 'Escalation',
+  'knowledge': 'Knowledge',
+  'custom': 'Custom'
+} %}
+<tr id="rule-row-{{ rule.id }}">
+  <td>
+    <span class="badge bg-{{ cat_colors.get(rule.category, 'secondary') }}-subtle
+                  text-{{ cat_colors.get(rule.category, 'secondary') }}-emphasis border
+                  border-{{ cat_colors.get(rule.category, 'secondary') }}-subtle">
+      {{ cat_labels.get(rule.category, rule.category) }}
+    </span>
+  </td>
+  <td class="fw-semibold small">{{ rule.title }}</td>
+  <td class="small text-muted" style="max-width:360px">
+    <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px"
+         title="{{ rule.rule_text }}">{{ rule.rule_text }}</div>
+    <!-- Inline edit form (hidden by default) -->
+    <div id="edit-form-{{ rule.id }}" style="display:none" class="mt-2">
+      <form hx-put="/customer-service/governance/{{ rule.id }}"
+            hx-target="#governance-list"
+            hx-swap="innerHTML">
+        <div class="mb-1">
+          <select name="category" class="form-select form-select-sm">
+            {% for val, label in [('tone','Tone'),('info_policy','Info Policy'),('escalation','Escalation'),('knowledge','Knowledge'),('custom','Custom')] %}
+            <option value="{{ val }}" {{ 'selected' if rule.category == val }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-1">
+          <input type="text" name="title" class="form-control form-control-sm"
+                 value="{{ rule.title }}" maxlength="150" required>
+        </div>
+        <div class="mb-1">
+          <textarea name="rule_text" class="form-control form-control-sm"
+                    rows="2" required>{{ rule.rule_text }}</textarea>
+        </div>
+        <div class="d-flex gap-1">
+          <button type="submit" class="btn btn-success btn-sm">Save</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="document.getElementById('edit-form-{{ rule.id }}').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </td>
+  <td class="text-center">
+    <div class="form-check form-switch d-flex justify-content-center mb-0">
+      <input class="form-check-input" type="checkbox" role="switch"
+             id="active-{{ rule.id }}"
+             {{ 'checked' if rule.is_active }}
+             hx-patch="/customer-service/governance/{{ rule.id }}/toggle"
+             hx-target="#governance-list"
+             hx-swap="innerHTML">
+    </div>
+  </td>
+  <td>
+    <div class="d-flex gap-1 justify-content-end">
+      <button class="btn btn-outline-secondary btn-sm"
+              onclick="document.getElementById('edit-form-{{ rule.id }}').style.display='block'"
+              title="Edit">
+        <i class="bi bi-pencil"></i>
+      </button>
+      <button class="btn btn-outline-danger btn-sm"
+              hx-delete="/customer-service/governance/{{ rule.id }}"
+              hx-target="#governance-list"
+              hx-swap="innerHTML"
+              hx-confirm="Delete this rule?"
+              title="Delete">
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>
+  </td>
+</tr>

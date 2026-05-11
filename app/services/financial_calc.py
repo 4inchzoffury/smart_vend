@@ -20,12 +20,17 @@ def build_12month_table(
     supplies_monthly: float = 0.0,
     insurance_monthly: float = 0.0,
     other_opex_monthly: float = 0.0,
+    connectivity_monthly: float = 0.0,
+    software_monthly: float = 0.0,
     seasonality_json: str | None = None,
 ) -> list[dict[str, Any]]:
     multipliers: list[float] = json.loads(seasonality_json) if seasonality_json else [1.0] * 12
 
     base_monthly_revenue = daily_transactions * avg_ticket_usd * 30.4
-    fixed_opex = restock_labor_monthly + supplies_monthly + insurance_monthly + other_opex_monthly
+    fixed_opex = (
+        restock_labor_monthly + supplies_monthly + insurance_monthly
+        + other_opex_monthly + connectivity_monthly + software_monthly
+    )
 
     rows = []
     cumulative = 0.0
@@ -39,6 +44,7 @@ def build_12month_table(
         cumulative += net
         rows.append({
             "month": MONTHS[i],
+            "multiplier": mult,
             "revenue": revenue,
             "cogs": cogs,
             "gross_profit": gross_profit,

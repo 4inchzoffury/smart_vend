@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Equipment Catalog – Prime Vending{% endblock %}
+
+{% block content %}
+<style>
+  .equip-card { transition: box-shadow .15s; }
+  .equip-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.12) !important; }
+  #compare-bar { position: sticky; bottom: 1rem; z-index: 100; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-0">Equipment Catalog</h1>
+    <small class="text-muted" id="unit-count">{{ units|length }} unit{{ "s" if units|length != 1 }} shown</small>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    {% if active_refresh_job %}
+    <a href="/equipment/refresh" class="btn btn-sm btn-outline-info">
+      <span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem;"></span>
+      Refresh Running…
+    </a>
+    {% else %}
+    <a href="/equipment/refresh" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-arrow-clockwise me-1"></i>AI Refresh Data
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+{# Filter bar — JS manages cross-filter state; data-mfr/data-type drive URL building #}
+<div class="mb-3">
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <span class="text-muted small fw-semibold me-1">Manufacturer:</span>
+    <a href="/equipment/" class="btn btn-sm {% if not selected_manufacturer %}btn-secondary{% else %}btn-outline-secondary{% endif %} mfr-filter" data-mfr="">All</a>
+    {% for mfr in manufacturers %}
+    <a href="/equipment/?manufacturer={{ mfr | urlencode }}"
+       class="btn btn-sm {% if selected_manufacturer == mfr %}btn-secondary{% else %}btn-outline-secondary{% endif %} mfr-filter"
+       data-mfr="{{ mfr }}">{{ mfr }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+    <span class="text-muted small fw-semibold me-1">Type:</span>
+    <a href="/equipment/" class="btn btn-sm {% if not selected_type %}btn-secondary{% else %}btn-outline-secondary{% endif %} type-filter" data-type="">All Types</a>
+    {% for type_key, type_label in type_labels.items() %}
+    <a href="/equipment/?equipment_type={{ type_key }}"
+       class="btn btn-sm {% if selected_type == type_key %}btn-secondary{% else %}btn-outline-secondary{% endif %} type-filter"
+       data-type="{{ type_key }}">{{ type_label }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+{# Unit grid #}
+<div id="unit-grid-container">
+  {% include "equipment/_unit_grid.html" %}
+</div>
+
+{# Sticky compare bar #}
+<div id="compare-bar" class="d-none mt-3">
+  <div class="card border-primary shadow">
+    <div class="card-body py-2 d-flex justify-content-between align-items-center">
+      <span id="compare-label" class="fw-semibold text-primary small">0 units selected</span>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" id="compare-clear">Clear</button>
+        <a id="compare-link" href="/equipment/compare?ids=" class="btn btn-sm btn-primary">
+          <i class="bi bi-table me-1"></i>Compare
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Track active filter selections across HTMX grid swaps
+  var activeMfr = "{{ selected_manufacturer }}";
+  var activeType = "{{ selected_type }}";
+
+  function buildUrl(mfr, type) {
+    var params = [];
+    if (mfr) params.push('manufacturer=' + encodeURIComponent(mfr));
+    if (type) params.push('equipment_type=' + encodeURIComponent(type));
+    return '/equipment/' + (params.length ? '?' + params.join('&') : '');
+  }
+
+  function setActive(selector, activeEl) {
+    document.querySelectorAll(selector).forEach(function (b) {
+      b.classList.remove('btn-secondary');
+      b.classList.add('btn-outline-secondary');
+    });
+    activeEl.classList.remove('btn-outline-secondary');
+    activeEl.classList.add('btn-secondary');
+  }
+
+  document.querySelectorAll('.mfr-filter').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      activeMfr = this.dataset.mfr;
+      setActive('.mfr-filter', this);
+      var url = buildUrl(activeMfr, activeType);
+      history.pushState(null, '', url);
+      htmx.ajax('GET', url, { target: '#unit-grid-container', swap: 'innerHTML' });
+    });
+  });
+
+  document.querySelectorAll('.type-filter').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      activeType = this.dataset.type;
+      setActive('.type-filter', this);
+      var url = buildUrl(activeMfr, activeType);
+      history.pushState(null, '', url);
+      htmx.ajax('GET', url, { target: '#unit-grid-container', swap: 'innerHTML' });
+    });
+  });
+
+  // Compare bar
+  var bar = document.getElementById('compare-bar');
+  var label = document.getElementById('compare-label');
+  var link = document.getElementById('compare-link');
+  var clearBtn = document.getElementById('compare-clear');
+
+  function updateBar() {
+    var checked = Array.from(document.querySelectorAll('.compare-check:checked'));
+    if (checked.length >= 2) {
+      bar.classList.remove('d-none');
+      label.textContent = checked.length + ' units selected';
+      link.href = '/equipment/compare?ids=' + checked.map(function (c) { return c.value; }).join(',');
+    } else {
+      bar.classList.add('d-none');
+    }
+  }
+
+  document.addEventListener('change', function (e) {
+    if (e.target.classList.contains('compare-check')) {
+      var checked = document.querySelectorAll('.compare-check:checked');
+      if (checked.length > 3) { e.target.checked = false; return; }
+      updateBar();
+    }
+  });
+
+  clearBtn.addEventListener('click', function () {
+    document.querySelectorAll('.compare-check:checked').forEach(function (c) { c.checked = false; });
+    bar.classList.add('d-none');
+  });
+
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (e.detail.target && e.detail.target.id === 'unit-grid-container') {
+      var count = document.querySelectorAll('#unit-grid-container .equip-card').length;
+      var el = document.getElementById('unit-count');
+      if (el) el.textContent = count + ' unit' + (count !== 1 ? 's' : '') + ' shown';
+    }
+    updateBar();
+  });
+})();
+</script>
+{% endblock %}

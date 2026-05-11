@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}{{ unit.product_name }} – Equipment Catalog{% endblock %}
+
+{% block content %}
+<style>
+  @media print {
+    .navbar, .btn, .breadcrumb, #print-btn { display: none !important; }
+    .card { border: 1px solid #dee2e6 !important; }
+  }
+  .spec-label { color: #6c757d; font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .highlight-line::before { content: "• "; color: #0d6efd; }
+</style>
+
+<nav aria-label="breadcrumb" class="mb-3 no-print">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/equipment/">Equipment Catalog</a></li>
+    <li class="breadcrumb-item active">{{ unit.product_name }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ unit.product_name }}</h1>
+    <p class="text-muted mb-0">
+      <span class="badge bg-secondary me-1">{{ unit.manufacturer }}</span>
+      {% if unit.reseller %}<span class="badge bg-light text-dark border me-1">via {{ unit.reseller }}</span>{% endif %}
+      <span class="badge bg-light text-dark border">{{ type_labels.get(unit.equipment_type, unit.equipment_type) }}</span>
+    </p>
+  </div>
+  <div class="d-flex gap-2 no-print">
+    <button class="btn btn-sm btn-outline-secondary" id="print-btn" onclick="window.print()">
+      <i class="bi bi-printer me-1"></i>Print / PDF
+    </button>
+    <a href="/equipment/compare?ids={{ unit.id }}" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-table me-1"></i>Compare
+    </a>
+  </div>
+</div>
+
+{% if unit.product_line %}
+<p class="text-muted">Product line: <strong>{{ unit.product_line }}</strong></p>
+{% endif %}
+
+<div id="detail-hero-wrap">
+{% if unit.image_url %}
+<div class="mb-3" style="max-height:320px;overflow:hidden;border-radius:.5rem;">
+  <img src="{{ unit.image_url }}" alt="{{ unit.product_name }}"
+       style="width:100%;max-height:320px;object-fit:cover;"
+       onerror="this.style.display='none'">
+</div>
+{% endif %}
+</div>
+
+{# Image editor — always visible so admins can add/change images #}
+<div class="card mb-4">
+  <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-2">
+    <h6 class="mb-0 small fw-semibold"><i class="bi bi-image me-1"></i>Equipment Image</h6>
+    <button class="btn btn-sm btn-link p-0 text-muted"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#image-edit-collapse">
+      Edit
+    </button>
+  </div>
+  <div class="collapse" id="image-edit-collapse">
+    <div class="card-body pt-2" id="image-edit-section">
+      {% include "equipment/_image_edit.html" %}
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  {# Left: specs table #}
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="bi bi-list-columns me-1"></i>Specifications</h6>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless mb-0">
+          <tbody>
+
+            {# Pricing #}
+            <tr><td colspan="2" class="spec-label pt-3 pb-1">Pricing</td></tr>
+            <tr>
+              <td class="text-muted small" style="width:45%">Purchase price</td>
+              <td>
+                {% if unit.price_low or unit.price_high %}
+                  {% if unit.price_low and unit.price_high and unit.price_low != unit.price_high %}
+                  <strong>${{ "{:,}".format(unit.price_low) }} – ${{ "{:,}".format(unit.price_high) }}</strong>
+                  {% elif unit.price_low %}
+                  <strong>${{ "{:,}".format(unit.price_low) }}</strong>
+                  {% else %}
+                  <strong>From ${{ "{:,}".format(unit.price_high) }}</strong>
+                  {% endif %}
+                {% else %}
+                <span class="text-muted">Contact for pricing</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% if unit.price_notes %}
+            <tr>
+              <td class="text-muted small">Notes</td>
+              <td class="small">{{ unit.price_notes }}</td>
+            </tr>
+            {% endif %}
+            {% if unit.monthly_fee %}
+            <tr>
+              <td class="text-muted small">Platform fee</td>
+              <td>${{ unit.monthly_fee }}/month</td>
+            </tr>
+            {% endif %}
+            {% if unit.processing_fee_pct %}
+            <tr>
+              <td class="text-muted small">Processing fee</td>
+              <td>{{ unit.processing_fee_pct }}%{% if unit.processing_fee_pct == 5.95 %} + $0.05/txn{% endif %}</td>
+            </tr>
+            {% endif %}
+
+            {# Warranty #}
+            <tr><td colspan="2" class="spec-label pt-3 pb-1">Warranty</td></tr>
+            <tr>
+              <td class="text-muted small">Standard warranty</td>
+              <td>
+                {% if unit.warranty_years %}{{ unit.warranty_years }} year{{ "s" if unit.warranty_years != 1 }}{% else %}<span class="text-muted">Contact for details</span>{% endif %}
+                {% if unit.warranty_notes %}<br><small class="text-muted">{{ unit.warranty_notes }}</small>{% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td class="text-muted small">Extended warranty</td>
+              <td>
+                {% if unit.extended_warranty_available %}
+                <span class="badge bg-success">Available</span>
+                {% if unit.extended_warranty_notes %}<br><small class="text-muted">{{ unit.extended_warranty_notes }}</small>{% endif %}
+                {% else %}
+                <span class="text-muted small">Not listed</span>
+                {% endif %}
+              </td>
+            </tr>
+
+            {# Dimensions #}
+            <tr><td colspan="2" class="spec-label pt-3 pb-1">Dimensions</td></tr>
+            {% if unit.height_in and unit.width_in and unit.depth_in %}
+            <tr>
+              <td class="text-muted small">H × W × D</td>
+              <td>{{ unit.height_in }}" × {{ unit.width_in }}" × {{ unit.depth_in }}"</td>
+            </tr>
+            {% endif %}
+            {% if unit.weight_lbs %}
+            <tr>
+              <td class="text-muted small">Weight</td>
+              <td>{{ unit.weight_lbs }} lbs</td>
+            </tr>
+            {% endif %}
+
+            {# Capacity #}
+            <tr><td colspan="2" class="spec-label pt-3 pb-1">Capacity &amp; Power</td></tr>
+            {% if unit.capacity_cu_ft %}
+            <tr>
+              <td class="text-muted small">Volume</td>
+              <td>{{ unit.capacity_cu_ft }} cu ft</td>
+            </tr>
+            {% endif %}
+            {% if unit.capacity_units %}
+            <tr>
+              <td class="text-muted small">Approx. units</td>
+              <td>~{{ unit.capacity_units }}</td>
+            </tr>
+            {% endif %}
+            {% if unit.power_watts %}
+            <tr>
+              <td class="text-muted small">Power draw</td>
+              <td>{{ unit.power_watts }}W</td>
+            </tr>
+            {% endif %}
+            {% if unit.operating_temp_low is not none and unit.operating_temp_high is not none %}
+            <tr>
+              <td class="text-muted small">Operating temp</td>
+              <td>{{ unit.operating_temp_low }}°F – {{ unit.operating_temp_high }}°F</td>
+            </tr>
+            {% endif %}
+
+            {# Tech #}
+            <tr><td colspan="2" class="spec-label pt-3 pb-1">Technology</td></tr>
+            {% if unit.ai_features %}
+            <tr>
+              <td class="text-muted small">AI Vision</td>
+              <td><span class="badge bg-primary">Yes</span>{% if unit.ai_accuracy_pct %} · {{ unit.ai_accuracy_pct }}% accuracy{% endif %}</td>
+            </tr>
+            {% endif %}
+            {% if unit.connectivity %}
+            <tr>
+              <td class="text-muted small">Connectivity</td>
+              <td>{{ unit.connectivity }}</td>
+            </tr>
+            {% endif %}
+            {% if unit.payment_types %}
+            <tr>
+              <td class="text-muted small">Payment types</td>
+              <td>{{ unit.payment_types }}</td>
+            </tr>
+            {% endif %}
+            {% if unit.certifications %}
+            <tr>
+              <td class="text-muted small">Certifications</td>
+              <td>{{ unit.certifications }}</td>
+            </tr>
+            {% endif %}
+
+            {# Delivery #}
+            <tr><td colspan="2" class="spec-label pt-3 pb-1">Delivery</td></tr>
+            <tr>
+              <td class="text-muted small">Lead time</td>
+              <td>
+                {% if unit.delivery_days_min %}
+                  {% if unit.delivery_days_max and unit.delivery_days_max != unit.delivery_days_min %}
+                  {{ unit.delivery_days_min }}–{{ unit.delivery_days_max }} business days
+                  {% else %}
+                  ~{{ unit.delivery_days_min }} business days
+                  {% endif %}
+                {% else %}
+                <span class="text-muted">Contact for timeline</span>
+                {% endif %}
+                {% if unit.delivery_notes %}<br><small class="text-muted">{{ unit.delivery_notes }}</small>{% endif %}
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# Right: highlights + meta #}
+  <div class="col-lg-5">
+    {% if unit.highlights %}
+    <div class="card mb-3">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="bi bi-star me-1"></i>Key Highlights</h6>
+      </div>
+      <div class="card-body">
+        {% for line in unit.highlights.splitlines() %}
+        {% if line.strip() %}
+        <div class="highlight-line small mb-1">{{ line.strip() }}</div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0"><i class="bi bi-info-circle me-1"></i>Data Source</h6>
+      </div>
+      <div class="card-body small text-muted">
+        <p class="mb-1">
+          Confidence:
+          <span class="badge {% if unit.data_confidence == 'verified' %}bg-success{% elif unit.data_confidence == 'ai_refreshed' %}bg-primary{% else %}bg-secondary{% endif %}">
+            {{ unit.data_confidence }}
+          </span>
+        </p>
+        {% if unit.last_refreshed %}
+        <p class="mb-1">Last AI refresh: {{ unit.last_refreshed.strftime('%b %d, %Y %H:%M') }}</p>
+        {% endif %}
+        {% if unit.product_url %}
+        <p class="mb-0"><a href="{{ unit.product_url }}" target="_blank" rel="noopener">Official product page <i class="bi bi-box-arrow-up-right"></i></a></p>
+        {% endif %}
+        {% if unit.data_source and unit.data_source != unit.product_url %}
+        <p class="mb-0 mt-1"><a href="{{ unit.data_source }}" target="_blank" rel="noopener">Data source <i class="bi bi-box-arrow-up-right"></i></a></p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

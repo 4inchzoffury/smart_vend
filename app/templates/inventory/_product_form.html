@@ -57,7 +57,7 @@
       <select name="primary_supplier_id" class="form-select form-select-sm">
         <option value="">— Select —</option>
         {% for s in suppliers %}
-        <option value="{{ s.id }}" {% if is_edit and product.primary_supplier_id == s.id %}selected{% endif %}>
+        <option value="{{ s.id }}" {% if is_edit and product.primary_supplier_id == s.id %}selected{% elif not is_edit and selected_supplier_id == s.id %}selected{% endif %}>
           {{ s.name }}
         </option>
         {% endfor %}

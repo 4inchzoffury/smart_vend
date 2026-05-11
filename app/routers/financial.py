@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -25,8 +27,15 @@ def financial_calculator(
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     scenario = db.get(MachineProForma, scenario_id) if scenario_id else None
+    season_vals = (
+        json.loads(scenario.seasonality_json)
+        if scenario and scenario.seasonality_json
+        else [1.0] * 12
+    )
     return templates.TemplateResponse(
-        request, "financial/calculator.html", {"active_nav": "financial", "scenario": scenario}
+        request,
+        "financial/calculator.html",
+        {"active_nav": "financial", "scenario": scenario, "season_vals": season_vals},
     )
 
 
@@ -44,10 +53,15 @@ def financial_calculate(
     supplies_monthly: float = 0,
     insurance_monthly: float = 0,
     other_opex_monthly: float = 0,
+    connectivity_monthly: float = 0,
+    software_monthly: float = 0,
 ) -> HTMLResponse:
-    # Normalise percent inputs: accept either 0–100 or 0–1
     cogs = cogs_pct / 100 if cogs_pct > 1 else cogs_pct
     comm = commission_pct / 100 if commission_pct > 1 else commission_pct
+
+    season = [float(request.query_params.get(f"season_{i}", 1.0)) for i in range(12)]
+    seasonality_json = json.dumps(season) if any(s != 1.0 for s in season) else None
+
     table = build_12month_table(
         daily_transactions=daily_transactions,
         avg_ticket_usd=avg_ticket_usd,
@@ -57,6 +71,9 @@ def financial_calculate(
         supplies_monthly=supplies_monthly,
         insurance_monthly=insurance_monthly,
         other_opex_monthly=other_opex_monthly,
+        connectivity_monthly=connectivity_monthly,
+        software_monthly=software_monthly,
+        seasonality_json=seasonality_json,
     )
     summary = calc_summary(
         table=table,
@@ -84,9 +101,18 @@ def financial_save(
     supplies_monthly: float = Form(0),
     insurance_monthly: float = Form(0),
     other_opex_monthly: float = Form(0),
+    connectivity_monthly: float = Form(0),
+    software_monthly: float = Form(0),
+    seasonality_json: str = Form(""),
     notes: str = Form(""),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
+    try:
+        season = json.loads(seasonality_json) if seasonality_json else None
+        stored_season = json.dumps(season) if season and any(s != 1.0 for s in season) else None
+    except (json.JSONDecodeError, TypeError):
+        stored_season = None
+
     scenario = MachineProForma(
         name=name,
         machine_cost=machine_cost,
@@ -100,6 +126,9 @@ def financial_save(
         supplies_monthly=supplies_monthly,
         insurance_monthly=insurance_monthly,
         other_opex_monthly=other_opex_monthly,
+        connectivity_monthly=connectivity_monthly,
+        software_monthly=software_monthly,
+        seasonality_json=stored_season,
         notes=notes or None,
     )
     db.add(scenario)
@@ -123,6 +152,8 @@ def financial_detail(
         supplies_monthly=scenario.supplies_monthly,
         insurance_monthly=scenario.insurance_monthly,
         other_opex_monthly=scenario.other_opex_monthly,
+        connectivity_monthly=scenario.connectivity_monthly,
+        software_monthly=scenario.software_monthly,
         seasonality_json=scenario.seasonality_json,
     )
     summary = calc_summary(
@@ -156,6 +187,8 @@ def financial_copy(scenario_id: int, db: Session = Depends(get_db)) -> HTMLRespo
         supplies_monthly=original.supplies_monthly,
         insurance_monthly=original.insurance_monthly,
         other_opex_monthly=original.other_opex_monthly,
+        connectivity_monthly=original.connectivity_monthly,
+        software_monthly=original.software_monthly,
         seasonality_json=original.seasonality_json,
         notes=original.notes,
     )
@@ -165,9 +198,13 @@ def financial_copy(scenario_id: int, db: Session = Depends(get_db)) -> HTMLRespo
 
 
 @router.delete("/{scenario_id}", response_class=HTMLResponse)
-def financial_delete(scenario_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
+def financial_delete(
+    scenario_id: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
     scenario = db.get(MachineProForma, scenario_id)
     if scenario:
         db.delete(scenario)
         db.commit()
+    if request.headers.get("HX-Request"):
+        return HTMLResponse(content="", status_code=200, headers={"HX-Redirect": "/financial/"})
     return RedirectResponse(url="/financial/", status_code=303)

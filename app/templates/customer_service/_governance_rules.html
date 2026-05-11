@@ -1,0 +1,52 @@
+{# Governance Rules tab content #}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h6 class="mb-0 fw-semibold">Active Governance Rules</h6>
+    <small class="text-muted">These rules are injected into the chatbot's system prompt on every conversation.</small>
+  </div>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#add-rule-form">
+    <i class="bi bi-plus-lg me-1"></i>Add Rule
+  </button>
+</div>
+
+<!-- Add Rule Form -->
+<div class="collapse mb-3" id="add-rule-form">
+  <div class="card card-body bg-body-secondary">
+    <form hx-post="/customer-service/governance"
+          hx-target="#governance-list"
+          hx-swap="innerHTML"
+          hx-on::after-request="document.getElementById('add-rule-form').classList.remove('show'); this.reset()">
+      <div class="row g-2">
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Category</label>
+          <select name="category" class="form-select form-select-sm" required>
+            <option value="tone">Tone & Style</option>
+            <option value="info_policy">Information Policy</option>
+            <option value="escalation">Escalation</option>
+            <option value="knowledge">Company Knowledge</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Title</label>
+          <input type="text" name="title" class="form-control form-control-sm" placeholder="Short rule name" required maxlength="150">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label small fw-semibold">Rule Text</label>
+          <textarea name="rule_text" class="form-control form-control-sm" rows="2"
+                    placeholder="The full instruction for the chatbot…" required></textarea>
+        </div>
+      </div>
+      <div class="mt-2 d-flex gap-2">
+        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Save Rule</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm"
+                data-bs-toggle="collapse" data-bs-target="#add-rule-form">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Rules List -->
+<div id="governance-list">
+  {% include "customer_service/_governance_list.html" %}
+</div>

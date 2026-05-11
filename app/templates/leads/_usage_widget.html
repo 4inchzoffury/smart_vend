@@ -1,0 +1,35 @@
+<div class="d-flex align-items-center gap-3 flex-wrap text-muted" style="font-size:.85rem">
+  <div>
+    <i class="bi bi-lightning-charge me-1 text-warning"></i>
+    <span class="fw-semibold text-body">{{ "{:,}".format(today_tokens) }}</span>
+    <span class="text-muted">Claude API tokens today</span>
+  </div>
+  <div class="text-muted">·</div>
+  <div>
+    <span class="fw-semibold text-body">{{ "{:,}".format(total_tokens) }}</span>
+    <span class="text-muted">all time</span>
+  </div>
+  {% if latest_job and latest_job.ratelimit_tokens_remaining is not none %}
+  <div class="text-muted">·</div>
+  <div>
+    Rate limit window:
+    <span class="fw-semibold {% if latest_job.ratelimit_tokens_remaining < 20000 %}text-warning{% else %}text-success{% endif %}">
+      {{ "{:,}".format(latest_job.ratelimit_tokens_remaining) }} remaining
+    </span>
+    {% if latest_job.ratelimit_tokens_reset %}
+    <span class="text-muted">(resets {{ latest_job.ratelimit_tokens_reset }})</span>
+    {% endif %}
+    <small class="text-muted ms-1">· from last job</small>
+  </div>
+  {% endif %}
+  <div class="ms-auto d-flex gap-3">
+    <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener"
+       class="text-muted text-decoration-none small">
+      <i class="bi bi-box-arrow-up-right me-1"></i>Claude API billing
+    </a>
+    <a href="https://app.tavily.com" target="_blank" rel="noopener"
+       class="text-muted text-decoration-none small">
+      <i class="bi bi-box-arrow-up-right me-1"></i>Tavily dashboard
+    </a>
+  </div>
+</div>

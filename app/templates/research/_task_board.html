@@ -1,17 +1,41 @@
-{% for section_num in sections.keys() | sort %}
-{% set section_tasks = sections[section_num] %}
+{% for section_id in section_order %}
+{% set section_tasks = sections.get(section_id, []) %}
+{% set section_name = section_names[section_id] %}
+{% set is_first = loop.first %}
+{% set is_last = loop.last %}
 <div class="card mb-3">
   <div class="card-header d-flex justify-content-between align-items-center py-2">
     <button class="btn btn-link text-decoration-none p-0 fw-semibold text-start text-dark"
             type="button"
             data-bs-toggle="collapse"
-            data-bs-target="#section-{{ section_num }}">
-      <i class="bi bi-chevron-down me-1"></i>
-      §{{ section_num }} — {{ section_names[section_num] }}
+            data-bs-target="#section-{{ section_id }}">
+      <i class="bi bi-chevron-down me-1"></i>{{ section_name }}
     </button>
-    <span class="badge bg-secondary rounded-pill">{{ section_tasks | length }}</span>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-secondary rounded-pill">{{ section_tasks | length }}</span>
+      <div class="d-flex gap-1">
+        {% if not is_first %}
+        <button class="btn btn-outline-secondary btn-sm py-0 px-1"
+                title="Move section up"
+                hx-post="/research/sections/{{ section_id }}/move?dir=up"
+                hx-target="#task-board"
+                hx-swap="innerHTML">
+          <i class="bi bi-chevron-up small"></i>
+        </button>
+        {% endif %}
+        {% if not is_last %}
+        <button class="btn btn-outline-secondary btn-sm py-0 px-1"
+                title="Move section down"
+                hx-post="/research/sections/{{ section_id }}/move?dir=down"
+                hx-target="#task-board"
+                hx-swap="innerHTML">
+          <i class="bi bi-chevron-down small"></i>
+        </button>
+        {% endif %}
+      </div>
+    </div>
   </div>
-  <div class="collapse show" id="section-{{ section_num }}">
+  <div class="collapse show" id="section-{{ section_id }}">
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0 align-middle">
         <thead class="table-light small">
@@ -35,7 +59,7 @@
 </div>
 {% endfor %}
 
-{% if not sections %}
+{% if not section_order %}
 <div class="text-center text-muted py-5">
   <i class="bi bi-clipboard-x fs-1 d-block mb-2"></i>
   No tasks match the current filter.

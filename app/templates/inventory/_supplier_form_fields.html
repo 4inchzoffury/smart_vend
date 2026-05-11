@@ -1,0 +1,44 @@
+{% set s = supplier if supplier is defined else none %}
+<div class="mb-2">
+  <label class="form-label small fw-semibold">Name <span class="text-danger">*</span></label>
+  <input type="text" name="name" class="form-control form-control-sm" required
+         value="{{ s.name if s else '' }}" placeholder="e.g. Sam's Club">
+</div>
+<div class="mb-2">
+  <label class="form-label small fw-semibold">Type</label>
+  <select name="supplier_type" class="form-select form-select-sm">
+    <option value="">— Select —</option>
+    {% for t in ['warehouse_club', 'broadline_distributor', 'specialty', 'direct_brand', 'cash_and_carry', 'online'] %}
+    <option value="{{ t }}" {% if s and s.supplier_type == t %}selected{% endif %}>{{ t | replace("_", " ") | title }}</option>
+    {% endfor %}
+  </select>
+</div>
+<div class="row g-2 mb-2">
+  <div class="col-sm-6">
+    <label class="form-label small fw-semibold">Contact Name</label>
+    <input type="text" name="contact_name" class="form-control form-control-sm"
+           value="{{ s.contact_name or '' if s else '' }}">
+  </div>
+  <div class="col-sm-6">
+    <label class="form-label small fw-semibold">Phone</label>
+    <input type="text" name="contact_phone" class="form-control form-control-sm"
+           value="{{ s.contact_phone or '' if s else '' }}">
+  </div>
+</div>
+<div class="mb-2">
+  <label class="form-label small fw-semibold">Email</label>
+  <input type="email" name="contact_email" class="form-control form-control-sm"
+         value="{{ s.contact_email or '' if s else '' }}">
+</div>
+<div class="mb-2">
+  <label class="form-label small fw-semibold">Website</label>
+  <input type="url" name="website" class="form-control form-control-sm"
+         value="{{ s.website or '' if s else '' }}" placeholder="https://...">
+</div>
+<div class="mb-2">
+  <label class="form-label small fw-semibold">Notes
+    <span class="text-muted fw-normal">(pricing, delivery, minimums, etc.)</span>
+  </label>
+  <textarea name="notes" class="form-control form-control-sm" rows="3"
+            placeholder="e.g. Pricing: membership required | Delivery: in-store pickup | Notes: bulk pricing">{{ s.notes or '' if s else '' }}</textarea>
+</div>

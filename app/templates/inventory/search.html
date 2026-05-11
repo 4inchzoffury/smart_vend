@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}AI Supplier Sourcing – Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h1 class="h3 mb-0"><i class="bi bi-robot me-2"></i>AI Supplier Sourcing</h1>
+  <a href="/inventory/" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back to Inventory
+  </a>
+</div>
+
+<!-- Token usage bar -->
+<div class="card border-0 bg-light px-3 py-2 mb-4"
+     id="usage-bar"
+     hx-get="/inventory/search/usage"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+  <span class="text-muted small">Loading usage stats…</span>
+</div>
+
+<div class="row g-4">
+
+  <!-- Search Form -->
+  <div class="col-md-5">
+    <div class="card border-primary border-opacity-25">
+      <div class="card-header bg-transparent">
+        <h6 class="mb-0 text-primary"><i class="bi bi-search me-1"></i>Find Suppliers & Distributors</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" action="/inventory/search">
+
+          <!-- Location -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Location</label>
+            <div class="row g-2">
+              <div class="col-8">
+                <input type="text" name="location_city" class="form-control form-control-sm"
+                       value="Panama City" placeholder="City" required>
+              </div>
+              <div class="col-4">
+                <input type="text" name="location_state" class="form-control form-control-sm"
+                       value="FL" placeholder="State" required>
+              </div>
+            </div>
+            <div class="form-text">AI will search for distributors accessible from this market.</div>
+          </div>
+
+          <!-- Product Categories -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Product Categories</label>
+            <div class="row row-cols-1 row-cols-sm-2 g-1">
+              {% for opt in category_options %}
+              <div class="col">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="product_categories"
+                         value="{{ opt }}" id="cat_{{ loop.index }}" checked>
+                  <label class="form-check-label small" for="cat_{{ loop.index }}">{{ opt | title }}</label>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Search Focus -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Search Focus / Keywords
+              <span class="text-muted fw-normal small ms-1">(optional)</span>
+            </label>
+            <textarea name="search_focus" class="form-control form-control-sm" rows="2"
+                      placeholder="e.g. focus on budget-friendly cash & carry, looking for fresh food distributors with small minimums"></textarea>
+            <div class="form-text">Extra instructions to guide the AI's sourcing strategy.</div>
+          </div>
+
+          <!-- Max Results -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Max Suppliers to Find</label>
+            <input type="number" name="max_results" class="form-control form-control-sm"
+                   min="5" max="50" step="5" value="15">
+          </div>
+
+          <!-- Search Provider -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Search Provider</label>
+            <div class="d-flex gap-3 flex-wrap">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="search_provider" value="duckduckgo"
+                       id="sp_ddg" {% if current_provider != 'tavily' %}checked{% endif %}>
+                <label class="form-check-label small" for="sp_ddg">
+                  DuckDuckGo <span class="badge bg-success ms-1">Free</span>
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="search_provider" value="tavily"
+                       id="sp_tavily" {% if current_provider == 'tavily' %}checked{% endif %}>
+                <label class="form-check-label small" for="sp_tavily">
+                  Tavily <span class="badge bg-secondary ms-1">API key req.</span>
+                  <i class="bi bi-info-circle text-muted ms-1"
+                     data-bs-toggle="tooltip"
+                     title="Tavily provides higher-quality search results but requires an API key. DuckDuckGo is free with no account needed."></i>
+                </label>
+              </div>
+            </div>
+            <div class="form-text">Your choice is saved as the default for future searches.</div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-play-fill me-1"></i>Find Suppliers
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job History -->
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Searches</h6>
+        <button class="btn btn-sm btn-outline-secondary"
+                hx-get="/inventory/search/jobs"
+                hx-target="#search-job-history-body"
+                hx-swap="innerHTML">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+      </div>
+      <div id="search-job-history-body" style="max-height:420px;overflow-y:auto">
+        {% include "inventory/_search_job_history.html" %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+    new bootstrap.Tooltip(el);
+  });
+</script>
+{% endblock %}

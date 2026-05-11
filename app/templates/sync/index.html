@@ -1,5 +1,5 @@
 ﻿{% extends "base.html" %}
-{% block title %}Sync â€” Prime Vending{% endblock %}
+{% block title %}Sync – Prime Vending{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -20,10 +20,17 @@
   ] %}
   <div class="col-md-4">
     <div class="card">
-      <div class="card-header py-2 fw-semibold small">{{ label }}</div>
+      <div class="card-header py-2 fw-semibold small d-flex justify-content-between align-items-center">
+        <span>{{ label }}</span>
+        {% if sheet_urls and entity in sheet_urls %}
+        <a href="{{ sheet_urls[entity] }}" target="_blank" class="btn btn-sm btn-outline-success py-0" title="Open in Google Sheets">
+          <i class="bi bi-box-arrow-up-right"></i>
+        </a>
+        {% endif %}
+      </div>
       <div class="card-body small">
         <p class="text-muted mb-2">
-          {% if pull_url %}Bidirectional{% else %}Push only (app â†’ Sheets){% endif %}
+          {% if pull_url %}Bidirectional{% else %}Push only (app → Sheets){% endif %}
         </p>
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary"
@@ -49,9 +56,9 @@
 
 <div id="sync-results" class="mt-4"></div>
 
-<div class="mt-4 p-3 bg-light rounded small text-muted">
-  <strong>Setup required:</strong> Set <code>GOOGLE_SHEETS_CREDS_FILE</code> and <code>SPREADSHEET_ID</code> in your <code>.env</code> file.
-  Create a Google Spreadsheet and share it with your service account email. Tabs needed:
-  <code>Research_Tasks</code>, <code>Product_Catalog</code>, <code>Sales_Pipeline</code>.
+<div class="mt-4">
+  <a href="https://docs.google.com/spreadsheets/d/1fGLxw5XxZwKUY6jxcalWW7eZAenCRZQRs75CcTj75Z4/edit" target="_blank" class="btn btn-outline-success">
+    <i class="bi bi-table me-1"></i>Open Google Spreadsheet
+  </a>
 </div>
 {% endblock %}

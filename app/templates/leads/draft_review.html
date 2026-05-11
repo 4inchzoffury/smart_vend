@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Review Email Draft – Prime Vending{% endblock %}
+{% block title %}Review Email Draft — Prime Vending{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -9,11 +9,33 @@
   </a>
 </div>
 
+{% if job.preview_mode %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+  <i class="bi bi-shield-exclamation fs-5"></i>
+  <div>
+    <strong>Preview Mode is active.</strong>
+    You can review and edit the draft below, but clicking "Send" will <em>not</em> transmit the email.
+    The action will be logged as a preview for record-keeping.
+  </div>
+</div>
+{% endif %}
+
 {% if prospect %}
 <div class="alert alert-light border mb-3">
   <strong>To:</strong> {{ prospect.company_name }}
-  {% if prospect.contact_name %} · {{ prospect.contact_name }}{% endif %}
-  {% if prospect.contact_email %} · <a href="mailto:{{ prospect.contact_email }}">{{ prospect.contact_email }}</a>{% endif %}
+  {% if prospect.contact_name %} &middot; {{ prospect.contact_name }}{% endif %}
+  {% if prospect.contact_email %} &middot; <a href="mailto:{{ prospect.contact_email }}">{{ prospect.contact_email }}</a>{% endif %}
+</div>
+{% endif %}
+
+{% if not job.draft_body %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+  <i class="bi bi-exclamation-triangle fs-5"></i>
+  <div>
+    <strong>No draft was generated.</strong>
+    The AI agent finished but did not produce email content — check the job log for details.
+    You can type a message manually below before sending.
+  </div>
 </div>
 {% endif %}
 
@@ -22,6 +44,11 @@
   <i class="bi bi-exclamation-triangle me-1"></i><strong>Send failed:</strong> {{ send_error }}
 </div>
 {% endif %}
+
+<div class="alert alert-info border-0 py-2 px-3 mb-3 small">
+  <i class="bi bi-pencil me-1"></i>
+  All fields below are editable — adjust the recipient, subject, or body before sending.
+</div>
 
 <form method="post" action="/leads/jobs/{{ job.id }}/send">
   <div class="mb-3">
@@ -40,10 +67,16 @@
     <textarea class="form-control font-monospace" id="body" name="body"
               rows="16" required>{{ job.draft_body or '' }}</textarea>
   </div>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 align-items-center">
+    {% if job.preview_mode %}
+    <button type="submit" class="btn btn-warning">
+      <i class="bi bi-eye me-1"></i>Log as Preview (not sent)
+    </button>
+    {% else %}
     <button type="submit" class="btn btn-primary">
       <i class="bi bi-send me-1"></i>Send Email
     </button>
+    {% endif %}
     <a href="/leads/" class="btn btn-outline-secondary">Cancel</a>
     {% if prospect %}
     <a href="/sales/{{ prospect.id }}" class="btn btn-outline-info ms-auto">

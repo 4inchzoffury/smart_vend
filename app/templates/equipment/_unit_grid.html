@@ -1,0 +1,144 @@
+<style>
+  .equip-img-wrap {
+    height: 180px; overflow: hidden; background: #f8f9fa;
+    display: flex; align-items: center; justify-content: center;
+    border-bottom: 1px solid rgba(0,0,0,.08);
+  }
+  .equip-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+  .equip-placeholder {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; gap: .5rem;
+    color: #adb5bd;
+  }
+  .mfr-haha      { background: linear-gradient(135deg, #e8f4ff, #dbeafe); }
+  .mfr-cantaloupe{ background: linear-gradient(135deg, #fff7ed, #fed7aa); }
+  .mfr-365       { background: linear-gradient(135deg, #f0fdf4, #bbf7d0); }
+  .mfr-micromart { background: linear-gradient(135deg, #fdf4ff, #e9d5ff); }
+  .mfr-sandstar  { background: linear-gradient(135deg, #fff1f2, #fecdd3); }
+  .mfr-weimi     { background: linear-gradient(135deg, #f0f9ff, #bae6fd); }
+</style>
+
+{% macro mfr_class(mfr) %}
+  {%- if 'HAHA' in mfr %}mfr-haha
+  {%- elif 'Cantaloupe' in mfr %}mfr-cantaloupe
+  {%- elif '365' in mfr %}mfr-365
+  {%- elif 'Micromart' in mfr %}mfr-micromart
+  {%- elif 'SandStar' in mfr %}mfr-sandstar
+  {%- elif 'WEIMI' in mfr %}mfr-weimi
+  {%- endif %}
+{%- endmacro %}
+
+{% macro type_icon(et) %}
+  {%- if et == 'freezer' %}bi-snow
+  {%- elif et == 'ambient' %}bi-bag
+  {%- elif et in ('kiosk', 'micro_market') %}bi-shop
+  {%- else %}bi-box-seam
+  {%- endif %}
+{%- endmacro %}
+
+{% if units %}
+<div class="row g-3" id="unit-grid">
+  {% for unit in units %}
+  <div class="col-md-4 col-lg-4">
+    <div class="card h-100 shadow-sm equip-card" data-unit-id="{{ unit.id }}">
+
+      {# Image or branded placeholder #}
+      <div class="equip-img-wrap {{ mfr_class(unit.manufacturer) }}">
+        {% if unit.image_url %}
+        <img src="{{ unit.image_url }}" alt="{{ unit.product_name }}"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="equip-placeholder" style="display:none;">
+          <i class="bi {{ type_icon(unit.equipment_type) }}" style="font-size:2.5rem;"></i>
+          <span class="small fw-semibold text-muted">{{ unit.manufacturer }}</span>
+        </div>
+        {% else %}
+        <div class="equip-placeholder">
+          <i class="bi {{ type_icon(unit.equipment_type) }}" style="font-size:2.5rem;"></i>
+          <span class="small fw-semibold text-muted">{{ unit.manufacturer }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <span class="badge bg-secondary small">{{ unit.manufacturer }}</span>
+          <span class="badge bg-light text-dark border small">
+            {{ type_labels.get(unit.equipment_type, unit.equipment_type) }}
+          </span>
+        </div>
+        <h6 class="card-title mt-2 mb-1">{{ unit.product_name }}</h6>
+        {% if unit.product_line %}
+        <p class="text-muted small mb-2">{{ unit.product_line }}</p>
+        {% endif %}
+
+        <div class="mb-2">
+          {% if unit.price_low or unit.price_high %}
+            {% if unit.price_low and unit.price_high and unit.price_low != unit.price_high %}
+            <strong class="text-success">
+              ${{ "{:,}".format(unit.price_low) }}–${{ "{:,}".format(unit.price_high) }}
+            </strong>
+            {% elif unit.price_low %}
+            <strong class="text-success">${{ "{:,}".format(unit.price_low) }}</strong>
+            {% else %}
+            <strong class="text-success">From ${{ "{:,}".format(unit.price_high) }}</strong>
+            {% endif %}
+          {% else %}
+          <span class="text-muted small">Price: contact required</span>
+          {% endif %}
+        </div>
+
+        <div class="row g-1 text-muted small">
+          {% if unit.height_in and unit.width_in and unit.depth_in %}
+          <div class="col-12">
+            <i class="bi bi-rulers me-1"></i>
+            {{ unit.height_in }}"H × {{ unit.width_in }}"W × {{ unit.depth_in }}"D
+          </div>
+          {% endif %}
+          {% if unit.capacity_units %}
+          <div class="col-12">
+            <i class="bi bi-grid-3x3-gap me-1"></i>~{{ unit.capacity_units }} units capacity
+          </div>
+          {% endif %}
+          {% if unit.warranty_years %}
+          <div class="col-12">
+            <i class="bi bi-shield-check me-1"></i>{{ unit.warranty_years }}-year warranty
+          </div>
+          {% endif %}
+          {% if unit.delivery_days_min %}
+          <div class="col-12">
+            <i class="bi bi-truck me-1"></i>
+            {% if unit.delivery_days_max and unit.delivery_days_max != unit.delivery_days_min %}
+            {{ unit.delivery_days_min }}–{{ unit.delivery_days_max }} day delivery
+            {% else %}
+            {{ unit.delivery_days_min }} day delivery
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if unit.ai_features %}
+          <div class="col-12">
+            <i class="bi bi-cpu me-1 text-primary"></i>
+            <span class="text-primary">AI Vision</span>
+            {% if unit.ai_accuracy_pct %} · {{ unit.ai_accuracy_pct }}% accuracy{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
+        <div class="form-check mb-0">
+          <input class="form-check-input compare-check" type="checkbox"
+                 value="{{ unit.id }}" id="cmp-{{ unit.id }}">
+          <label class="form-check-label small text-muted" for="cmp-{{ unit.id }}">Compare</label>
+        </div>
+        <a href="/equipment/{{ unit.id }}" class="btn btn-sm btn-outline-secondary">Details</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+  No equipment units match your filters.
+</div>
+{% endif %}

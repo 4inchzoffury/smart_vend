@@ -10,6 +10,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.financial import MachineProForma
+    from app.models.sales import Prospect
 
 
 class Location(Base):
@@ -39,6 +40,7 @@ class Location(Base):
 
     machines: Mapped[list[Machine]] = relationship(back_populates="location")
     proformas: Mapped[list[MachineProForma]] = relationship(back_populates="location")
+    prospects: Mapped[list[Prospect]] = relationship(back_populates="location")
 
 
 class Machine(Base):

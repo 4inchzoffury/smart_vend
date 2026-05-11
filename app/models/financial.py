@@ -33,6 +33,8 @@ class MachineProForma(Base):
     restock_labor_monthly: Mapped[float] = mapped_column(Float, default=0.0)
     supplies_monthly: Mapped[float] = mapped_column(Float, default=0.0)
     insurance_monthly: Mapped[float] = mapped_column(Float, default=0.0)
+    connectivity_monthly: Mapped[float] = mapped_column(Float, default=0.0)
+    software_monthly: Mapped[float] = mapped_column(Float, default=0.0)
     other_opex_monthly: Mapped[float] = mapped_column(Float, default=0.0)
 
     # JSON list of 12 monthly multipliers, e.g. [0.7, 0.8, ..., 1.2]; NULL = flat (all 1.0)

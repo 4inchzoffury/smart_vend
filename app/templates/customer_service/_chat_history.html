@@ -1,0 +1,43 @@
+{# Public chatbot session history #}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h6 class="mb-0 fw-semibold">Public Chatbot Sessions</h6>
+  <small class="text-muted">{{ total_sessions }} session{{ 's' if total_sessions != 1 }}</small>
+</div>
+
+{% if sessions %}
+<div class="accordion" id="chat-history-accordion">
+  {% for s in sessions %}
+  <div class="accordion-item">
+    <h2 class="accordion-header">
+      <button class="accordion-button collapsed py-2 small" type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#session-{{ loop.index }}"
+              hx-get="/chatbot/history/{{ s.session_id }}"
+              hx-target="#session-body-{{ loop.index }}"
+              hx-trigger="click once">
+        <div class="d-flex gap-3 align-items-center w-100 me-3">
+          <code class="text-muted" style="font-size:.72rem">{{ s.session_id[:8] }}…</code>
+          <span class="badge bg-secondary-subtle text-secondary-emphasis border">{{ s.msg_count }} msg{{ 's' if s.msg_count != 1 }}</span>
+          <span class="text-muted flex-grow-1 text-truncate" style="max-width:300px;font-size:.82rem">{{ s.first_message }}</span>
+          <span class="ms-auto text-muted flex-shrink-0" style="font-size:.72rem">{{ s.last_at.strftime('%b %d, %H:%M') if s.last_at else '' }}</span>
+        </div>
+      </button>
+    </h2>
+    <div id="session-{{ loop.index }}" class="accordion-collapse collapse">
+      <div class="accordion-body p-0">
+        <div id="session-body-{{ loop.index }}" class="d-flex flex-column gap-1" style="min-height:60px">
+          <div class="text-center text-muted py-3 small">
+            <div class="spinner-border spinner-border-sm me-1"></div>Loading…
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-chat-square-text fs-2 d-block mb-2 opacity-40"></i>
+  No public chatbot sessions yet.
+</div>
+{% endif %}

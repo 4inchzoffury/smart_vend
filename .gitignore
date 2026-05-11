@@ -221,6 +221,12 @@ __marimo__/
 smart_vend.db
 secrets/
 
+# Server / uvicorn logs and output captures
+uvicorn*.log
+uvicorn*.txt
+server*.log
+server*.txt
+
 # Windows
 desktop.ini
 Thumbs.db

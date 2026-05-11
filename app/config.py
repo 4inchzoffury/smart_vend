@@ -16,11 +16,27 @@ class Settings(BaseSettings):
     gmail_user: str = ""
     gmail_app_password: str = ""
     calendly_url: str = ""
+    calendly_api_key: str = ""
+
+    # Additional AI providers for the customer service chatbot
+    groq_api_key: str = ""
+    gemini_api_key: str = ""
+    openai_api_key: str = ""
+
     company_blurb: str = (
         "Prime Vending is a veteran-owned smart cooler vending company "
         "serving Bay County, FL. We provide modern, cashless smart cooler "
         "machines to gyms, hotels, corporate offices, and other high-traffic venues."
     )
+
+    # Google OAuth (for staff authentication)
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+    session_secret_key: str = "change-me-in-production"
+    # Comma-separated Gmail addresses allowed to access internal app.
+    # Leave empty to allow any Google-authenticated user (not recommended for production).
+    allowed_emails: str = ""
 
 
 settings = Settings()

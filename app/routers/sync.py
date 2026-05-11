@@ -9,9 +9,17 @@ from app.views import templates
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
+SHEET_URLS = {
+    "research": "https://docs.google.com/spreadsheets/d/1fGLxw5XxZwKUY6jxcalWW7eZAenCRZQRs75CcTj75Z4/edit?gid=0#gid=0",
+    "inventory": "https://docs.google.com/spreadsheets/d/1fGLxw5XxZwKUY6jxcalWW7eZAenCRZQRs75CcTj75Z4/edit?gid=674578483#gid=674578483",
+}
+
+
 @router.get("/", response_class=HTMLResponse)
 def sync_index(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "sync/index.html", {"active_nav": "sync"})
+    return templates.TemplateResponse(
+        request, "sync/index.html", {"active_nav": "sync", "sheet_urls": SHEET_URLS}
+    )
 
 
 @router.post("/research/push", response_class=JSONResponse)

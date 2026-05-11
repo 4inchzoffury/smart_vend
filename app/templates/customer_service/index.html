@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Customer Service — Prime Micro Markets{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <h4 class="mb-0"><i class="bi bi-headset me-2 text-primary"></i>Customer Service</h4>
+  <div class="d-flex align-items-center gap-2">
+    {% if gmail_connected %}
+    <span class="badge bg-success"><i class="bi bi-envelope-check me-1"></i>Gmail Connected</span>
+    {% else %}
+    <a href="/customer-service/gmail/connect" class="btn btn-sm btn-outline-warning">
+      <i class="bi bi-envelope-exclamation me-1"></i>Connect Gmail Inbox
+    </a>
+    {% endif %}
+    {% if pending_escalations > 0 %}
+    <span class="badge bg-danger">{{ pending_escalations }} escalation{{ 's' if pending_escalations != 1 }}</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if flash %}
+<div class="alert alert-{{ flash.type }} alert-dismissible fade show" role="alert">
+  {{ flash.message }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<!-- Bootstrap Tabs -->
+<ul class="nav nav-tabs mb-0" id="csTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-manager" type="button">
+      <i class="bi bi-robot me-1"></i>Manager Chat
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-governance" type="button">
+      <i class="bi bi-shield-check me-1"></i>Governance Rules
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-email" type="button">
+      <i class="bi bi-envelope me-1"></i>Email Queue
+      {% if pending_emails > 0 %}
+      <span class="badge bg-danger ms-1">{{ pending_emails }}</span>
+      {% endif %}
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history" type="button">
+      <i class="bi bi-clock-history me-1"></i>Chat History
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-ai" type="button">
+      <i class="bi bi-cpu me-1"></i>AI Settings
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom p-3 bg-body" id="csTabContent">
+
+  <!-- Tab 1: Manager Chat (always loaded) -->
+  <div class="tab-pane fade show active" id="tab-manager">
+    {% include "customer_service/_manager_chat.html" %}
+  </div>
+
+  <!-- Tab 2: Governance Rules -->
+  <div class="tab-pane fade" id="tab-governance"
+       hx-get="/customer-service/governance" hx-trigger="cs-load once" hx-swap="innerHTML">
+    <div class="text-center text-muted py-4 small">
+      <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+    </div>
+  </div>
+
+  <!-- Tab 3: Email Queue -->
+  <div class="tab-pane fade" id="tab-email"
+       hx-get="/customer-service/email-queue" hx-trigger="cs-load once" hx-swap="innerHTML">
+    <div class="text-center text-muted py-4 small">
+      <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+    </div>
+  </div>
+
+  <!-- Tab 4: Chat History -->
+  <div class="tab-pane fade" id="tab-history"
+       hx-get="/customer-service/chat-history" hx-trigger="cs-load once" hx-swap="innerHTML">
+    <div class="text-center text-muted py-4 small">
+      <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+    </div>
+  </div>
+
+  <!-- Tab 5: AI Settings -->
+  <div class="tab-pane fade" id="tab-ai"
+       hx-get="/customer-service/ai-settings" hx-trigger="cs-load once" hx-swap="innerHTML">
+    <div class="text-center text-muted py-4 small">
+      <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Trigger HTMX lazy load when a tab is first shown
+document.querySelectorAll('#csTabs [data-bs-toggle="tab"]').forEach(function(btn) {
+  btn.addEventListener('shown.bs.tab', function(e) {
+    var pane = document.querySelector(e.target.dataset.bsTarget);
+    if (pane) htmx.trigger(pane, 'cs-load');
+  });
+});
+</script>
+{% endblock %}

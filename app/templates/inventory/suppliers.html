@@ -1,68 +1,131 @@
-﻿{% extends "base.html" %}
-{% block title %}Suppliers â€” Prime Vending{% endblock %}
+{% extends "base.html" %}
+{% block title %}Suppliers – Prime Vending{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4">
   <h1 class="h3 mb-0">Suppliers</h1>
-  <a href="/inventory/" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left me-1"></i>Back to Inventory
-  </a>
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+      <i class="bi bi-plus-lg me-1"></i>Add Supplier
+    </button>
+    <a href="/inventory/" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Back to Inventory
+    </a>
+  </div>
 </div>
 
-<div class="row g-3">
-  <div class="col-md-7">
-    {% if suppliers %}
-    <div class="table-responsive">
-      <table class="table table-hover table-sm">
-        <thead class="table-light small">
-          <tr><th>Name</th><th>Type</th><th>Contact</th><th>Products</th></tr>
-        </thead>
-        <tbody>
-          {% for s in suppliers %}
-          <tr>
-            <td class="fw-medium">{{ s.name }}</td>
-            <td class="text-muted small">{{ s.supplier_type | replace("_", " ") | title if s.supplier_type else "â€”" }}</td>
-            <td class="small">{{ s.contact_name or "â€”" }}</td>
-            <td class="small">{{ s.products | length }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <p class="text-muted">No suppliers yet.</p>
-    {% endif %}
-  </div>
-  <div class="col-md-5">
-    <div class="card">
-      <div class="card-header py-2 fw-semibold small">Add Supplier</div>
+{% if suppliers %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+  {% for s in suppliers %}
+  <div class="col" id="supplier-row-{{ s.id }}">
+    <div class="card h-100 shadow-sm">
       <div class="card-body">
-        <form method="post" action="/inventory/suppliers">
-          <div class="mb-2">
-            <label class="form-label small fw-semibold">Name <span class="text-danger">*</span></label>
-            <input type="text" name="name" class="form-control form-control-sm" required
-                   placeholder="e.g. Sam's Club">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <h6 class="card-title mb-0 fw-semibold">{{ s.name }}</h6>
+          {% if s.supplier_type %}
+          <span class="badge bg-secondary ms-2 flex-shrink-0" style="font-size:.7rem">
+            {{ s.supplier_type | replace("_", " ") | title }}
+          </span>
+          {% endif %}
+        </div>
+
+        <div class="small mb-2">
+          {% if s.contact_name %}
+          <div class="text-muted"><i class="bi bi-person me-1"></i>{{ s.contact_name }}</div>
+          {% endif %}
+          {% if s.contact_phone %}
+          <div class="text-muted"><i class="bi bi-telephone me-1"></i>
+            <a href="tel:{{ s.contact_phone }}" class="text-muted text-decoration-none">{{ s.contact_phone }}</a>
           </div>
-          <div class="mb-2">
-            <label class="form-label small fw-semibold">Type</label>
-            <select name="supplier_type" class="form-select form-select-sm">
-              <option value="">â€” Select â€”</option>
-              {% for t in ['warehouse_club', 'broadline_distributor', 'specialty', 'direct_brand'] %}
-              <option value="{{ t }}">{{ t | replace("_", " ") | title }}</option>
-              {% endfor %}
-            </select>
+          {% endif %}
+          {% if s.contact_email %}
+          <div class="text-muted"><i class="bi bi-envelope me-1"></i>
+            <a href="mailto:{{ s.contact_email }}" class="text-muted text-decoration-none">{{ s.contact_email }}</a>
           </div>
-          <div class="mb-2">
-            <label class="form-label small fw-semibold">Contact Name</label>
-            <input type="text" name="contact_name" class="form-control form-control-sm">
+          {% endif %}
+          {% if s.website %}
+          <div><i class="bi bi-globe me-1 text-muted"></i>
+            <a href="{{ s.website }}" target="_blank" rel="noopener" class="text-decoration-none text-truncate d-inline-block" style="max-width:220px;vertical-align:bottom">
+              {{ s.website | replace("https://", "") | replace("http://", "") | truncate(40) }}
+            </a>
           </div>
-          <div class="mb-2">
-            <label class="form-label small fw-semibold">Website</label>
-            <input type="url" name="website" class="form-control form-control-sm">
-          </div>
-          <button type="submit" class="btn btn-primary btn-sm">Add Supplier</button>
-        </form>
+          {% endif %}
+        </div>
+
+        {% if s.notes %}
+        <div class="border-top pt-2 mt-1 small">
+          {% for part in s.notes.split(' | ') %}
+          {% set part = part.strip() %}
+          {% if part %}
+          {% if part.startswith('Categories:') %}
+          <div class="mb-1 text-muted"><i class="bi bi-tags me-1"></i>{{ part }}</div>
+          {% elif part.startswith('Pricing:') %}
+          <div class="mb-1"><i class="bi bi-tag me-1 text-muted"></i>{{ part }}</div>
+          {% elif part.startswith('Delivery:') %}
+          <div class="mb-1"><i class="bi bi-box-seam me-1 text-muted"></i>{{ part }}</div>
+          {% else %}
+          <div class="text-muted"><i class="bi bi-info-circle me-1"></i>{{ part }}</div>
+          {% endif %}
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% set product_count = s.products | length %}
+        <div class="mt-2">
+          {% if product_count > 0 %}
+          <a href="/inventory/?supplier_id={{ s.id }}" class="badge bg-primary text-decoration-none">
+            <i class="bi bi-box me-1"></i>{{ product_count }} product{{ 's' if product_count != 1 }}
+          </a>
+          {% else %}
+          <span class="badge bg-light text-muted border">No products linked</span>
+          {% endif %}
+        </div>
       </div>
+      <div class="card-footer bg-transparent d-flex gap-2">
+        <a href="/inventory/suppliers/{{ s.id }}/edit" class="btn btn-sm btn-outline-secondary flex-fill">
+          <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        <a href="/inventory/?init_supplier={{ s.id }}" class="btn btn-sm btn-outline-primary flex-fill">
+          <i class="bi bi-plus me-1"></i>Add Product
+        </a>
+        <button class="btn btn-sm btn-outline-danger"
+                hx-delete="/inventory/suppliers/{{ s.id }}"
+                hx-confirm="Delete supplier '{{ s.name }}'? This cannot be undone."
+                hx-target="#supplier-row-{{ s.id }}"
+                hx-swap="delete">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-building fs-1 d-block mb-2"></i>
+  No suppliers yet.
+  <button class="btn btn-primary btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#addSupplierModal">Add one</button>
+</div>
+{% endif %}
+
+<!-- Add Supplier Modal -->
+<div class="modal fade" id="addSupplierModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Supplier</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/inventory/suppliers">
+        <div class="modal-body">
+          {% include "inventory/_supplier_form_fields.html" %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Supplier</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

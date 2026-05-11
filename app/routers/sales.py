@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.location import Location
 from app.models.sales import OutreachLog, Prospect
 from app.views import templates
 
@@ -14,11 +15,20 @@ PIPELINE_STAGES = ["lead", "contacted", "site_visit", "proposal", "signed", "los
 
 
 @router.get("/", response_class=HTMLResponse)
-def sales_index(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+def sales_index(
+    request: Request,
+    location_id: int | None = None,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    query = db.query(Prospect).order_by(Prospect.next_action_date)
+    if location_id:
+        query = query.filter(Prospect.location_id == location_id)
     prospects_by_stage: dict[str, list[Prospect]] = {s: [] for s in PIPELINE_STAGES}
-    for prospect in db.query(Prospect).order_by(Prospect.next_action_date).all():
+    for prospect in query.all():
         stage = prospect.pipeline_stage if prospect.pipeline_stage in prospects_by_stage else "lead"
         prospects_by_stage[stage].append(prospect)
+    locations = db.query(Location).order_by(Location.name).all()
+    active_location = db.get(Location, location_id) if location_id else None
     return templates.TemplateResponse(
         request,
         "sales/index.html",
@@ -26,14 +36,44 @@ def sales_index(request: Request, db: Session = Depends(get_db)) -> HTMLResponse
             "active_nav": "sales",
             "prospects_by_stage": prospects_by_stage,
             "stages": PIPELINE_STAGES,
+            "locations": locations,
+            "active_location": active_location,
         },
     )
 
 
 @router.get("/new", response_class=HTMLResponse)
-def prospect_new_form(request: Request) -> HTMLResponse:
+def prospect_new_form(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    locations = db.query(Location).order_by(Location.name).all()
     return templates.TemplateResponse(
-        request, "sales/_prospect_form.html", {"prospect": None}
+        request, "sales/_prospect_form.html", {"prospect": None, "locations": locations}
+    )
+
+
+@router.get("/{prospect_id}/edit", response_class=HTMLResponse)
+def prospect_edit_form(
+    prospect_id: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    prospect = db.get(Prospect, prospect_id)
+    if not prospect:
+        return Response(status_code=404)
+    locations = db.query(Location).order_by(Location.name).all()
+    return templates.TemplateResponse(
+        request, "sales/_prospect_form.html", {"prospect": prospect, "locations": locations}
+    )
+
+
+@router.get("/{prospect_id}/card", response_class=HTMLResponse)
+def prospect_card_modal(
+    prospect_id: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    prospect = db.get(Prospect, prospect_id)
+    if not prospect:
+        return Response(status_code=404)
+    return templates.TemplateResponse(
+        request,
+        "sales/_prospect_modal.html",
+        {"prospect": prospect},
     )
 
 
@@ -45,13 +85,19 @@ def prospect_create(
     contact_title: str = Form(""),
     contact_email: str = Form(""),
     contact_phone: str = Form(""),
+    linkedin_url: str = Form(""),
+    website: str = Form(""),
     venue_type: str = Form(""),
     address: str = Form(""),
     city: str = Form("Panama City"),
     tier: str = Form(""),
     source: str = Form(""),
+    estimated_machines: int = Form(1),
+    foot_traffic_estimate: str = Form(""),
     next_action: str = Form(""),
+    next_action_date: str = Form(""),
     notes: str = Form(""),
+    location_id: int = Form(0),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     prospect = Prospect(
@@ -60,15 +106,69 @@ def prospect_create(
         contact_title=contact_title or None,
         contact_email=contact_email or None,
         contact_phone=contact_phone or None,
+        linkedin_url=linkedin_url or None,
+        website=website or None,
         venue_type=venue_type or None,
         address=address or None,
         city=city,
         tier=tier or None,
         source=source or None,
+        estimated_machines=estimated_machines,
+        foot_traffic_estimate=foot_traffic_estimate or None,
         next_action=next_action or None,
+        next_action_date=date.fromisoformat(next_action_date) if next_action_date else None,
         notes=notes or None,
+        location_id=location_id or None,
     )
     db.add(prospect)
+    db.commit()
+    return RedirectResponse(url="/sales/", status_code=303)
+
+
+@router.post("/{prospect_id}", response_class=HTMLResponse)
+def prospect_update(
+    prospect_id: int,
+    company_name: str = Form(...),
+    contact_name: str = Form(""),
+    contact_title: str = Form(""),
+    contact_email: str = Form(""),
+    contact_phone: str = Form(""),
+    linkedin_url: str = Form(""),
+    website: str = Form(""),
+    venue_type: str = Form(""),
+    address: str = Form(""),
+    city: str = Form("Panama City"),
+    tier: str = Form(""),
+    source: str = Form(""),
+    estimated_machines: int = Form(1),
+    foot_traffic_estimate: str = Form(""),
+    next_action: str = Form(""),
+    next_action_date: str = Form(""),
+    notes: str = Form(""),
+    location_id: int = Form(0),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    prospect = db.get(Prospect, prospect_id)
+    if not prospect:
+        return Response(status_code=404)
+    prospect.company_name = company_name
+    prospect.contact_name = contact_name or None
+    prospect.contact_title = contact_title or None
+    prospect.contact_email = contact_email or None
+    prospect.contact_phone = contact_phone or None
+    prospect.linkedin_url = linkedin_url or None
+    prospect.website = website or None
+    prospect.venue_type = venue_type or None
+    prospect.address = address or None
+    prospect.city = city
+    prospect.tier = tier or None
+    prospect.source = source or None
+    prospect.estimated_machines = estimated_machines
+    prospect.foot_traffic_estimate = foot_traffic_estimate or None
+    prospect.next_action = next_action or None
+    prospect.next_action_date = date.fromisoformat(next_action_date) if next_action_date else None
+    prospect.notes = notes or None
+    prospect.location_id = location_id or None
     db.commit()
     return RedirectResponse(url="/sales/", status_code=303)
 
@@ -105,6 +205,24 @@ def prospect_advance_stage(
     return RedirectResponse(url="/sales/", status_code=303)
 
 
+@router.post("/{prospect_id}/stage/back", response_class=HTMLResponse)
+def prospect_retreat_stage(
+    prospect_id: int, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    prospect = db.get(Prospect, prospect_id)
+    if not prospect:
+        return Response(status_code=404)
+    idx = (
+        PIPELINE_STAGES.index(prospect.pipeline_stage)
+        if prospect.pipeline_stage in PIPELINE_STAGES
+        else 0
+    )
+    if idx > 0:
+        prospect.pipeline_stage = PIPELINE_STAGES[idx - 1]
+        db.commit()
+    return RedirectResponse(url="/sales/", status_code=303)
+
+
 @router.post("/{prospect_id}/log", response_class=HTMLResponse)
 def prospect_log_outreach(
     prospect_id: int,
@@ -129,9 +247,13 @@ def prospect_log_outreach(
 
 
 @router.delete("/{prospect_id}", response_class=HTMLResponse)
-def prospect_delete(prospect_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
+def prospect_delete(
+    prospect_id: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
     prospect = db.get(Prospect, prospect_id)
     if prospect:
         db.delete(prospect)
         db.commit()
+    if request.headers.get("HX-Request"):
+        return HTMLResponse(content="", status_code=200, headers={"HX-Redirect": "/sales/"})
     return HTMLResponse(content="", status_code=200)

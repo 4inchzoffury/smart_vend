@@ -1,0 +1,11 @@
+{# Full conversation for employee Chat History view #}
+<div class="p-3">
+  {% for msg in msgs %}
+  <div class="chat-msg chat-msg--{{ msg.role }} mb-1">
+    <div class="chat-bubble chat-bubble--{{ msg.role }}">{{ msg.content }}</div>
+    <div class="chat-ts">{{ msg.created_at.strftime('%b %d, %H:%M') if msg.created_at else '' }}</div>
+  </div>
+  {% else %}
+  <p class="text-muted small">No messages in this session.</p>
+  {% endfor %}
+</div>

@@ -1,0 +1,88 @@
+{# AI Provider Settings tab content #}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h6 class="fw-semibold mb-1">Chatbot AI Provider</h6>
+    <p class="text-muted small mb-3">
+      Choose which AI model powers the public customer service chatbot. Changes take effect on the next conversation.
+    </p>
+
+    <form hx-post="/customer-service/ai-settings"
+          hx-target="#ai-settings-result"
+          hx-swap="innerHTML">
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small">Provider</label>
+          <select name="provider" id="provider-select" class="form-select"
+                  onchange="filterModels(this.value)">
+            {% for prov_id, prov_name in providers %}
+            <option value="{{ prov_id }}" {{ 'selected' if current_provider == prov_id }}>
+              {{ prov_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold small">Model</label>
+          <select name="model" id="model-select" class="form-select">
+            {% for prov_id, models in provider_models.items() %}
+              {% for m in models %}
+              <option value="{{ m }}"
+                      data-provider="{{ prov_id }}"
+                      {{ 'selected' if current_model == m }}
+                      {{ 'style=display:none' if current_provider != prov_id }}>
+                {{ m }}
+              </option>
+              {% endfor %}
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- API Key status grid -->
+      <div class="card bg-body-secondary mb-3">
+        <div class="card-body p-3">
+          <div class="small fw-semibold mb-2 text-muted text-uppercase" style="font-size:.7rem;letter-spacing:.05em">
+            API Key Status
+          </div>
+          <div class="row g-2">
+            {% for prov_id, prov_name, has_key, tier in key_status %}
+            <div class="col-6 col-md-3">
+              <div class="d-flex align-items-center gap-2 p-2 rounded bg-body border">
+                <i class="bi bi-{{ 'check-circle-fill text-success' if has_key else 'x-circle text-danger' }}"></i>
+                <div>
+                  <div class="small fw-semibold" style="font-size:.78rem">{{ prov_name }}</div>
+                  <div class="text-muted" style="font-size:.68rem">{{ tier }}</div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="mt-2 text-muted" style="font-size:.75rem">
+            API keys are configured in the <code>.env</code> file on the server.
+            Contact your administrator to add a new provider key.
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-save me-1"></i>Save AI Settings
+        </button>
+        <span id="ai-settings-result" class="small text-muted"></span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function filterModels(provider) {
+  var opts = document.querySelectorAll('#model-select option');
+  var first = null;
+  opts.forEach(function(opt) {
+    var show = opt.dataset.provider === provider;
+    opt.style.display = show ? '' : 'none';
+    if (show && !first) first = opt;
+  });
+  if (first) document.getElementById('model-select').value = first.value;
+}
+</script>

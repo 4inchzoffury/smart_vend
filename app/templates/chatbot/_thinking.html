@@ -1,0 +1,14 @@
+{# Polling placeholder — replaced once the assistant reply arrives. #}
+<div id="chat-poll"
+     hx-get="/chatbot/{{ session_id }}/poll?after_id={{ after_id }}"
+     hx-trigger="every 700ms"
+     hx-target="#chat-poll"
+     hx-swap="outerHTML">
+  <div class="chat-msg chat-msg--assistant">
+    <div class="chat-label chat-label--assistant">Prime Micro Markets</div>
+    <div class="chat-bubble chat-bubble--assistant chat-bubble--thinking">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="thinking-text">Crafting a response…</span>
+    </div>
+  </div>
+</div>

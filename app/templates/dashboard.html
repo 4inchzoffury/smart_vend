@@ -1,15 +1,15 @@
 ﻿{% extends "base.html" %}
-{% block title %}Dashboard â€” Prime Vending{% endblock %}
+{% block title %}Dashboard – Prime Vending{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 mb-0">Dashboard</h1>
-  <small class="text-muted">Prime Vending Â· Panama City, FL</small>
+  <small class="text-muted">Prime Vending · Panama City, FL</small>
 </div>
 
 <div class="row g-3">
 
-  <div class="col-md-4 col-lg-4">
+  <div class="col-6 col-md-4">
     <div class="card h-100 border-primary border-opacity-25">
       <div class="card-body">
         <h6 class="card-title text-primary">
@@ -29,7 +29,7 @@
     </div>
   </div>
 
-  <div class="col-md-4 col-lg-4">
+  <div class="col-6 col-md-4">
     <div class="card h-100 border-success border-opacity-25">
       <div class="card-body">
         <h6 class="card-title text-success">
@@ -44,7 +44,7 @@
     </div>
   </div>
 
-  <div class="col-md-4 col-lg-4">
+  <div class="col-6 col-md-4">
     <div class="card h-100 border-info border-opacity-25">
       <div class="card-body">
         <h6 class="card-title text-info">
@@ -61,7 +61,7 @@
     </div>
   </div>
 
-  <div class="col-md-4 col-lg-4">
+  <div class="col-6 col-md-4">
     <div class="card h-100 border-warning border-opacity-25">
       <div class="card-body">
         <h6 class="card-title text-warning">
@@ -79,7 +79,7 @@
     </div>
   </div>
 
-  <div class="col-md-4 col-lg-4">
+  <div class="col-6 col-md-4">
     <div class="card h-100 border-danger border-opacity-25">
       <div class="card-body">
         <h6 class="card-title text-danger">
@@ -98,28 +98,63 @@
     </div>
   </div>
 
-  <div class="col-md-4 col-lg-4">
-    <div class="card h-100">
+  <div class="col-6 col-md-4">
+    <div class="card h-100 border-teal border-opacity-25">
       <div class="card-body">
-        <h6 class="card-title text-secondary">
-          <i class="bi bi-arrow-repeat me-1"></i>Google Sheets Sync
+        <h6 class="card-title text-teal">
+          <i class="bi bi-headset me-1"></i>Customer Service
         </h6>
-        <p class="text-muted small mb-0">Last sync: {{ last_sync or "Never" }}</p>
+        <p class="card-text">
+          {% if cs_pending_emails > 0 %}
+          <span class="badge bg-warning text-dark">{{ cs_pending_emails }} email{{ "s" if cs_pending_emails != 1 }} pending</span>
+          {% else %}
+          <span class="badge bg-success">Inbox clear</span>
+          {% endif %}
+        </p>
       </div>
       <div class="card-footer bg-transparent">
-        <a href="/sync/" class="btn btn-sm btn-outline-secondary">Sync Now</a>
+        <a href="/customer-service/" class="btn btn-sm btn-outline-info">Manage</a>
       </div>
     </div>
   </div>
 
 
-  <div class="col-md-4 col-lg-4">
-    <div class="card h-100 border-purple border-opacity-25" style="border-color: #6f42c1 !important;">
+  <div class="col-6 col-md-4">
+    <div class="card h-100 border border-pmm-sky">
       <div class="card-body">
-        <h6 class="card-title" style="color: #6f42c1;">
+        <h6 class="card-title text-pmm-sky">
+          <i class="bi bi-box-seam me-1"></i>Equipment Catalog
+        </h6>
+        <p class="text-muted small mb-1">Specs, pricing &amp; warranty for top manufacturers</p>
+        <span class="badge bg-secondary">{{ equipment_count }} units</span>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/equipment/" class="btn btn-sm btn-outline-info">Browse Equipment</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-4">
+    <div class="card h-100 border border-pmm-emerald">
+      <div class="card-body">
+        <h6 class="card-title text-pmm-emerald">
+          <i class="bi bi-globe me-1"></i>Client Portal
+        </h6>
+        <p class="text-muted small mb-0">Public-facing site — contact form &amp; location assessment request</p>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/" target="_blank" class="btn btn-sm btn-outline-success">Open Site</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-4">
+    <div class="card h-100 border border-pmm-purple">
+      <div class="card-body">
+        <h6 class="card-title text-pmm-purple">
           <i class="bi bi-robot me-1"></i>AI Lead Generation
           {% if leads_running > 0 %}
-          <span class="spinner-border spinner-border-sm ms-1" style="width:.7rem;height:.7rem;color:#6f42c1;"></span>
+          <span class="spinner-border spinner-border-sm ms-1 text-pmm-purple" style="width:.7rem;height:.7rem;"></span>
           {% endif %}
         </h6>
         <p class="card-text">

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Compare Equipment – Prime Vending{% endblock %}
+
+{% block content %}
+<style>
+  @media print {
+    .navbar, .btn, .breadcrumb, .no-print { display: none !important; }
+  }
+  .cmp-best { background: rgba(25, 135, 84, .08); font-weight: 600; }
+  .cmp-label { color: #6c757d; font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .cmp-section td { border-top: 2px solid #dee2e6 !important; }
+</style>
+
+<nav aria-label="breadcrumb" class="mb-3 no-print">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/equipment/">Equipment Catalog</a></li>
+    <li class="breadcrumb-item active">Compare</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Equipment Comparison</h1>
+  <button class="btn btn-sm btn-outline-secondary no-print" onclick="window.print()">
+    <i class="bi bi-printer me-1"></i>Print / PDF
+  </button>
+</div>
+
+{% if units|length < 2 %}
+<div class="alert alert-warning">Select at least 2 units from the <a href="/equipment/">catalog</a> to compare.</div>
+{% else %}
+
+{% set u = units %}
+
+{# Helper: find best value for numeric comparisons #}
+{% macro best_low(attr) %}
+  {%- set vals = [] -%}
+  {%- for unit in units -%}{%- if unit[attr] is not none -%}{{- vals.append(unit[attr]) or "" -}}{%- endif -%}{%- endfor -%}
+  {{ vals | min if vals else "" }}
+{%- endmacro %}
+
+{% macro best_high(attr) %}
+  {%- set vals = [] -%}
+  {%- for unit in units -%}{%- if unit[attr] is not none -%}{{- vals.append(unit[attr]) or "" -}}{%- endif -%}{%- endfor -%}
+  {{ vals | max if vals else "" }}
+{%- endmacro %}
+
+<div class="table-responsive">
+<table class="table table-bordered align-middle" style="min-width: {{ 200 + units|length * 180 }}px;">
+  <thead class="table-light">
+    <tr>
+      <th style="width:180px"></th>
+      {% for unit in units %}
+      <th class="text-center" style="min-width:180px">
+        <div class="fw-bold">{{ unit.product_name }}</div>
+        <div class="badge bg-secondary">{{ unit.manufacturer }}</div>
+        <div class="small text-muted mt-1">{{ type_labels.get(unit.equipment_type, unit.equipment_type) }}</div>
+        <div class="mt-2 no-print">
+          <a href="/equipment/{{ unit.id }}" class="btn btn-sm btn-outline-secondary">Full Details</a>
+        </div>
+      </th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+
+    {# Pricing #}
+    <tr class="cmp-section"><td colspan="{{ units|length + 1 }}" class="cmp-label py-1 px-2">Pricing</td></tr>
+    <tr>
+      <td class="text-muted small">Purchase Price</td>
+      {% for unit in units %}
+      <td class="text-center {% if unit.price_low and unit.price_low | string == best_low('price_low') %}cmp-best{% endif %}">
+        {% if unit.price_low or unit.price_high %}
+          {% if unit.price_low and unit.price_high and unit.price_low != unit.price_high %}
+          ${{ "{:,}".format(unit.price_low) }}–${{ "{:,}".format(unit.price_high) }}
+          {% elif unit.price_low %}
+          ${{ "{:,}".format(unit.price_low) }}
+          {% else %}
+          From ${{ "{:,}".format(unit.price_high) }}
+          {% endif %}
+        {% else %}
+        <span class="text-muted small">Contact</span>
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Platform Fee/mo</td>
+      {% for unit in units %}
+      <td class="text-center">{% if unit.monthly_fee %}${{ unit.monthly_fee }}{% else %}—{% endif %}</td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Processing Fee</td>
+      {% for unit in units %}
+      <td class="text-center">{% if unit.processing_fee_pct %}{{ unit.processing_fee_pct }}%{% else %}—{% endif %}</td>
+      {% endfor %}
+    </tr>
+
+    {# Warranty #}
+    <tr class="cmp-section"><td colspan="{{ units|length + 1 }}" class="cmp-label py-1 px-2">Warranty</td></tr>
+    <tr>
+      <td class="text-muted small">Standard</td>
+      {% for unit in units %}
+      <td class="text-center {% if unit.warranty_years and unit.warranty_years | string == best_high('warranty_years') %}cmp-best{% endif %}">
+        {% if unit.warranty_years %}{{ unit.warranty_years }} yr{{ "s" if unit.warranty_years != 1 }}{% else %}—{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Extended Warranty</td>
+      {% for unit in units %}
+      <td class="text-center">
+        {% if unit.extended_warranty_available %}
+        <span class="badge bg-success">Yes</span>
+        {% else %}
+        <span class="text-muted small">—</span>
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+
+    {# Dimensions #}
+    <tr class="cmp-section"><td colspan="{{ units|length + 1 }}" class="cmp-label py-1 px-2">Dimensions &amp; Weight</td></tr>
+    <tr>
+      <td class="text-muted small">H × W × D (in)</td>
+      {% for unit in units %}
+      <td class="text-center small">
+        {% if unit.height_in and unit.width_in and unit.depth_in %}
+        {{ unit.height_in }}" × {{ unit.width_in }}" × {{ unit.depth_in }}"
+        {% else %}—{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Weight (lbs)</td>
+      {% for unit in units %}
+      <td class="text-center">{% if unit.weight_lbs %}{{ unit.weight_lbs }}{% else %}—{% endif %}</td>
+      {% endfor %}
+    </tr>
+
+    {# Capacity #}
+    <tr class="cmp-section"><td colspan="{{ units|length + 1 }}" class="cmp-label py-1 px-2">Capacity &amp; Power</td></tr>
+    <tr>
+      <td class="text-muted small">Volume (cu ft)</td>
+      {% for unit in units %}
+      <td class="text-center {% if unit.capacity_cu_ft and unit.capacity_cu_ft | string == best_high('capacity_cu_ft') %}cmp-best{% endif %}">
+        {% if unit.capacity_cu_ft %}{{ unit.capacity_cu_ft }}{% else %}—{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Approx. Units</td>
+      {% for unit in units %}
+      <td class="text-center {% if unit.capacity_units and unit.capacity_units | string == best_high('capacity_units') %}cmp-best{% endif %}">
+        {% if unit.capacity_units %}~{{ unit.capacity_units }}{% else %}—{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Power (watts)</td>
+      {% for unit in units %}
+      <td class="text-center {% if unit.power_watts and unit.power_watts | string == best_low('power_watts') %}cmp-best{% endif %}">
+        {% if unit.power_watts %}{{ unit.power_watts }}W{% else %}—{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Temp Range</td>
+      {% for unit in units %}
+      <td class="text-center small">
+        {% if unit.operating_temp_low is not none and unit.operating_temp_high is not none %}
+        {{ unit.operating_temp_low }}°–{{ unit.operating_temp_high }}°F
+        {% else %}—{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+
+    {# Technology #}
+    <tr class="cmp-section"><td colspan="{{ units|length + 1 }}" class="cmp-label py-1 px-2">Technology</td></tr>
+    <tr>
+      <td class="text-muted small">AI Vision</td>
+      {% for unit in units %}
+      <td class="text-center">
+        {% if unit.ai_features %}<span class="badge bg-primary">Yes</span>{% else %}<span class="text-muted">No</span>{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">AI Accuracy</td>
+      {% for unit in units %}
+      <td class="text-center {% if unit.ai_accuracy_pct and unit.ai_accuracy_pct | string == best_high('ai_accuracy_pct') %}cmp-best{% endif %}">
+        {% if unit.ai_accuracy_pct %}{{ unit.ai_accuracy_pct }}%{% else %}—{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Connectivity</td>
+      {% for unit in units %}
+      <td class="text-center small">{{ unit.connectivity or "—" }}</td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Payment Types</td>
+      {% for unit in units %}
+      <td class="text-center small">{{ unit.payment_types or "—" }}</td>
+      {% endfor %}
+    </tr>
+    <tr>
+      <td class="text-muted small">Certifications</td>
+      {% for unit in units %}
+      <td class="text-center small">{{ unit.certifications or "—" }}</td>
+      {% endfor %}
+    </tr>
+
+    {# Delivery #}
+    <tr class="cmp-section"><td colspan="{{ units|length + 1 }}" class="cmp-label py-1 px-2">Delivery</td></tr>
+    <tr>
+      <td class="text-muted small">Lead Time</td>
+      {% for unit in units %}
+      <td class="text-center {% if unit.delivery_days_min and unit.delivery_days_min | string == best_low('delivery_days_min') %}cmp-best{% endif %}">
+        {% if unit.delivery_days_min %}
+          {% if unit.delivery_days_max and unit.delivery_days_max != unit.delivery_days_min %}
+          {{ unit.delivery_days_min }}–{{ unit.delivery_days_max }} days
+          {% else %}
+          ~{{ unit.delivery_days_min }} days
+          {% endif %}
+        {% else %}—{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+
+  </tbody>
+</table>
+</div>
+
+<p class="text-muted small mt-2 no-print">
+  <span class="badge" style="background:#d1e7dd;color:#0a3622;">Green highlight</span> = best value in that category.
+  Data confidence varies by source — always verify with the manufacturer before purchasing.
+</p>
+{% endif %}
+{% endblock %}

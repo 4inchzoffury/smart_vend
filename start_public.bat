@@ -7,11 +7,29 @@ echo   https://app.primemicromarkets.com
 echo  ================================================
 echo.
 
+:: --- Pre-flight: cloudflared must be installed ---
+where cloudflared >nul 2>&1
+if errorlevel 1 (
+    echo  [ERROR] cloudflared is not installed or not on PATH.
+    echo.
+    echo  Run this command to install it, then re-run this script:
+    echo.
+    echo      winget install Cloudflare.cloudflared
+    echo.
+    echo  After installing, open a NEW terminal so PATH is refreshed.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo  [OK] cloudflared found.
+echo.
+
 echo Starting Cloudflare Tunnel...
 start "Cloudflare Tunnel" cloudflared tunnel run prime-markets
 
 echo Waiting for tunnel to connect...
-timeout /t 3 /nobreak > nul
+timeout /t 5 /nobreak > nul
 
 echo Starting app server...
 echo.

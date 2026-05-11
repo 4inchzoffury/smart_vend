@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -23,6 +23,12 @@ class AgentJob(Base):
 
     draft_subject: Mapped[str | None] = mapped_column(String(300), nullable=True)
     draft_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    preview_mode: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    tokens_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ratelimit_tokens_remaining: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ratelimit_tokens_reset: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     agent_log: Mapped[str | None] = mapped_column(Text, nullable=True)

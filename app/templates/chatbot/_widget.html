@@ -1,0 +1,169 @@
+{# Floating customer service chat widget — included at the bottom of landing.html #}
+
+<!-- Chat FAB (floating action button) -->
+<button id="chat-fab"
+        onclick="toggleChat()"
+        aria-label="Open chat"
+        title="Chat with us"
+        style="position:fixed;bottom:28px;right:28px;z-index:1060;width:60px;height:60px;border-radius:50%;
+               background:linear-gradient(135deg,#0077b6,#00b4d8);border:none;box-shadow:0 4px 16px rgba(0,0,0,0.25);
+               display:flex;align-items:center;justify-content:center;cursor:pointer;">
+  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="white" viewBox="0 0 16 16">
+    <path d="M8 15c4.418 0 8-3.134 8-7s-3.582-7-8-7-8 3.134-8 7c0 1.76.743 3.37 1.97 4.6-.097 1.016-.417 2.13-.771 2.966-.079.186.074.394.273.362 2.256-.37 3.597-.938 4.18-1.234A9.06 9.06 0 0 0 8 15z"/>
+  </svg>
+</button>
+
+<!-- Chat panel -->
+<div id="chat-panel"
+     style="display:none;position:fixed;bottom:100px;right:28px;z-index:1055;width:360px;max-height:520px;
+            background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);
+            display:flex;flex-direction:column;overflow:hidden;"
+     class="d-none">
+
+  <!-- Header -->
+  <div style="background:linear-gradient(135deg,#0077b6,#00b4d8);padding:14px 16px;
+              display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);
+                  display:flex;align-items:center;justify-content:center;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="white" viewBox="0 0 16 16">
+          <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+        </svg>
+      </div>
+      <div>
+        <div style="color:#fff;font-weight:600;font-size:.9rem;line-height:1.2;">Prime Micro Markets</div>
+        <div style="color:rgba(255,255,255,0.8);font-size:.72rem;">AI Assistant • Typically replies instantly</div>
+      </div>
+    </div>
+    <button onclick="toggleChat()" style="background:none;border:none;color:rgba(255,255,255,0.8);
+            cursor:pointer;padding:4px;font-size:1.2rem;line-height:1;" aria-label="Close chat">✕</button>
+  </div>
+
+  <!-- Messages -->
+  <div id="chat-messages"
+       style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px;min-height:0;"
+       hx-ext="ignore:*">
+    <div class="chat-msg chat-msg--assistant">
+      <div class="chat-label chat-label--assistant">Prime Micro Markets</div>
+      <div class="chat-bubble chat-bubble--assistant">
+        Hi there! 👋 I'm the Prime Micro Markets assistant. I can answer questions about our smart cooler
+        vending program, help you schedule a meeting, or connect you with our team.
+        How can I help you today?
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div style="padding:10px 12px;border-top:1px solid #e9ecef;background:#f8f9fa;">
+    <form id="chat-form"
+          hx-post="/chatbot/message"
+          hx-target="#chat-messages"
+          hx-swap="beforeend"
+          hx-on::before-request="onBeforeChatSend(this)"
+          hx-on::after-request="onAfterChatSend(this)"
+          style="display:flex;gap:8px;align-items:center;">
+      <input type="hidden" name="session_id" id="chat-session-id" value="new">
+      <input type="text"
+             name="message"
+             id="chat-input"
+             class="form-control form-control-sm"
+             placeholder="Type a message…"
+             required
+             autocomplete="off"
+             style="flex:1;border-radius:20px;border:1px solid #dee2e6;padding:6px 14px;">
+      <button type="submit"
+              style="background:linear-gradient(135deg,#0077b6,#00b4d8);border:none;border-radius:50%;
+                     width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+                     cursor:pointer;flex-shrink:0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" viewBox="0 0 16 16">
+          <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471z"/>
+        </svg>
+      </button>
+    </form>
+    <div style="text-align:center;margin-top:6px;">
+      <small style="color:#adb5bd;font-size:.65rem;">Powered by AI • Responses may not be perfect</small>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var LS_KEY = 'pmm_chat_session';
+  var sid = localStorage.getItem(LS_KEY);
+  if (!sid) {
+    sid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+    localStorage.setItem(LS_KEY, sid);
+  }
+  document.getElementById('chat-session-id').value = sid;
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function now24() {
+    var d = new Date();
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  }
+
+  window.toggleChat = function () {
+    var panel = document.getElementById('chat-panel');
+    var fab   = document.getElementById('chat-fab');
+    if (panel.classList.contains('d-none')) {
+      panel.classList.remove('d-none');
+      panel.style.display = 'flex';
+      fab.style.display = 'none';
+      document.getElementById('chat-input').focus();
+      var msgs = document.getElementById('chat-messages');
+      msgs.scrollTop = msgs.scrollHeight;
+    } else {
+      panel.classList.add('d-none');
+      panel.style.display = 'none';
+      fab.style.display = 'flex';
+    }
+  };
+
+  // Fires just before HTMX sends the request — add user bubble + thinking indicator immediately
+  window.onBeforeChatSend = function (form) {
+    var input = document.getElementById('chat-input');
+    var text = input.value.trim();
+    if (!text) return;
+    var msgs = document.getElementById('chat-messages');
+
+    var userDiv = document.createElement('div');
+    userDiv.className = 'chat-msg chat-msg--user';
+    userDiv.innerHTML =
+      '<div class="chat-label chat-label--user">You</div>' +
+      '<div class="chat-bubble chat-bubble--user">' + escHtml(text) + '</div>' +
+      '<div class="chat-ts">' + now24() + '</div>';
+    msgs.appendChild(userDiv);
+
+    var thinkDiv = document.createElement('div');
+    thinkDiv.id = 'chat-thinking-indicator';
+    thinkDiv.innerHTML =
+      '<div class="chat-msg chat-msg--assistant">' +
+        '<div class="chat-label chat-label--assistant">Prime Micro Markets</div>' +
+        '<div class="chat-bubble chat-bubble--assistant chat-bubble--thinking">' +
+          '<span class="dot"></span><span class="dot"></span><span class="dot"></span>' +
+          '<span class="thinking-text">Crafting a response…</span>' +
+        '</div>' +
+      '</div>';
+    msgs.appendChild(thinkDiv);
+    msgs.scrollTop = msgs.scrollHeight;
+  };
+
+  // Fires after HTMX receives the response — remove thinking indicator, reset form
+  window.onAfterChatSend = function (form) {
+    var thinking = document.getElementById('chat-thinking-indicator');
+    if (thinking) thinking.remove();
+    form.reset();
+    document.getElementById('chat-session-id').value = sid;
+    var msgs = document.getElementById('chat-messages');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  };
+})();
+</script>

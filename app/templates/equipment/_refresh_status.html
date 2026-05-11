@@ -1,0 +1,55 @@
+{% if job %}
+<div id="refresh-status-card"
+     hx-get="/equipment/refresh/{{ job.id }}/poll"
+     hx-trigger="{{ 'every 2s' if job.status in ('pending', 'running') else 'none' }}"
+     hx-swap="outerHTML">
+
+  {% if job.status == 'pending' %}
+  <div class="alert alert-secondary d-flex align-items-center gap-3">
+    <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+    <div><strong>Pending</strong> — queued for processing…</div>
+  </div>
+
+  {% elif job.status == 'running' %}
+  <div class="alert alert-info d-flex align-items-center gap-3">
+    <div class="spinner-border spinner-border-sm text-info" role="status"></div>
+    <div>
+      <strong>Running</strong> — AI is searching manufacturer sites for current specs…
+      {% if job.started_at %}
+      <br><small class="text-muted">Started {{ job.started_at.strftime('%H:%M:%S') }}</small>
+      {% endif %}
+    </div>
+  </div>
+
+  {% elif job.status == 'done' %}
+  <div class="alert alert-success">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-check-circle-fill fs-5"></i>
+      <strong>Refresh Complete</strong>
+      {% if job.finished_at %}
+      <small class="text-muted ms-auto">{{ job.finished_at.strftime('%H:%M:%S') }}</small>
+      {% endif %}
+    </div>
+    <p class="mb-2">
+      <i class="bi bi-box-seam me-1"></i>
+      <strong>{{ job.prospects_created }}</strong>
+      equipment unit{{ "s" if job.prospects_created != 1 else "" }} updated with fresh data.
+    </p>
+    <a href="/equipment/" class="btn btn-sm btn-success">
+      <i class="bi bi-arrow-left me-1"></i>Back to Catalog
+    </a>
+  </div>
+
+  {% elif job.status == 'error' %}
+  <div class="alert alert-danger">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+      <strong>Refresh Failed</strong>
+    </div>
+    <p class="mb-2 font-monospace small">{{ job.error_message or "Unknown error" }}</p>
+    <a href="/equipment/refresh" class="btn btn-sm btn-outline-danger">Try Again</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endif %}

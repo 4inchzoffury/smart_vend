@@ -1,0 +1,107 @@
+<div id="inventory-search-status-card"
+     hx-get="/inventory/search/{{ job.id }}/poll"
+     hx-trigger="{{ 'every 2s' if job.status in ('pending', 'running') else 'none' }}"
+     hx-swap="outerHTML">
+
+  {% if job.status == 'pending' %}
+  <div class="alert alert-secondary d-flex align-items-center gap-3">
+    <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+    <div><strong>Pending</strong> — waiting to start…</div>
+  </div>
+
+  {% elif job.status == 'running' %}
+  <div class="alert alert-info d-flex align-items-center gap-3">
+    <div class="spinner-border spinner-border-sm text-info" role="status"></div>
+    <div>
+      <strong>Running</strong> — agent is searching the web for suppliers…
+      {% if job.started_at %}
+      <br><small class="text-muted">Started {{ job.started_at.strftime('%H:%M:%S') }}</small>
+      {% endif %}
+    </div>
+  </div>
+
+  {% elif job.status == 'done' %}
+  <div class="alert alert-success">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-check-circle-fill fs-5"></i>
+      <strong>Complete</strong>
+      {% if job.finished_at %}
+      <small class="text-muted ms-auto">Finished {{ job.finished_at.strftime('%H:%M:%S') }}</small>
+      {% endif %}
+    </div>
+    <div class="d-flex gap-3 flex-wrap mb-2">
+      <span><i class="bi bi-truck me-1"></i><strong>{{ job.prospects_found }}</strong> suppliers found</span>
+      <span><i class="bi bi-plus-circle me-1"></i><strong>{{ job.prospects_created }}</strong> new added</span>
+      {% if job.prospects_skipped > 0 %}
+      <span class="text-muted"><i class="bi bi-skip-forward me-1"></i>{{ job.prospects_skipped }} already existed</span>
+      {% endif %}
+      {% if job.tokens_used %}
+      <span class="text-muted"><i class="bi bi-lightning-charge me-1"></i>{{ "{:,}".format(job.tokens_used) }} tokens</span>
+      {% endif %}
+    </div>
+    <a href="/inventory/search/{{ job.id }}" class="btn btn-sm btn-success me-1">
+      <i class="bi bi-list-ul me-1"></i>View Results
+    </a>
+    <a href="/inventory/suppliers" class="btn btn-sm btn-outline-secondary me-1">
+      <i class="bi bi-building me-1"></i>All Suppliers
+    </a>
+    <a href="/inventory/search" class="btn btn-sm btn-outline-secondary">Run Another</a>
+  </div>
+
+  {% elif job.status == 'error' %}
+  <div class="alert alert-danger">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+      <strong>Error</strong>
+    </div>
+    <p class="mb-2 font-monospace small">{{ job.error_message or "Unknown error" }}</p>
+    <a href="/inventory/search" class="btn btn-sm btn-outline-danger">Back to Sourcing</a>
+  </div>
+  {% endif %}
+
+  {# Search activity log — visible once done or errored #}
+  {% if job.status in ('done', 'error') and job.agent_log %}
+  <div class="mt-2">
+    <button class="btn btn-link btn-sm p-0 text-muted text-decoration-none"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#search-log-{{ job.id }}">
+      <i class="bi bi-terminal me-1"></i>Show search activity
+    </button>
+    <div class="collapse mt-2" id="search-log-{{ job.id }}">
+      <div class="card border-0 bg-light">
+        <div class="card-body py-2 px-3" style="font-size:.78rem; max-height:280px; overflow-y:auto">
+          {% set entries = job.agent_log | fromjson %}
+          {% for entry in entries %}
+          <div class="d-flex gap-2 py-1 border-bottom border-light">
+            {% if entry.event == 'tool_call' %}
+            <span class="text-muted">#{{ entry.n }}</span>
+            <i class="bi bi-search text-primary flex-shrink-0 mt-1" style="font-size:.8rem"></i>
+            <span>{{ entry.query }}</span>
+            {% elif entry.event == 'end_turn' %}
+            <i class="bi bi-check-circle text-success flex-shrink-0 mt-1"></i>
+            <span>Compiled — <strong>{{ entry.suppliers_parsed }}</strong> suppliers extracted</span>
+            {% if entry.response_preview %}
+            <details class="ms-2"><summary class="text-muted" style="cursor:pointer">preview</summary>
+            <pre class="mt-1 text-muted" style="font-size:.7rem;white-space:pre-wrap">{{ entry.response_preview }}</pre>
+            </details>
+            {% endif %}
+            {% elif entry.event == 'forced_compile' %}
+            <i class="bi bi-arrow-repeat text-warning flex-shrink-0 mt-1"></i>
+            <span>Forced compile (search limit reached) — <strong>{{ entry.suppliers_parsed }}</strong> suppliers extracted</span>
+            {% elif entry.event == 'max_tool_calls_reached' %}
+            <i class="bi bi-exclamation-circle text-warning flex-shrink-0 mt-1"></i>
+            <span class="text-warning">Search limit reached — requesting final compilation…</span>
+            {% else %}
+            <i class="bi bi-info-circle text-muted flex-shrink-0 mt-1"></i>
+            <span class="text-muted">{{ entry.event }}</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>

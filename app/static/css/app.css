@@ -1,27 +1,502 @@
-/* Status badge colors */
-.status-not_started { background-color: #6c757d; color: #fff; }
-.status-in_progress { background-color: #ffc107; color: #000; }
-.status-blocked     { background-color: #dc3545; color: #fff; }
-.status-done        { background-color: #198754; color: #fff; }
+/* ============================================================
+   Prime Micro Markets — App Styles
+   ============================================================ */
 
-/* Priority badge colors */
-.priority-high   { background-color: #dc3545; color: #fff; }
-.priority-medium { background-color: #0dcaf0; color: #000; }
-.priority-low    { background-color: #adb5bd; color: #000; }
+/* ---- Typography ------------------------------------------ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
-/* Location status */
-.loc-status-prospect   { background-color: #6c757d; color: #fff; }
-.loc-status-pending    { background-color: #ffc107; color: #000; }
-.loc-status-active     { background-color: #198754; color: #fff; }
-.loc-status-maintenance{ background-color: #0d6efd; color: #fff; }
-.loc-status-inactive   { background-color: #dee2e6; color: #000; }
+body {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
 
-/* Subtle navbar border */
-.navbar { border-bottom: 1px solid rgba(255,255,255,0.1); }
+code, pre, kbd, .font-monospace {
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+}
 
-/* Card header tighten */
-.card-header { font-size: 0.875rem; }
+/* ---- Theme transition ------------------------------------ */
+*,
+*::before,
+*::after {
+  transition:
+    background-color 0.2s ease,
+    color            0.2s ease,
+    border-color     0.2s ease,
+    box-shadow       0.2s ease;
+}
 
-/* HTMX loading indicator */
+/* Suppress transitions on elements that shouldn't animate
+   (avoids Bootstrap modal backdrop weirdness) */
+.modal,
+.modal-backdrop,
+.collapse,
+.collapsing,
+.htmx-indicator {
+  transition: none !important;
+}
+
+/* ============================================================
+   LIGHT MODE TOKENS
+   ============================================================ */
+[data-bs-theme="light"] {
+  /* Semantic text */
+  --pmm-muted:        #5c6b7a;
+  --pmm-info-text:    #0369a1;   /* replaces Bootstrap's too-pale cyan */
+  --pmm-warn-text:    #92400e;   /* replaces Bootstrap's invisible yellow */
+
+  /* Status badge */
+  --badge-not-started-bg: #e9ecef;  --badge-not-started-fg: #3d4a56;
+  --badge-in-progress-bg: #fff3cd; --badge-in-progress-fg: #6d3d00;
+  --badge-blocked-bg:     #fde8e8; --badge-blocked-fg:     #8b1a1a;
+  --badge-done-bg:        #d1fae5; --badge-done-fg:        #14532d;
+
+  /* Priority badge */
+  --badge-high-bg:  #fde8e8; --badge-high-fg:  #8b1a1a;
+  --badge-med-bg:   #dbeafe; --badge-med-fg:   #1e40af;
+  --badge-low-bg:   #f1f5f9; --badge-low-fg:   #475569;
+
+  /* Location status */
+  --loc-prospect-bg:    #f1f5f9; --loc-prospect-fg:    #475569;
+  --loc-pending-bg:     #fff3cd; --loc-pending-fg:     #6d3d00;
+  --loc-active-bg:      #d1fae5; --loc-active-fg:      #14532d;
+  --loc-maintenance-bg: #dbeafe; --loc-maintenance-fg: #1e40af;
+  --loc-inactive-bg:    #f8f9fa; --loc-inactive-fg:    #6c757d;
+
+  /* Form & card accents */
+  --pmm-focus-ring:  rgba(3, 105, 161, 0.2);
+  --pmm-focus-border: #0369a1;
+  --pmm-card-shadow: 0 1px 3px rgba(0,0,0,0.07);
+}
+
+/* ============================================================
+   DARK MODE TOKENS
+   ============================================================ */
+[data-bs-theme="dark"] {
+  /* Semantic text */
+  --pmm-muted:        #8a9ab0;
+  --pmm-info-text:    #38bdf8;
+  --pmm-warn-text:    #fbbf24;
+
+  /* Status badge */
+  --badge-not-started-bg: #1e293b; --badge-not-started-fg: #94a3b8;
+  --badge-in-progress-bg: #3a2000; --badge-in-progress-fg: #fbbf24;
+  --badge-blocked-bg:     #3b0f0f; --badge-blocked-fg:     #fca5a5;
+  --badge-done-bg:        #052e16; --badge-done-fg:        #86efac;
+
+  /* Priority badge */
+  --badge-high-bg:  #3b0f0f; --badge-high-fg:  #fca5a5;
+  --badge-med-bg:   #0c2340; --badge-med-fg:   #93c5fd;
+  --badge-low-bg:   #1e293b; --badge-low-fg:   #94a3b8;
+
+  /* Location status */
+  --loc-prospect-bg:    #1e293b; --loc-prospect-fg:    #94a3b8;
+  --loc-pending-bg:     #3a2000; --loc-pending-fg:     #fbbf24;
+  --loc-active-bg:      #052e16; --loc-active-fg:      #86efac;
+  --loc-maintenance-bg: #0c2340; --loc-maintenance-fg: #93c5fd;
+  --loc-inactive-bg:    #12161e; --loc-inactive-fg:    #64748b;
+
+  /* Form & card accents */
+  --pmm-focus-ring:   rgba(56, 189, 248, 0.2);
+  --pmm-focus-border: #38bdf8;
+  --pmm-card-shadow:  0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* ============================================================
+   STATUS BADGES
+   ============================================================ */
+.status-not_started { background-color: var(--badge-not-started-bg); color: var(--badge-not-started-fg); }
+.status-in_progress { background-color: var(--badge-in-progress-bg); color: var(--badge-in-progress-fg); }
+.status-blocked     { background-color: var(--badge-blocked-bg);     color: var(--badge-blocked-fg); }
+.status-done        { background-color: var(--badge-done-bg);        color: var(--badge-done-fg); }
+
+/* ============================================================
+   PRIORITY BADGES
+   ============================================================ */
+.priority-high   { background-color: var(--badge-high-bg); color: var(--badge-high-fg); }
+.priority-medium { background-color: var(--badge-med-bg);  color: var(--badge-med-fg); }
+.priority-low    { background-color: var(--badge-low-bg);  color: var(--badge-low-fg); }
+
+/* ============================================================
+   LOCATION STATUS
+   ============================================================ */
+.loc-status-prospect    { background-color: var(--loc-prospect-bg);    color: var(--loc-prospect-fg); }
+.loc-status-pending     { background-color: var(--loc-pending-bg);     color: var(--loc-pending-fg); }
+.loc-status-active      { background-color: var(--loc-active-bg);      color: var(--loc-active-fg); }
+.loc-status-maintenance { background-color: var(--loc-maintenance-bg); color: var(--loc-maintenance-fg); }
+.loc-status-inactive    { background-color: var(--loc-inactive-bg);    color: var(--loc-inactive-fg); }
+
+/* ============================================================
+   BOOTSTRAP UTILITY OVERRIDES — readability fixes
+   ============================================================ */
+
+/* .text-muted: fix near-invisible gray in dark mode */
+.text-muted {
+  color: var(--pmm-muted) !important;
+}
+
+/* .text-info: Bootstrap's default is too pale in light mode */
+.text-info {
+  color: var(--pmm-info-text) !important;
+}
+
+/* .text-warning: Bootstrap's default is unreadable yellow-on-white */
+.text-warning {
+  color: var(--pmm-warn-text) !important;
+}
+
+/* ============================================================
+   NAVBAR
+   ============================================================ */
+.navbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-bs-theme="light"] .navbar.bg-dark {
+  background-color: #1a2535 !important;  /* warm slate, softer than pure Bootstrap dark */
+}
+
+[data-bs-theme="dark"] .navbar.bg-dark {
+  background-color: #0b1220 !important;  /* deeper in dark mode for clear separation */
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Navbar buttons (theme toggle, sign out) always sit on a dark
+   background — pin to explicit white so Bootstrap's light-mode
+   color resolution can't make them dim. */
+.navbar .btn-outline-light {
+  --bs-btn-color:              rgba(255, 255, 255, 0.88);
+  --bs-btn-border-color:       rgba(255, 255, 255, 0.45);
+  --bs-btn-hover-color:        #fff;
+  --bs-btn-hover-bg:           rgba(255, 255, 255, 0.13);
+  --bs-btn-hover-border-color: rgba(255, 255, 255, 0.75);
+  --bs-btn-active-color:       #fff;
+  --bs-btn-active-bg:          rgba(255, 255, 255, 0.18);
+  --bs-btn-active-border-color:rgba(255, 255, 255, 0.75);
+}
+
+/* Employee portal brand */
+.pmm-brand      { font-size: 1.3rem; }
+.pmm-brand-logo { height: 38px; }
+
+@media (max-width: 991.98px) {
+  .pmm-brand-logo { height: 36px; }
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.card {
+  box-shadow: var(--pmm-card-shadow);
+}
+
+.card-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ============================================================
+   FORMS
+   ============================================================ */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--pmm-focus-border);
+  box-shadow: 0 0 0 0.2rem var(--pmm-focus-ring);
+}
+
+/* ============================================================
+   NAV TABS — improve unselected tab contrast
+   ============================================================ */
+[data-bs-theme="light"] .nav-tabs .nav-link:not(.active) {
+  color: #475569;
+}
+
+[data-bs-theme="light"] .nav-tabs .nav-link:not(.active):hover {
+  color: #1e293b;
+}
+
+[data-bs-theme="dark"] .nav-tabs .nav-link:not(.active) {
+  color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .nav-tabs .nav-link:not(.active):hover {
+  color: #e2e8f0;
+}
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+[data-bs-theme="dark"] .modal-header {
+  border-bottom-color: #1e293b;
+}
+
+[data-bs-theme="dark"] .modal-footer {
+  border-top-color: #1e293b;
+}
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+[data-bs-theme="light"] .table {
+  --bs-table-color: #1e293b;
+}
+
+/* ============================================================
+   HTMX LOADING INDICATOR
+   ============================================================ */
 .htmx-request .htmx-indicator { display: inline-block; }
 .htmx-indicator { display: none; }
+
+/* ============================================================
+   DASHBOARD CARD BRAND COLORS — theme-aware overrides
+   These replace inline style="color: #..." leaks that ignore
+   the active theme.
+   ============================================================ */
+[data-bs-theme="light"] .text-pmm-sky     { color: #0369a1 !important; }
+[data-bs-theme="dark"]  .text-pmm-sky     { color: #38bdf8 !important; }
+[data-bs-theme="light"] .text-pmm-emerald { color: #0f766e !important; }
+[data-bs-theme="dark"]  .text-pmm-emerald { color: #2dd4bf !important; }
+[data-bs-theme="light"] .text-pmm-purple  { color: #5b21b6 !important; }
+[data-bs-theme="dark"]  .text-pmm-purple  { color: #a78bfa !important; }
+
+[data-bs-theme="light"] .border-pmm-sky     { border-color: rgba(14, 165, 233, 0.35) !important; }
+[data-bs-theme="dark"]  .border-pmm-sky     { border-color: rgba(56, 189, 248, 0.3)  !important; }
+[data-bs-theme="light"] .border-pmm-emerald { border-color: rgba(16, 185, 129, 0.35) !important; }
+[data-bs-theme="dark"]  .border-pmm-emerald { border-color: rgba(45, 212, 191, 0.3)  !important; }
+[data-bs-theme="light"] .border-pmm-purple  { border-color: rgba(111, 66, 193, 0.35) !important; }
+[data-bs-theme="dark"]  .border-pmm-purple  { border-color: rgba(167, 139, 250, 0.3) !important; }
+
+/* ============================================================
+   DARK MODE: Bootstrap contextual bg-* colors are tinted 40%
+   lighter in dark mode (e.g. bg-success → #75b798, bg-info →
+   #6edff6). White text on these pastels fails contrast badly
+   (as low as 1.5:1). Force black text on all colored elements.
+   ============================================================ */
+
+/* Badges with Bootstrap contextual backgrounds */
+[data-bs-theme="dark"] .badge.bg-primary,
+[data-bs-theme="dark"] .badge.bg-secondary,
+[data-bs-theme="dark"] .badge.bg-success,
+[data-bs-theme="dark"] .badge.bg-info,
+[data-bs-theme="dark"] .badge.bg-warning,
+[data-bs-theme="dark"] .badge.bg-danger {
+  color: #000 !important;
+}
+
+/* Sales Kanban column header bars */
+[data-bs-theme="dark"] .card-header.bg-primary,
+[data-bs-theme="dark"] .card-header.bg-secondary,
+[data-bs-theme="dark"] .card-header.bg-success,
+[data-bs-theme="dark"] .card-header.bg-info,
+[data-bs-theme="dark"] .card-header.bg-warning,
+[data-bs-theme="dark"] .card-header.bg-danger {
+  color: #000 !important;
+}
+
+/* bg-light stays near-white (#f8f9fa) in dark mode — swap to
+   Bootstrap's tertiary surface so it reads as a subtle panel */
+[data-bs-theme="dark"] .bg-light {
+  background-color: var(--bs-tertiary-bg) !important;
+  color: var(--bs-body-color) !important;
+}
+
+/* bg-light badges (e.g. venue-type tag in prospect modal) */
+[data-bs-theme="dark"] .badge.bg-light {
+  background-color: #2d3748 !important;
+  color: #e2e8f0 !important;
+}
+
+/* btn-link text-dark: company name buttons in Kanban cards.
+   In dark mode text-dark resolves to a dim gray (#dee2e6) that
+   blends into the dark card background. Use body color instead. */
+[data-bs-theme="dark"] .btn-link.text-dark {
+  color: var(--bs-body-color) !important;
+}
+
+/* Map overlay boxes (legend + geocoding status) are bg-white,
+   which stays #ffffff regardless of theme. */
+[data-bs-theme="dark"] #map-legend,
+[data-bs-theme="dark"] #geo-status {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+/* Inventory low-stock row: table-warning in dark mode uses a very
+   dark amber background; ensure text stays readable. */
+[data-bs-theme="dark"] .table-warning {
+  --bs-table-color: #fef3c7;
+  --bs-table-striped-color: #fef3c7;
+  --bs-table-hover-color: #fef3c7;
+}
+
+/* ============================================================
+   LEADS — dark-mode fixes
+   ============================================================ */
+
+/* table-light thead stays near-white in dark mode. Must set
+   --bs-table-bg so Bootstrap's per-cell variable cascade works;
+   background-color alone only targets the thead element itself. */
+[data-bs-theme="dark"] .table > thead.table-light {
+  --bs-table-color: var(--bs-body-color);
+  --bs-table-bg:    var(--bs-tertiary-bg);
+  background-color: var(--bs-tertiary-bg) !important;
+}
+
+/* ============================================================
+   EQUIPMENT CATALOG — dark-mode fixes for inline styles
+   ============================================================ */
+
+/* .spec-label / .cmp-label: hardcoded #6c757d (dark gray) is
+   near-invisible on dark backgrounds */
+[data-bs-theme="dark"] .spec-label,
+[data-bs-theme="dark"] .cmp-label {
+  color: var(--pmm-muted) !important;
+}
+
+/* Equipment card image area: light #f8f9fa bg stays white in
+   dark mode — swap to a dark surface */
+[data-bs-theme="dark"] .equip-img-wrap {
+  background: #1e293b !important;
+  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Manufacturer gradient backgrounds are light pastels — swap
+   to a uniform dark surface so they don't strobe against the
+   dark card body */
+[data-bs-theme="dark"] .mfr-haha,
+[data-bs-theme="dark"] .mfr-cantaloupe,
+[data-bs-theme="dark"] .mfr-365,
+[data-bs-theme="dark"] .mfr-micromart,
+[data-bs-theme="dark"] .mfr-sandstar,
+[data-bs-theme="dark"] .mfr-weimi {
+  background: #1e2d3d !important;
+}
+
+/* ---- Chat bubbles (public widget + CS manager chat) ------ */
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+.chat-msg--user   { align-self: flex-end; align-items: flex-end; }
+.chat-msg--assistant { align-self: flex-start; align-items: flex-start; }
+
+.chat-bubble {
+  padding: 8px 13px;
+  border-radius: 16px;
+  font-size: .875rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.chat-bubble--user {
+  background: #0077b6;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.chat-bubble--assistant {
+  background: #f0f2f5;
+  color: #212529;
+  border-bottom-left-radius: 4px;
+}
+[data-bs-theme="dark"] .chat-bubble--assistant {
+  background: #2c3e50;
+  color: #e9ecef;
+}
+.chat-bubble--assistant a { color: #0077b6; text-decoration: underline; }
+.chat-bubble--assistant a:hover { color: #005f92; }
+
+.chat-label {
+  font-size: .68rem;
+  font-weight: 600;
+  margin-bottom: 3px;
+  padding: 0 4px;
+}
+.chat-label--user      { text-align: right; color: #0077b6; }
+.chat-label--assistant { text-align: left;  color: #495057; }
+
+.chat-ts {
+  font-size: .65rem;
+  color: #adb5bd;
+  margin-top: 2px;
+  padding: 0 4px;
+}
+
+/* Typing indicator dots */
+.chat-bubble--thinking {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 10px 16px;
+}
+.chat-bubble--thinking .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #90a4ae;
+  animation: dot-bounce 1.2s infinite ease-in-out;
+}
+.chat-bubble--thinking .dot:nth-child(2) { animation-delay: 0.2s; }
+.chat-bubble--thinking .dot:nth-child(3) { animation-delay: 0.4s; }
+.thinking-text {
+  font-size: .78rem;
+  color: #90a4ae;
+  margin-left: 4px;
+  font-style: italic;
+}
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: .6; }
+  40%           { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Manager chat scroll container */
+.manager-chat-body {
+  height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: .375rem;
+}
+
+/* ============================================================
+   SALES PIPELINE — readability fixes (both themes)
+   ============================================================ */
+
+/* btn-outline-secondary (advance / back buttons): Bootstrap's
+   default #6c757d is too dim to read in light mode; override to
+   a dark charcoal so both modes have sharp, legible text. */
+.btn-outline-secondary {
+  --bs-btn-color:              #111827;
+  --bs-btn-border-color:       #4b5563;
+  --bs-btn-hover-color:        #000;
+  --bs-btn-hover-bg:           rgba(0, 0, 0, 0.06);
+  --bs-btn-hover-border-color: #1f2937;
+  --bs-btn-active-color:       #000;
+  --bs-btn-active-bg:          rgba(0, 0, 0, 0.10);
+  --bs-btn-active-border-color:#1f2937;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary {
+  --bs-btn-color:              #f1f5f9;
+  --bs-btn-border-color:       #94a3b8;
+  --bs-btn-hover-color:        #fff;
+  --bs-btn-hover-bg:           #1e293b;
+  --bs-btn-hover-border-color: #cbd5e1;
+  --bs-btn-active-color:       #fff;
+  --bs-btn-active-bg:          #1e293b;
+  --bs-btn-active-border-color:#cbd5e1;
+  --bs-btn-disabled-color:     #475569;
+  --bs-btn-disabled-border-color: #475569;
+}
+
+/* Stage column count badge uses bg-white — swap to a translucent
+   overlay so it reads correctly against the colored header */
+[data-bs-theme="dark"] .card-header .badge.bg-white {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
