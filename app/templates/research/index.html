@@ -4,7 +4,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Research Tasks</h1>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 align-items-center">
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#page-help" title="Help &amp; instructions">
+      <i class="bi bi-question-circle"></i>
+    </button>
     <button class="btn btn-outline-secondary btn-sm"
             data-bs-toggle="modal"
             data-bs-target="#sectionModal">
@@ -21,61 +25,23 @@
   </div>
 </div>
 
-<ul class="nav nav-tabs mb-3" id="statusTabs">
-  <li class="nav-item">
-    <a class="nav-link {% if not status_filter %}active{% endif %}"
-       href="#"
-       hx-get="/research/"
-       hx-target="#task-board"
-       hx-swap="innerHTML"
-       hx-push-url="true">
-      All <span class="badge bg-secondary ms-1">{{ total }}</span>
-    </a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link {% if status_filter == 'in_progress' %}active{% endif %}"
-       href="#"
-       hx-get="/research/?status=in_progress"
-       hx-target="#task-board"
-       hx-swap="innerHTML"
-       hx-push-url="true">
-      In Progress <span class="badge bg-warning text-dark ms-1">{{ status_counts.in_progress }}</span>
-    </a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link {% if status_filter == 'blocked' %}active{% endif %}"
-       href="#"
-       hx-get="/research/?status=blocked"
-       hx-target="#task-board"
-       hx-swap="innerHTML"
-       hx-push-url="true">
-      Blocked <span class="badge bg-danger ms-1">{{ status_counts.blocked }}</span>
-    </a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link {% if status_filter == 'not_started' %}active{% endif %}"
-       href="#"
-       hx-get="/research/?status=not_started"
-       hx-target="#task-board"
-       hx-swap="innerHTML"
-       hx-push-url="true">
-      Not Started <span class="badge bg-secondary ms-1">{{ status_counts.not_started }}</span>
-    </a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link {% if status_filter == 'done' %}active{% endif %}"
-       href="#"
-       hx-get="/research/?status=done"
-       hx-target="#task-board"
-       hx-swap="innerHTML"
-       hx-push-url="true">
-      Done <span class="badge bg-success ms-1">{{ status_counts.done }}</span>
-    </a>
-  </li>
-</ul>
+<div class="collapse mb-3" id="page-help">
+  <div class="card border-info border-opacity-25">
+    <div class="card-body bg-info-subtle rounded small">
+      <strong>Research Tasks</strong> — Track all pre-launch research and ongoing business tasks on a Kanban board.
+      <ul class="mb-0 mt-1">
+        <li>Tasks are grouped into <strong>sections</strong> (e.g. Legal, Permits, Equipment). Add sections with <em>Add Section</em>.</li>
+        <li>Each task has a status: <span class="badge bg-success">Done</span> <span class="badge bg-warning text-dark">In Progress</span> <span class="badge bg-danger">Blocked</span> <span class="badge bg-secondary">Not Started</span>.</li>
+        <li>Set <strong>prerequisites</strong> on a task to track dependencies — blocked tasks show their blockers.</li>
+        <li>Drag the <i class="bi bi-grip-vertical"></i> handle to reorder tasks within a section. Use arrows to reorder sections.</li>
+        <li>Filter by status or section using the filter bar above the board.</li>
+      </ul>
+    </div>
+  </div>
+</div>
 
-<div id="task-board">
-  {% include "research/_task_board.html" %}
+<div id="filter-and-board">
+  {% include "research/_filters_board.html" %}
 </div>
 
 <!-- Add/Edit Task Modal -->
@@ -116,4 +82,54 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+(function () {
+  function initDepSelect() {
+    var el = document.getElementById('dep-select');
+    if (!el || !window.TomSelect) { return; }
+    if (el.tomselect) { el.tomselect.destroy(); }
+    new TomSelect(el, {
+      plugins: ['remove_button'],
+      searchField: ['text'],
+      placeholder: 'Search prerequisite tasks…',
+      maxOptions: 500,
+    });
+  }
+
+  function initSortable() {
+    document.querySelectorAll('.task-tbody[data-section-id]').forEach(function (tbody) {
+      if (tbody._sortable) { tbody._sortable.destroy(); }
+      tbody._sortable = Sortable.create(tbody, {
+        animation: 150,
+        handle: '.drag-handle',
+        onEnd: function () {
+          var sectionId = tbody.dataset.sectionId;
+          var ids = Array.from(tbody.querySelectorAll('tr[id^="task-"]')).map(function (tr) {
+            return parseInt(tr.id.replace('task-', ''), 10);
+          });
+          fetch('/research/sections/' + sectionId + '/reorder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ids }),
+          });
+        },
+      });
+    });
+  }
+
+  initSortable();
+
+  document.body.addEventListener('htmx:afterSettle', function (evt) {
+    var targetId = evt.detail.target && evt.detail.target.id;
+    if (targetId === 'task-board' || targetId === 'filter-and-board') { initSortable(); }
+    if (targetId === 'task-modal-body') { initDepSelect(); }
+  });
+})();
+</script>
 {% endblock %}

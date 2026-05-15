@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import secrets
-from datetime import datetime
+from collections import defaultdict
+from datetime import date as date_type, datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -58,6 +59,16 @@ def _pending_escalations_count(db: Session) -> int:
         return 0
 
 
+def _get_escalations(db: Session) -> list:
+    row = db.get(AppSetting, "chatbot_escalation_pending")
+    if not row or not row.value:
+        return []
+    try:
+        return json.loads(row.value)
+    except Exception:
+        return []
+
+
 _QUICK_PROMPTS = [
     "What are customers asking most often?",
     "Suggest a new governance rule based on recent chats",
@@ -71,7 +82,22 @@ _PROVIDERS = [
     ("groq", "Groq / Llama (Free)"),
     ("openai", "OpenAI (Paid)"),
     ("gemini", "Google Gemini (Free tier)"),
+    ("ollama", "Ollama (Local / Free)"),
 ]
+
+
+def _ollama_running() -> bool:
+    """Return True if Ollama's HTTP server responds on its configured base URL."""
+    import urllib.request
+
+    from app.config import settings as app_settings
+
+    base = app_settings.ollama_base_url.replace("/v1", "").rstrip("/")
+    try:
+        urllib.request.urlopen(base, timeout=1)  # noqa: S310
+        return True
+    except Exception:
+        return False
 
 
 # ── Main page ─────────────────────────────────────────────────────────────────
@@ -98,6 +124,7 @@ def cs_index(
         .all()
     )
     flash = {"type": flash_type, "message": flash_msg} if flash_msg else None
+    chat_history = _build_chat_history_context(db)
 
     return templates.TemplateResponse(
         request,
@@ -111,6 +138,7 @@ def cs_index(
             "manager_msgs": manager_msgs,
             "quick_prompts": _QUICK_PROMPTS,
             "flash": flash,
+            **chat_history,
         },
     )
 
@@ -367,7 +395,10 @@ def cs_email_delete(
     if approval:
         db.delete(approval)
         db.commit()
-    return HTMLResponse("")
+    new_count = _pending_emails_count(db)
+    badge_inner = f'<span class="badge bg-danger ms-1">{new_count}</span>' if new_count > 0 else ""
+    oob = f'<span id="email-tab-badge" hx-swap-oob="true">{badge_inner}</span>'
+    return HTMLResponse(oob)
 
 
 @router.post("/email-queue/clear-resolved", response_class=HTMLResponse)
@@ -390,6 +421,46 @@ def cs_email_clear_resolved(
         request,
         "customer_service/_email_queue.html",
         {"approvals": approvals, "status": "pending", "gmail_connected": _gmail_connected(db)},
+    )
+
+
+# ── Escalations ───────────────────────────────────────────────────────────────
+
+
+@router.get("/escalations", response_class=HTMLResponse)
+def cs_escalations(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    escalations = _get_escalations(db)
+    return templates.TemplateResponse(
+        request,
+        "customer_service/_escalations.html",
+        {"escalations": escalations, "pending_escalations": len(escalations)},
+    )
+
+
+@router.post("/escalations/dismiss-all", response_class=HTMLResponse)
+def cs_escalation_dismiss_all(
+    request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    _set_setting(db, "chatbot_escalation_pending", json.dumps([]))
+    return templates.TemplateResponse(
+        request,
+        "customer_service/_escalations.html",
+        {"escalations": [], "pending_escalations": 0},
+    )
+
+
+@router.post("/escalations/{index}/dismiss", response_class=HTMLResponse)
+def cs_escalation_dismiss(
+    index: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    escalations = _get_escalations(db)
+    if 0 <= index < len(escalations):
+        escalations.pop(index)
+        _set_setting(db, "chatbot_escalation_pending", json.dumps(escalations))
+    return templates.TemplateResponse(
+        request,
+        "customer_service/_escalations.html",
+        {"escalations": escalations, "pending_escalations": len(escalations)},
     )
 
 
@@ -502,14 +573,26 @@ def cs_manager_chat(
 # ── Chat History ──────────────────────────────────────────────────────────────
 
 
-@router.get("/chat-history", response_class=HTMLResponse)
-def cs_chat_history(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    # Get distinct public chatbot sessions (exclude manager sessions)
+def _parse_dt(v: object) -> datetime | None:
+    """Coerce a value to datetime — SQLite aggregate functions return ISO strings, not datetime objects."""
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v
+    try:
+        return datetime.fromisoformat(str(v))
+    except (ValueError, TypeError):
+        return None
+
+
+def _build_chat_history_context(db: Session) -> dict:
+    """Query public chatbot sessions and group them by calendar date."""
     sessions_raw = (
         db.query(
             ChatMessage.session_id,
             sql_func.count(ChatMessage.id).label("msg_count"),
             sql_func.max(ChatMessage.created_at).label("last_at"),
+            sql_func.min(ChatMessage.created_at).label("started_at"),
         )
         .filter(~ChatMessage.session_id.like("manager:%"))
         .group_by(ChatMessage.session_id)
@@ -533,15 +616,71 @@ def cs_chat_history(request: Request, db: Session = Depends(get_db)) -> HTMLResp
             {
                 "session_id": row.session_id,
                 "msg_count": row.msg_count,
-                "last_at": row.last_at,
+                "last_at": _parse_dt(row.last_at),
+                "started_at": _parse_dt(row.started_at),
                 "first_message": first_msg[0][:80] if first_msg else "(no messages)",
             }
         )
 
+    today = date_type.today()
+    yesterday = today - timedelta(days=1)
+
+    grouped: defaultdict = defaultdict(list)
+    for s in sessions:
+        day = s["last_at"].date() if s["last_at"] else today
+        grouped[day].append(s)
+
+    session_groups = [
+        {"date": d, "sessions": grouped[d]}
+        for d in sorted(grouped.keys(), reverse=True)
+    ]
+
+    return {
+        "session_groups": session_groups,
+        "total_sessions": len(sessions),
+        "today": today,
+        "yesterday": yesterday,
+    }
+
+
+@router.get("/chat-history", response_class=HTMLResponse)
+def cs_chat_history(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "customer_service/_chat_history.html",
-        {"sessions": sessions, "total_sessions": len(sessions)},
+        _build_chat_history_context(db),
+    )
+
+
+# ── Chat History Delete ───────────────────────────────────────────────────────
+
+
+@router.post("/chat-history/{session_id}/delete", response_class=HTMLResponse)
+def cs_chat_history_delete_session(
+    session_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    db.query(ChatMessage).filter(ChatMessage.session_id == session_id).delete(
+        synchronize_session=False
+    )
+    db.commit()
+    return HTMLResponse("")
+
+
+@router.post("/chat-history/clear", response_class=HTMLResponse)
+def cs_chat_history_delete_all(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    db.query(ChatMessage).filter(
+        ChatMessage.session_id.notlike("manager:%")
+    ).delete(synchronize_session=False)
+    db.commit()
+    return templates.TemplateResponse(
+        request,
+        "customer_service/_chat_history.html",
+        {"session_groups": [], "total_sessions": 0, "today": date_type.today(), "yesterday": date_type.today()},
     )
 
 
@@ -560,6 +699,7 @@ def cs_ai_settings(request: Request, db: Session = Depends(get_db)) -> HTMLRespo
         ("groq", "Groq", bool(app_settings.groq_api_key), "Free tier"),
         ("openai", "OpenAI", bool(app_settings.openai_api_key), "Paid"),
         ("gemini", "Gemini", bool(app_settings.gemini_api_key), "Free tier"),
+        ("ollama", "Ollama", _ollama_running(), "Local"),
     ]
 
     return templates.TemplateResponse(

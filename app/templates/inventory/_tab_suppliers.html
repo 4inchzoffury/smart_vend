@@ -1,0 +1,149 @@
+{# Suppliers tab — embedded in inventory/index.html #}
+
+<div class="pt-1">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="text-muted small">{{ suppliers | length }} supplier{{ 's' if suppliers | length != 1 }}</div>
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+        <i class="bi bi-plus-lg me-1"></i>Add Supplier
+      </button>
+      <button class="btn btn-sm btn-link text-muted p-0" type="button"
+              data-bs-toggle="collapse" data-bs-target="#help-suppliers" title="Help &amp; instructions">
+        <i class="bi bi-question-circle"></i>
+      </button>
+    </div>
+  </div>
+  <div class="collapse mb-3" id="help-suppliers">
+    <div class="card border-info border-opacity-25">
+      <div class="card-body bg-info-subtle rounded small">
+        <strong>Suppliers</strong> — Track vendors and distributors you order vending products from.
+        <ul class="mb-0 mt-1">
+          <li>Add contact info, account numbers, and minimum order quantities for each supplier.</li>
+          <li>Suppliers link to products — click <em>Products from this supplier</em> to filter the product list.</li>
+          <li>Use the <strong>AI Sourcing</strong> tab to discover new suppliers automatically.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  {% if suppliers %}
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+    {% for s in suppliers %}
+    <div class="col" id="supplier-row-{{ s.id }}">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="card-title mb-0 fw-semibold">{{ s.name }}</h6>
+            {% if s.supplier_type %}
+            <span class="badge bg-secondary ms-2 flex-shrink-0" style="font-size:.7rem">
+              {{ s.supplier_type | replace("_", " ") | title }}
+            </span>
+            {% endif %}
+          </div>
+
+          <div class="small mb-2">
+            {% if s.contact_name %}
+            <div class="text-muted"><i class="bi bi-person me-1"></i>{{ s.contact_name }}</div>
+            {% endif %}
+            {% if s.contact_phone %}
+            <div class="text-muted"><i class="bi bi-telephone me-1"></i>
+              <a href="tel:{{ s.contact_phone }}" class="text-muted text-decoration-none">{{ s.contact_phone }}</a>
+            </div>
+            {% endif %}
+            {% if s.contact_email %}
+            <div class="text-muted"><i class="bi bi-envelope me-1"></i>
+              <a href="mailto:{{ s.contact_email }}" class="text-muted text-decoration-none">{{ s.contact_email }}</a>
+            </div>
+            {% endif %}
+            {% if s.website %}
+            <div><i class="bi bi-globe me-1 text-muted"></i>
+              <a href="{{ s.website }}" target="_blank" rel="noopener"
+                 class="text-decoration-none text-truncate d-inline-block" style="max-width:220px;vertical-align:bottom">
+                {{ s.website | replace("https://", "") | replace("http://", "") | truncate(40) }}
+              </a>
+            </div>
+            {% endif %}
+          </div>
+
+          {% if s.notes %}
+          <div class="border-top pt-2 mt-1 small">
+            {% for part in s.notes.split(' | ') %}
+            {% set part = part.strip() %}
+            {% if part %}
+              {% if part.startswith('Categories:') %}
+              <div class="mb-1 text-muted"><i class="bi bi-tags me-1"></i>{{ part }}</div>
+              {% elif part.startswith('Pricing:') %}
+              <div class="mb-1"><i class="bi bi-tag me-1 text-muted"></i>{{ part }}</div>
+              {% elif part.startswith('Delivery:') %}
+              <div class="mb-1"><i class="bi bi-box-seam me-1 text-muted"></i>{{ part }}</div>
+              {% else %}
+              <div class="text-muted"><i class="bi bi-info-circle me-1"></i>{{ part }}</div>
+              {% endif %}
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {% set product_count = s.products | length %}
+          <div class="mt-2">
+            {% if product_count > 0 %}
+            <a href="/inventory/?supplier_id={{ s.id }}&tab=products" class="badge bg-primary text-decoration-none">
+              <i class="bi bi-box me-1"></i>{{ product_count }} product{{ 's' if product_count != 1 }}
+            </a>
+            {% else %}
+            <span class="badge bg-light text-muted border">No products linked</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card-footer bg-transparent d-flex gap-2">
+          <a href="/inventory/suppliers/{{ s.id }}/edit"
+             class="btn btn-sm btn-outline-secondary flex-fill">
+            <i class="bi bi-pencil me-1"></i>Edit
+          </a>
+          <a href="/inventory/?init_supplier={{ s.id }}&tab=products"
+             class="btn btn-sm btn-outline-primary flex-fill">
+            <i class="bi bi-plus me-1"></i>Add Product
+          </a>
+          <button class="btn btn-sm btn-outline-danger"
+                  hx-delete="/inventory/suppliers/{{ s.id }}"
+                  hx-confirm="Delete supplier '{{ s.name }}'? This cannot be undone."
+                  hx-target="#supplier-row-{{ s.id }}"
+                  hx-swap="delete">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-5">
+    <i class="bi bi-building fs-1 d-block mb-2"></i>
+    No suppliers yet.
+    <button class="btn btn-primary btn-sm ms-2"
+            data-bs-toggle="modal" data-bs-target="#addSupplierModal">Add one</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Add Supplier Modal -->
+<div class="modal fade" id="addSupplierModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Supplier</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/inventory/suppliers">
+        <div class="modal-body">
+          {% include "inventory/_supplier_form_fields.html" %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Supplier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

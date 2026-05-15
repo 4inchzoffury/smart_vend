@@ -5,9 +5,14 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 mb-0">{{ location.name }}</h1>
   <div class="d-flex gap-2">
-    <a href="/locations/{{ location.id }}/edit" class="btn btn-outline-primary btn-sm">
+    <button class="btn btn-outline-primary btn-sm"
+            hx-get="/locations/{{ location.id }}/edit"
+            hx-target="#location-modal-body"
+            hx-swap="innerHTML"
+            data-bs-toggle="modal"
+            data-bs-target="#locationModal">
       <i class="bi bi-pencil me-1"></i>Edit
-    </a>
+    </button>
     <a href="/locations/" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left me-1"></i>Back
     </a>
@@ -135,6 +140,19 @@
         </div>
         {% endif %}
       </div>
+    </div>
+  </div>
+</div>
+
+{# Edit Location modal #}
+<div class="modal fade" id="locationModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Location</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="location-modal-body"></div>
     </div>
   </div>
 </div>

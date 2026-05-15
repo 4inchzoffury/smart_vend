@@ -1,0 +1,214 @@
+{# Price Comparator tab — embedded in inventory/index.html #}
+
+<div class="pt-1">
+
+  <div class="d-flex align-items-center justify-content-end mb-1">
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#help-compare" title="Help &amp; instructions">
+      <i class="bi bi-question-circle"></i>
+    </button>
+  </div>
+  <div class="collapse mb-3" id="help-compare">
+    <div class="card border-info border-opacity-25">
+      <div class="card-body bg-info-subtle rounded small">
+        <strong>Price Comparator</strong> — Finds product prices and links across vendors using AI-powered web search.
+        <ul class="mb-0 mt-1">
+          <li>Type a product name (e.g. "Doritos", "Red Bull 8oz") and choose which vendors to check.</li>
+          <li>Configure store ZIP/Club ID via the <i class="bi bi-gear"></i> gear icon so searches target your local store.</li>
+          <li>Results show unit and case prices when found. <span class="badge bg-success">Best</span> highlights the lowest unit price.</li>
+          <li><strong>Walmart &amp; Sam's Club</strong> block server-side price scraping. AI search finds product links — click through to confirm the current price. Use <strong>Tavily</strong> as provider for better results.</li>
+          <li>Source badges: <span class="badge bg-primary">Live</span> direct scrape, <span class="badge bg-secondary">AI Est.</span> AI web search result.</li>
+          <li>Use <strong>Export CSV</strong> on the results page to save comparisons.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <!-- LEFT: Search form + settings -->
+    <div class="col-lg-4">
+
+      <!-- Search card -->
+      <div class="card border-primary border-opacity-25 mb-3">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+          <h6 class="mb-0 text-primary"><i class="bi bi-bar-chart-line me-1"></i>Compare Prices</h6>
+          <button class="btn btn-sm btn-link text-muted p-0"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#settingsPanel"
+                  title="Vendor account settings">
+            <i class="bi bi-gear"></i>
+          </button>
+        </div>
+        <div class="card-body">
+          <form method="post" action="/inventory/compare" id="compare-form">
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Product to Search</label>
+              <input type="text" name="product_query" class="form-control form-control-sm"
+                     placeholder="e.g. Doritos Nacho Cheese, Snickers, Red Bull" required>
+              <div class="form-text">Enter a brand name, product name, or general term (e.g. "energy drinks")</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold small">Compare at these vendors</label>
+              <div class="row row-cols-1 row-cols-sm-2 g-1">
+                {% for vk in vendor_keys %}
+                {% set meta = vendor_meta[vk] %}
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="vendors"
+                           value="{{ vk }}" id="vend_{{ vk }}" checked>
+                    <label class="form-check-label small d-flex align-items-center gap-1" for="vend_{{ vk }}">
+                      <i class="bi {{ meta.icon }} text-{{ meta.color }}"></i>
+                      {{ meta.label }}
+                      {% if vk == 'sams_club' %}
+                        {% if vendor_cfg.sams_club.club_id %}
+                          <span class="badge bg-success-subtle text-success border border-success-subtle ms-1" style="font-size:.65rem">
+                            Club #{{ vendor_cfg.sams_club.club_id }}
+                          </span>
+                        {% else %}
+                          <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-1" style="font-size:.65rem">
+                            Set ZIP ↗
+                          </span>
+                        {% endif %}
+                      {% elif vk == 'walmart' %}
+                        {% if vendor_cfg.walmart.store_id %}
+                          <span class="badge bg-success-subtle text-success border border-success-subtle ms-1" style="font-size:.65rem">
+                            Store #{{ vendor_cfg.walmart.store_id }}
+                          </span>
+                        {% else %}
+                          <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-1" style="font-size:.65rem">
+                            Set ZIP ↗
+                          </span>
+                        {% endif %}
+                      {% elif vk == 'webstaurantstore' and vendor_cfg.webstaurantstore.email %}
+                          <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size:.65rem">
+                            ✓ Account
+                          </span>
+                      {% endif %}
+                    </label>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold small">Search Fallback Provider</label>
+              <div class="d-flex gap-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="search_provider"
+                         value="duckduckgo" id="csp_ddg"
+                         {% if search_provider == 'duckduckgo' and not tavily_available %}checked{% endif %}>
+                  <label class="form-check-label small" for="csp_ddg">
+                    DuckDuckGo <span class="badge bg-success ms-1">Free</span>
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="search_provider"
+                         value="tavily" id="csp_tavily"
+                         {% if search_provider == 'tavily' or tavily_available %}checked{% endif %}>
+                  <label class="form-check-label small" for="csp_tavily">
+                    Tavily
+                    {% if tavily_available %}<span class="badge bg-primary ms-1">Better prices</span>{% endif %}
+                  </label>
+                </div>
+              </div>
+              <div class="form-text">
+                {% if tavily_available %}
+                Tavily is configured and selected — it fetches full page content for better price extraction.
+                {% else %}
+                DuckDuckGo is free but returns short snippets. Add <code>TAVILY_API_KEY</code> to .env for better price data.
+                {% endif %}
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-search me-1"></i>Run Price Comparison
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Recent comparisons -->
+      {% if compare_jobs %}
+      <div class="card border-0 bg-light">
+        <div class="card-header bg-transparent py-2">
+          <h6 class="mb-0 small fw-semibold"><i class="bi bi-clock-history me-1"></i>Recent Comparisons</h6>
+        </div>
+        <div class="list-group list-group-flush small">
+          {% for j in compare_jobs %}
+          {% set jp = j.input_params | fromjson if j.input_params else {} %}
+          <div id="compare-job-{{ j.id }}" class="list-group-item py-1 px-3 d-flex align-items-center gap-1">
+            <a href="/inventory/compare/{{ j.id }}" class="flex-grow-1 text-decoration-none text-body py-1">
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="fw-medium text-truncate small" style="max-width:120px">
+                  {{ jp.get('product_query', '#' ~ j.id) }}
+                </span>
+                <span class="badge {% if j.status == 'done' %}bg-success{% elif j.status == 'error' %}bg-danger{% else %}bg-secondary{% endif %} ms-1 flex-shrink-0">
+                  {{ j.status }}
+                </span>
+              </div>
+              <div class="text-muted" style="font-size:.7rem">
+                {{ j.created_at.strftime('%b %d %H:%M') if j.created_at else '' }}
+                {% if j.prospects_found %}&nbsp;· {{ j.prospects_found }} results{% endif %}
+              </div>
+            </a>
+            <button class="btn btn-sm btn-outline-danger py-0 px-1 flex-shrink-0"
+                    hx-post="/inventory/compare/{{ j.id }}/delete"
+                    hx-target="#compare-job-{{ j.id }}"
+                    hx-swap="outerHTML"
+                    hx-confirm="Delete this comparison?"
+                    title="Delete">
+              <i class="bi bi-trash" style="font-size:.7rem"></i>
+            </button>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- RIGHT: Settings panel + results placeholder -->
+    <div class="col-lg-8">
+
+      <!-- Settings panel — shown here when gear icon is clicked -->
+      <div class="collapse" id="settingsPanel">
+        {% include "inventory/_comparator_settings_panel.html" %}
+      </div>
+
+      <!-- Placeholder (hidden while settings is open) -->
+      <div id="compare-placeholder" class="card border-0 bg-light d-flex align-items-center justify-content-center py-5">
+        <div class="text-center text-muted px-4">
+          <i class="bi bi-bar-chart-line fs-1 d-block mb-3 text-primary opacity-50"></i>
+          <h5 class="mb-2">Live Price Comparison</h5>
+          <p class="mb-1 small">
+            Uses AI-powered web search to find product prices and links across wholesale vendors and local retailers.
+            Walmart and Sam's Club require click-through to confirm live prices.
+          </p>
+          <p class="small text-muted mb-3">
+            Enter a product name and click <strong>Run Price Comparison</strong> to see results.
+          </p>
+          <div class="d-flex gap-2 justify-content-center flex-wrap small">
+            {% for vk in vendor_keys %}
+            {% set meta = vendor_meta[vk] %}
+            <span class="badge bg-{{ meta.color }}-subtle text-{{ meta.color }} border border-{{ meta.color }}-subtle px-2 py-1">
+              <i class="bi {{ meta.icon }} me-1"></i>{{ meta.label }}
+            </span>
+            {% endfor %}
+          </div>
+          <div class="mt-4 small text-muted">
+            <i class="bi bi-gear me-1"></i>
+            Click the <strong></i></strong> gear icon next to Compare Prices to configure
+            store ZIP codes for location-specific pricing.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>

@@ -7,11 +7,14 @@ from typing import Any
 
 def search(query: str, max_results: int = 5) -> list[dict[str, Any]]:
     try:
-        from duckduckgo_search import DDGS  # type: ignore[import-untyped]
-    except ImportError as exc:
-        raise RuntimeError(
-            "duckduckgo-search not installed. Run: pip install duckduckgo-search"
-        ) from exc
+        from ddgs import DDGS  # type: ignore[import-untyped]
+    except ImportError:
+        try:
+            from duckduckgo_search import DDGS  # type: ignore[import-untyped]
+        except ImportError as exc:
+            raise RuntimeError(
+                "ddgs not installed. Run: pip install ddgs"
+            ) from exc
     results: list[dict[str, Any]] = []
     with DDGS() as ddgs:
         for r in ddgs.text(query, max_results=max_results):

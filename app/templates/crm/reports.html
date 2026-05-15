@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}CRM Reports – Prime Micro Markets{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-bar-chart me-2"></i>Financial Reports</h1>
+    <p class="text-muted small mb-0 mt-1">Active clients &amp; active equipment only</p>
+  </div>
+  <a href="/crm/" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to CRM
+  </a>
+</div>
+
+<!-- Summary KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card text-center border-success">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-success">${{ "%.0f"|format(total_mrr) }}</div>
+        <div class="small text-muted">Total MRR</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center border-info">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-info">${{ "%.0f"|format(total_commission) }}</div>
+        <div class="small text-muted">Est. Commission / Mo</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        {% set paid_count = invoice_summary | selectattr(0, 'eq', 'paid') | list %}
+        <div class="fs-2 fw-bold text-success">
+          ${{ "%.0f"|format(paid_count[0][2] if paid_count else 0) }}
+        </div>
+        <div class="small text-muted">Total Invoiced (Paid)</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        {% set overdue = invoice_summary | selectattr(0, 'eq', 'overdue') | list %}
+        <div class="fs-2 fw-bold {% if overdue and overdue[0][2] %}text-danger{% else %}text-muted{% endif %}">
+          ${{ "%.0f"|format(overdue[0][2] if overdue else 0) }}
+        </div>
+        <div class="small text-muted">Overdue Balance</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- MRR by Client -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2 fw-semibold small">
+        <i class="bi bi-people me-1"></i>MRR by Client
+      </div>
+      <div class="card-body p-0">
+        {% if mrr_rows %}
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Account</th>
+              <th>Company</th>
+              <th class="text-end pe-3">MRR</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in mrr_rows %}
+            <tr>
+              <td class="ps-3">
+                <a href="/crm/{{ row[0] }}" class="badge bg-secondary font-monospace text-decoration-none">{{ row[2] }}</a>
+              </td>
+              <td><a href="/crm/{{ row[0] }}" class="text-decoration-none text-body">{{ row[1] }}</a></td>
+              <td class="text-end pe-3 fw-semibold text-success">${{ "%.2f"|format(row[3] or 0) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light">
+            <tr>
+              <td colspan="2" class="ps-3 fw-semibold small">Total</td>
+              <td class="text-end pe-3 fw-bold text-success">${{ "%.2f"|format(total_mrr) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+        {% else %}
+        <p class="text-muted text-center py-4 mb-0 small">No active equipment with fees.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Revenue by Equipment Type -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2 fw-semibold small">
+        <i class="bi bi-box-seam me-1"></i>Revenue by Equipment Type
+      </div>
+      <div class="card-body p-0">
+        {% if type_rows %}
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Equipment Type</th>
+              <th class="text-center">Units</th>
+              <th class="text-end pe-3">Monthly Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in type_rows %}
+            <tr>
+              <td class="ps-3">
+                <span class="badge bg-secondary">{{ row[0] | replace("_", " ") | title if row[0] else "Unspecified" }}</span>
+              </td>
+              <td class="text-center">{{ row[2] }}</td>
+              <td class="text-end pe-3 fw-semibold text-info">${{ "%.2f"|format(row[1] or 0) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted text-center py-4 mb-0 small">No active equipment with fees.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Commission Tracking -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small">
+        <i class="bi bi-percent me-1"></i>Commission Tracking (Active Equipment)
+      </div>
+      <div class="card-body p-0">
+        {% if commission_rows %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0 align-middle" style="font-size:0.82rem">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Client</th>
+                <th>Site</th>
+                <th>Equipment</th>
+                <th class="text-end">Monthly Fee</th>
+                <th class="text-center">Commission %</th>
+                <th class="text-end pe-3">Commission / Mo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set commission_total = namespace(val=0) %}
+              {% for r in commission_rows %}
+              {% set commission_amount = (r.monthly_fee or 0) * (r.commission_pct or 0) / 100 %}
+              {% set commission_total.val = commission_total.val + commission_amount %}
+              <tr>
+                <td class="ps-3">
+                  <a href="/crm/{{ r[0] }}" class="text-decoration-none">{{ r[1] }}</a>
+                  <span class="badge bg-secondary ms-1 font-monospace" style="font-size:0.7rem">{{ r[2] }}</span>
+                </td>
+                <td>{{ r[3] }}</td>
+                <td>
+                  <span class="badge bg-secondary">{{ r[4] | replace("_", " ") | title if r[4] else "—" }}</span>
+                  {{ r[5] or "" }}
+                </td>
+                <td class="text-end">${{ "%.2f"|format(r.monthly_fee or 0) }}</td>
+                <td class="text-center">{{ r.commission_pct or "—" }}%</td>
+                <td class="text-end pe-3 fw-semibold text-info">${{ "%.2f"|format(commission_amount) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="table-light">
+              <tr>
+                <td colspan="5" class="ps-3 fw-semibold small">Total Commission / Month</td>
+                <td class="text-end pe-3 fw-bold text-info">${{ "%.2f"|format(commission_total.val) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4 mb-0 small">No commission data available.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoice Summary -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small">
+        <i class="bi bi-receipt me-1"></i>Invoice Status Summary
+      </div>
+      <div class="card-body p-0">
+        {% if invoice_summary %}
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Status</th>
+              <th class="text-center">Count</th>
+              <th class="text-end pe-3">Total Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set inv_colors = {'draft': 'secondary', 'sent': 'info', 'paid': 'success', 'overdue': 'danger', 'void': 'secondary'} %}
+            {% for row in invoice_summary %}
+            <tr>
+              <td class="ps-3">
+                <span class="badge bg-{{ inv_colors.get(row[0], 'secondary') }}">{{ row[0] | title }}</span>
+              </td>
+              <td class="text-center">{{ row[1] }}</td>
+              <td class="text-end pe-3 fw-semibold">${{ "%.2f"|format(row[2] or 0) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted text-center py-4 mb-0 small">No invoices yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

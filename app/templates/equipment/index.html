@@ -9,70 +9,120 @@
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <div>
-    <h1 class="h3 mb-0">Equipment Catalog</h1>
-    <small class="text-muted" id="unit-count">{{ units|length }} unit{{ "s" if units|length != 1 }} shown</small>
-  </div>
-  <div class="d-flex align-items-center gap-2">
-    {% if active_refresh_job %}
-    <a href="/equipment/refresh" class="btn btn-sm btn-outline-info">
-      <span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem;"></span>
-      Refresh Running…
-    </a>
-    {% else %}
-    <a href="/equipment/refresh" class="btn btn-sm btn-outline-primary">
-      <i class="bi bi-arrow-clockwise me-1"></i>AI Refresh Data
-    </a>
-    {% endif %}
-  </div>
+  <h1 class="h3 mb-0"><i class="bi bi-box-seam me-2 text-pmm-sky"></i>Equipment Catalog</h1>
+  <small class="text-muted">Specs, pricing &amp; warranty for vending equipment</small>
 </div>
 
-{# Filter bar — JS manages cross-filter state; data-mfr/data-type drive URL building #}
-<div class="mb-3">
-  <div class="d-flex flex-wrap gap-2 align-items-center">
-    <span class="text-muted small fw-semibold me-1">Manufacturer:</span>
-    <a href="/equipment/" class="btn btn-sm {% if not selected_manufacturer %}btn-secondary{% else %}btn-outline-secondary{% endif %} mfr-filter" data-mfr="">All</a>
-    {% for mfr in manufacturers %}
-    <a href="/equipment/?manufacturer={{ mfr | urlencode }}"
-       class="btn btn-sm {% if selected_manufacturer == mfr %}btn-secondary{% else %}btn-outline-secondary{% endif %} mfr-filter"
-       data-mfr="{{ mfr }}">{{ mfr }}</a>
-    {% endfor %}
-  </div>
+<!-- Bootstrap tabs -->
+<ul class="nav nav-tabs mb-0" id="equipTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab != 'refresh' %}active{% endif %}"
+            id="tab-catalog" data-bs-toggle="tab" data-bs-target="#pane-catalog"
+            type="button" role="tab">
+      <i class="bi bi-grid me-1"></i>Equipment Catalog
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab == 'refresh' %}active{% endif %}"
+            id="tab-refresh" data-bs-toggle="tab" data-bs-target="#pane-refresh"
+            type="button" role="tab">
+      <i class="bi bi-arrow-clockwise me-1"></i>AI Refresh
+      {% if active_job and active_job.status in ('pending', 'running') %}
+      <span class="spinner-border spinner-border-sm ms-1" style="width:.7rem;height:.7rem;"></span>
+      {% endif %}
+    </button>
+  </li>
+</ul>
 
-  <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
-    <span class="text-muted small fw-semibold me-1">Type:</span>
-    <a href="/equipment/" class="btn btn-sm {% if not selected_type %}btn-secondary{% else %}btn-outline-secondary{% endif %} type-filter" data-type="">All Types</a>
-    {% for type_key, type_label in type_labels.items() %}
-    <a href="/equipment/?equipment_type={{ type_key }}"
-       class="btn btn-sm {% if selected_type == type_key %}btn-secondary{% else %}btn-outline-secondary{% endif %} type-filter"
-       data-type="{{ type_key }}">{{ type_label }}</a>
-    {% endfor %}
-  </div>
-</div>
+<div class="tab-content border border-top-0 rounded-bottom p-3 bg-body" id="equipTabContent">
 
-{# Unit grid #}
-<div id="unit-grid-container">
-  {% include "equipment/_unit_grid.html" %}
-</div>
+  <!-- ===================== TAB: EQUIPMENT CATALOG ===================== -->
+  <div class="tab-pane fade {% if active_tab != 'refresh' %}show active{% endif %}"
+       id="pane-catalog" role="tabpanel">
 
-{# Sticky compare bar #}
-<div id="compare-bar" class="d-none mt-3">
-  <div class="card border-primary shadow">
-    <div class="card-body py-2 d-flex justify-content-between align-items-center">
-      <span id="compare-label" class="fw-semibold text-primary small">0 units selected</span>
-      <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-secondary" id="compare-clear">Clear</button>
-        <a id="compare-link" href="/equipment/compare?ids=" class="btn btn-sm btn-primary">
-          <i class="bi bi-table me-1"></i>Compare
-        </a>
+    <div class="d-flex justify-content-between align-items-center mb-2 pt-1">
+      <small class="text-muted" id="unit-count">
+        {{ units|length }} unit{{ "s" if units|length != 1 }} shown
+      </small>
+      <button class="btn btn-sm btn-link text-muted p-0" type="button"
+              data-bs-toggle="collapse" data-bs-target="#help-catalog" title="Help &amp; instructions">
+        <i class="bi bi-question-circle"></i>
+      </button>
+    </div>
+    <div class="collapse mb-3" id="help-catalog">
+      <div class="card border-info border-opacity-25">
+        <div class="card-body bg-info-subtle rounded small">
+          <strong>Equipment Catalog</strong> — Browse and compare vending equipment from top manufacturers.
+          <ul class="mb-0 mt-1">
+            <li>Filter by manufacturer or equipment type using the buttons above the grid.</li>
+            <li>Click any unit card to open full specs, pricing, warranty, and image details.</li>
+            <li>Check up to 3 units and click <strong>Compare</strong> for a side-by-side spec table.</li>
+            <li>Use the <strong>AI Refresh</strong> tab to automatically update specs and pricing from manufacturer sites.</li>
+          </ul>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
+    {# Manufacturer filter #}
+    <div class="mb-3">
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="text-muted small fw-semibold me-1">Manufacturer:</span>
+        <a href="/equipment/" class="btn btn-sm {% if not selected_manufacturer %}btn-secondary{% else %}btn-outline-secondary{% endif %} mfr-filter"
+           data-mfr="">All</a>
+        {% for mfr in manufacturers %}
+        <a href="/equipment/?manufacturer={{ mfr | urlencode }}"
+           class="btn btn-sm {% if selected_manufacturer == mfr %}btn-secondary{% else %}btn-outline-secondary{% endif %} mfr-filter"
+           data-mfr="{{ mfr }}">{{ mfr }}</a>
+        {% endfor %}
+      </div>
+
+      {# Type filter #}
+      <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+        <span class="text-muted small fw-semibold me-1">Type:</span>
+        <a href="/equipment/" class="btn btn-sm {% if not selected_type %}btn-secondary{% else %}btn-outline-secondary{% endif %} type-filter"
+           data-type="">All Types</a>
+        {% for type_key, type_label in type_labels.items() %}
+        <a href="/equipment/?equipment_type={{ type_key }}"
+           class="btn btn-sm {% if selected_type == type_key %}btn-secondary{% else %}btn-outline-secondary{% endif %} type-filter"
+           data-type="{{ type_key }}">{{ type_label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Unit grid #}
+    <div id="unit-grid-container">
+      {% include "equipment/_unit_grid.html" %}
+    </div>
+
+    {# Sticky compare bar — appears when 2+ units checked #}
+    <div id="compare-bar" class="d-none mt-3">
+      <div class="card border-primary shadow">
+        <div class="card-body py-2 d-flex justify-content-between align-items-center">
+          <span id="compare-label" class="fw-semibold text-primary small">0 units selected</span>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" id="compare-clear">Clear</button>
+            <a id="compare-link" href="/equipment/compare?ids=" class="btn btn-sm btn-primary">
+              <i class="bi bi-table me-1"></i>Compare
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== TAB: AI REFRESH ===================== -->
+  <div class="tab-pane fade {% if active_tab == 'refresh' %}show active{% endif %}"
+       id="pane-refresh" role="tabpanel">
+    {% include "equipment/_tab_refresh.html" %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
 (function () {
-  // Track active filter selections across HTMX grid swaps
   var activeMfr = "{{ selected_manufacturer }}";
   var activeType = "{{ selected_type }}";
 
@@ -139,10 +189,12 @@
     }
   });
 
-  clearBtn.addEventListener('click', function () {
-    document.querySelectorAll('.compare-check:checked').forEach(function (c) { c.checked = false; });
-    bar.classList.add('d-none');
-  });
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      document.querySelectorAll('.compare-check:checked').forEach(function (c) { c.checked = false; });
+      bar.classList.add('d-none');
+    });
+  }
 
   document.body.addEventListener('htmx:afterSwap', function (e) {
     if (e.detail.target && e.detail.target.id === 'unit-grid-container') {
@@ -151,6 +203,29 @@
       if (el) el.textContent = count + ' unit' + (count !== 1 ? 's' : '') + ' shown';
     }
     updateBar();
+  });
+
+  // Tab persistence via URL param or hash
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var tabParam = params.get('tab');
+    var tabHash = window.location.hash.replace('#', '');
+    var tabId = tabParam || tabHash;
+    if (tabId && tabId !== 'catalog') {
+      var btn = document.getElementById('tab-' + tabId);
+      if (btn) { new bootstrap.Tab(btn).show(); }
+    }
+    document.querySelectorAll('#equipTabs button[data-bs-toggle="tab"]').forEach(function (btn) {
+      btn.addEventListener('shown.bs.tab', function (e) {
+        var id = e.target.id.replace('tab-', '');
+        history.replaceState(null, '', '#' + id);
+      });
+    });
+  })();
+
+  // Bootstrap tooltips (used in AI Refresh tab)
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+    new bootstrap.Tooltip(el);
   });
 })();
 </script>

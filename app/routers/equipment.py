@@ -63,6 +63,7 @@ def _active_refresh_job(db: Session) -> AgentJob | None:
 @router.get("/", response_class=HTMLResponse)
 def equipment_index(
     request: Request,
+    tab: str = "catalog",
     manufacturer: str | None = None,
     equipment_type: str | None = None,
     db: Session = Depends(get_db),
@@ -97,17 +98,33 @@ def equipment_index(
     )
 
     active_job = _active_refresh_job(db)
+    all_jobs = (
+        db.query(AgentJob)
+        .filter(AgentJob.job_type == "equipment_refresh")
+        .order_by(AgentJob.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    last_job = all_jobs[0] if all_jobs else None
+    unit_count = db.query(EquipmentUnit).count()
+    current_provider = _get_setting(db, "search_provider", "duckduckgo")
+
     return templates.TemplateResponse(
         request,
         "equipment/index.html",
         {
             "active_nav": "equipment",
+            "active_tab": tab,
             "units": units,
             "manufacturers": available_manufacturers,
             "type_labels": available_type_labels,
             "selected_manufacturer": manufacturer or "",
             "selected_type": equipment_type or "",
-            "active_refresh_job": active_job,
+            "active_job": active_job,
+            "all_jobs": all_jobs,
+            "last_job": last_job,
+            "unit_count": unit_count,
+            "current_provider": current_provider,
         },
     )
 
@@ -133,35 +150,10 @@ def equipment_compare(
     )
 
 
-@router.get("/refresh", response_class=HTMLResponse)
-def refresh_landing(
-    request: Request,
-    db: Session = Depends(get_db),
-) -> HTMLResponse:
-    """Confirmation / status page — does NOT start a job on load."""
-    active_job = _active_refresh_job(db)
-    all_jobs = (
-        db.query(AgentJob)
-        .filter(AgentJob.job_type == "equipment_refresh")
-        .order_by(AgentJob.created_at.desc())
-        .limit(20)
-        .all()
-    )
-    last_job = all_jobs[0] if all_jobs else None
-    unit_count = db.query(EquipmentUnit).count()
-    current_provider = _get_setting(db, "search_provider", "duckduckgo")
-    return templates.TemplateResponse(
-        request,
-        "equipment/refresh.html",
-        {
-            "active_nav": "equipment",
-            "active_job": active_job,
-            "last_job": last_job,
-            "all_jobs": all_jobs,
-            "unit_count": unit_count,
-            "current_provider": current_provider,
-        },
-    )
+@router.get("/refresh")
+def refresh_landing() -> RedirectResponse:
+    """Redirect old /equipment/refresh URL to the new tabbed layout."""
+    return RedirectResponse(url="/equipment/?tab=refresh", status_code=302)
 
 
 @router.post("/refresh", response_class=HTMLResponse)
@@ -177,7 +169,7 @@ def equipment_refresh_start(
     # Don't double-start if one is already running
     existing = _active_refresh_job(db)
     if existing:
-        return RedirectResponse(url="/equipment/refresh", status_code=303)
+        return RedirectResponse(url="/equipment/?tab=refresh", status_code=303)
 
     _set_setting(db, "search_provider", search_provider)
 
@@ -190,7 +182,7 @@ def equipment_refresh_start(
     db.commit()
     db.refresh(job)
     background_tasks.add_task(run_equipment_refresh_job, job.id)
-    return RedirectResponse(url="/equipment/refresh", status_code=303)
+    return RedirectResponse(url="/equipment/?tab=refresh", status_code=303)
 
 
 @router.get("/refresh/{job_id}/poll", response_class=HTMLResponse)
@@ -237,7 +229,7 @@ async def equipment_update_image(
             return templates.TemplateResponse(
                 request,
                 "equipment/_image_edit.html",
-                {"unit": unit, "error": f"File type '{suffix}' not allowed. Use jpg, png, webp, or gif."},
+                {"unit": unit, "error": f"File type '{suffix}' not allowed. Use jpg, png, webp, or gif."},  # noqa: E501
             )
         _EQUIPMENT_IMG_DIR.mkdir(parents=True, exist_ok=True)
         dest = _EQUIPMENT_IMG_DIR / f"{unit_id}{suffix}"

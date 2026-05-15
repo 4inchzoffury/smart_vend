@@ -1,0 +1,172 @@
+{# Vendor account settings panel — rendered inline and via HTMX after save #}
+<div class="card border-warning border-opacity-50 mb-3" id="comparator-settings-panel">
+  <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 small"><i class="bi bi-gear me-1"></i>Vendor Account Settings</h6>
+    {% if settings_saved is defined and settings_saved %}
+    <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Saved</span>
+    {% endif %}
+  </div>
+  <div class="card-body small">
+    <form hx-post="/inventory/compare/settings"
+          hx-target="#comparator-settings-panel"
+          hx-swap="outerHTML">
+
+      <p class="text-muted mb-3" style="font-size:.75rem">
+        Enter your ZIP code and click <strong>Find</strong> to locate your nearest store.
+        Select it from the list, then click <strong>Save Settings</strong>.
+        <strong>Credentials are stored locally in your app database (not encrypted).</strong>
+      </p>
+
+      <!-- Sam's Club -->
+      <div class="border rounded p-2 mb-2">
+        <div class="fw-semibold mb-2 d-flex align-items-center gap-2">
+          <i class="bi bi-building text-primary"></i> Sam's Club
+          {% if vendor_cfg.sams_club.club_id %}
+          <span class="badge bg-success-subtle text-success border border-success-subtle">
+            {{ vendor_cfg.sams_club.club_name or ("Club #" ~ vendor_cfg.sams_club.club_id) }}
+          </span>
+          {% else %}
+          <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size:.65rem">Club ID needed</span>
+          {% endif %}
+        </div>
+        <div class="row g-2 align-items-end">
+          <div class="col-4">
+            <label class="form-label mb-1">ZIP Code</label>
+            <input type="text" name="compare_sams_zip" id="sams-zip" class="form-control form-control-sm"
+                   value="{{ vendor_cfg.sams_club.zip }}"
+                   placeholder="e.g. 32401" maxlength="5">
+          </div>
+          <div class="col-4">
+            <label class="form-label mb-1">Club ID <span class="text-muted fw-normal">(from URL)</span></label>
+            <input type="text" name="compare_sams_club_id" id="sams-club-id" class="form-control form-control-sm"
+                   value="{{ vendor_cfg.sams_club.club_id }}"
+                   placeholder="e.g. 6373">
+            <input type="hidden" name="compare_sams_club_name" id="sams-club-name"
+                   value="{{ vendor_cfg.sams_club.club_name }}">
+          </div>
+          <div class="col-4">
+            <button type="button" class="btn btn-sm btn-outline-primary w-100"
+                    hx-get="/inventory/compare/stores"
+                    hx-include="#sams-zip"
+                    hx-vals='{"brand": "sams_club"}'
+                    hx-target="#sams-store-picker"
+                    hx-swap="innerHTML"
+                    hx-indicator="#sams-find-spinner">
+              <span id="sams-find-spinner" class="htmx-indicator spinner-border spinner-border-sm" role="status"></span>
+              <i class="bi bi-search me-1"></i>Find Clubs
+            </button>
+          </div>
+        </div>
+        <div id="sams-store-picker"></div>
+      </div>
+
+      <!-- Walmart -->
+      <div class="border rounded p-2 mb-2">
+        <div class="fw-semibold mb-2 d-flex align-items-center gap-2">
+          <i class="bi bi-cart3 text-info"></i> Walmart
+          {% if vendor_cfg.walmart.store_id %}
+          <span class="badge bg-info-subtle text-info border border-info-subtle">
+            Store #{{ vendor_cfg.walmart.store_id }}{% if vendor_cfg.walmart.store_name %} · {{ vendor_cfg.walmart.store_name }}{% endif %}
+          </span>
+          {% else %}
+          <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size:.65rem">Store ID needed</span>
+          {% endif %}
+        </div>
+        <div class="row g-2 align-items-end">
+          <div class="col-4">
+            <label class="form-label mb-1">ZIP Code</label>
+            <input type="text" name="compare_walmart_zip" id="walmart-zip" class="form-control form-control-sm"
+                   value="{{ vendor_cfg.walmart.zip }}"
+                   placeholder="e.g. 32401" maxlength="5">
+          </div>
+          <div class="col-4">
+            <label class="form-label mb-1">Store ID <span class="text-muted fw-normal">(optional)</span></label>
+            <input type="text" name="compare_walmart_store_id" id="walmart-store-id" class="form-control form-control-sm"
+                   value="{{ vendor_cfg.walmart.store_id }}"
+                   placeholder="auto-resolved">
+            <input type="hidden" name="compare_walmart_store_name" id="walmart-store-name"
+                   value="{{ vendor_cfg.walmart.store_name }}">
+          </div>
+          <div class="col-4">
+            <button type="button" class="btn btn-sm btn-outline-info w-100"
+                    hx-get="/inventory/compare/stores"
+                    hx-include="#walmart-zip"
+                    hx-vals='{"brand": "walmart"}'
+                    hx-target="#walmart-store-picker"
+                    hx-swap="innerHTML"
+                    hx-indicator="#walmart-find-spinner">
+              <span id="walmart-find-spinner" class="htmx-indicator spinner-border spinner-border-sm" role="status"></span>
+              <i class="bi bi-search me-1"></i>Find Stores
+            </button>
+          </div>
+        </div>
+        <div id="walmart-store-picker"></div>
+      </div>
+
+      <!-- WebstaurantStore -->
+      <div class="border rounded p-2 mb-2">
+        <div class="fw-semibold mb-2">
+          <i class="bi bi-globe text-success"></i> WebstaurantStore
+        </div>
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label mb-1">Account Email</label>
+            <input type="email" name="compare_webstaurantstore_email" class="form-control form-control-sm"
+                   value="{{ vendor_cfg.webstaurantstore.email }}"
+                   placeholder="your@email.com (reference only)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Vendors Supply -->
+      <div class="border rounded p-2 mb-2">
+        <div class="fw-semibold mb-2">
+          <i class="bi bi-box text-warning"></i> Vendors Supply
+        </div>
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label mb-1">Account Email</label>
+            <input type="email" name="compare_vendors_supply_email" class="form-control form-control-sm"
+                   value="{{ vendor_cfg.vendors_supply.email }}"
+                   placeholder="your@email.com (reference only)">
+          </div>
+        </div>
+      </div>
+
+      <!-- CandyMachines -->
+      <div class="border rounded p-2 mb-3">
+        <div class="fw-semibold mb-2">
+          <i class="bi bi-star text-danger"></i> CandyMachines
+        </div>
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label mb-1">Account Email</label>
+            <input type="email" name="compare_candy_machines_email" class="form-control form-control-sm"
+                   value="{{ vendor_cfg.candy_machines.email }}"
+                   placeholder="your@email.com (reference only)">
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-warning btn-sm w-100">
+        <i class="bi bi-save me-1"></i>Save Settings
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+function pickStore(brand, id, label) {
+  if (brand === 'walmart') {
+    document.getElementById('walmart-store-id').value = id;
+    document.getElementById('walmart-store-name').value = label;
+    document.getElementById('walmart-store-picker').innerHTML =
+      '<div class="text-success mt-1" style="font-size:.73rem"><i class="bi bi-check-circle-fill me-1"></i>Selected: ' + label + ' &mdash; click <strong>Save Settings</strong> to confirm.</div>';
+  } else {
+    document.getElementById('sams-club-id').value = id;
+    document.getElementById('sams-club-name').value = label;
+    document.getElementById('sams-store-picker').innerHTML =
+      '<div class="text-success mt-1" style="font-size:.73rem"><i class="bi bi-check-circle-fill me-1"></i>Selected: ' + label + ' &mdash; click <strong>Save Settings</strong> to confirm.</div>';
+  }
+}
+</script>

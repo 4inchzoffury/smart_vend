@@ -1,43 +1,164 @@
-{# Public chatbot session history #}
+{# Public chatbot session history — grouped by calendar date #}
+<div id="chat-history-panel">
+<div class="d-flex align-items-center justify-content-end pt-1 mb-1">
+  <button class="btn btn-sm btn-link text-muted p-0" type="button"
+          data-bs-toggle="collapse" data-bs-target="#help-history" title="Help &amp; instructions">
+    <i class="bi bi-question-circle"></i>
+  </button>
+</div>
+<div class="collapse mb-3" id="help-history">
+  <div class="card border-info border-opacity-25">
+    <div class="card-body bg-info-subtle rounded small">
+      <strong>Chat History</strong> — Browse all public chatbot conversations grouped by date.
+      <ul class="mb-0 mt-1">
+        <li>Each session shows the full back-and-forth between the customer and the AI.</li>
+        <li>Use <strong>Refresh</strong> to load the latest sessions without reloading the page.</li>
+        <li>Escalated conversations appear here and in the escalations alert at the top.</li>
+      </ul>
+    </div>
+  </div>
+</div>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h6 class="mb-0 fw-semibold">Public Chatbot Sessions</h6>
-  <small class="text-muted">{{ total_sessions }} session{{ 's' if total_sessions != 1 }}</small>
+  <div class="d-flex align-items-center gap-2">
+    <small class="text-muted">
+      {%- if total_sessions == 0 %}No conversations
+      {%- elif total_sessions == 1 %}1 conversation
+      {%- else %}{{ total_sessions }} conversations
+      {%- endif %}
+    </small>
+    <button type="button"
+            class="btn btn-outline-secondary btn-sm py-0 px-2"
+            style="font-size:.75rem"
+            onclick="refreshChatHistory(this)">
+      <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+    </button>
+    {% if total_sessions %}
+    <button type="button"
+            class="btn btn-outline-danger btn-sm py-0 px-2"
+            style="font-size:.75rem"
+            onclick="clearAllChatHistory({{ total_sessions }})">
+      <i class="bi bi-trash me-1"></i>Clear All
+    </button>
+    {% endif %}
+  </div>
 </div>
 
-{% if sessions %}
-<div class="accordion" id="chat-history-accordion">
-  {% for s in sessions %}
-  <div class="accordion-item">
-    <h2 class="accordion-header">
-      <button class="accordion-button collapsed py-2 small" type="button"
-              data-bs-toggle="collapse"
-              data-bs-target="#session-{{ loop.index }}"
-              hx-get="/chatbot/history/{{ s.session_id }}"
-              hx-target="#session-body-{{ loop.index }}"
-              hx-trigger="click once">
-        <div class="d-flex gap-3 align-items-center w-100 me-3">
-          <code class="text-muted" style="font-size:.72rem">{{ s.session_id[:8] }}…</code>
-          <span class="badge bg-secondary-subtle text-secondary-emphasis border">{{ s.msg_count }} msg{{ 's' if s.msg_count != 1 }}</span>
-          <span class="text-muted flex-grow-1 text-truncate" style="max-width:300px;font-size:.82rem">{{ s.first_message }}</span>
-          <span class="ms-auto text-muted flex-shrink-0" style="font-size:.72rem">{{ s.last_at.strftime('%b %d, %H:%M') if s.last_at else '' }}</span>
-        </div>
-      </button>
-    </h2>
-    <div id="session-{{ loop.index }}" class="accordion-collapse collapse">
-      <div class="accordion-body p-0">
-        <div id="session-body-{{ loop.index }}" class="d-flex flex-column gap-1" style="min-height:60px">
-          <div class="text-center text-muted py-3 small">
-            <div class="spinner-border spinner-border-sm me-1"></div>Loading…
+{% set session_groups = session_groups if session_groups is defined else [] %}
+{% if session_groups %}
+{% for group in session_groups %}
+  {# ── Date separator ── #}
+  <div class="d-flex align-items-center gap-2 mb-2 {% if not loop.first %}mt-3{% endif %}">
+    <span class="badge bg-secondary-subtle text-secondary-emphasis border px-2" style="font-size:.7rem;font-weight:600;letter-spacing:.03em">
+      {% if group.date == today %}
+        Today
+      {% elif group.date == yesterday %}
+        Yesterday
+      {% else %}
+        {{ group.date.strftime('%B %d, %Y') }}
+      {% endif %}
+    </span>
+    <hr class="flex-grow-1 my-0" style="border-color:var(--bs-border-color-translucent);">
+    <small class="text-muted flex-shrink-0" style="font-size:.68rem">
+      {{ group.sessions | length }} conversation{{ 's' if group.sessions | length != 1 }}
+    </small>
+  </div>
+
+  {# ── Sessions for this date ── #}
+  <div class="accordion mb-1" id="accordion-{{ loop.index }}">
+    {% for s in group.sessions %}
+    {% set uid = s.session_id[:8] %}
+    <div class="accordion-item" id="session-row-{{ uid }}">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed py-2 small" type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#session-collapse-{{ uid }}">
+          <div class="d-flex gap-3 align-items-center w-100 me-3">
+            <span class="badge bg-secondary-subtle text-secondary-emphasis border" style="font-size:.7rem;font-family:monospace">
+              {{ uid }}…
+            </span>
+            <span class="badge bg-light text-secondary border">
+              {{ s.msg_count }} msg{{ 's' if s.msg_count != 1 }}
+            </span>
+            <span class="text-muted flex-grow-1 text-truncate" style="max-width:240px;font-size:.82rem">
+              {{ s.first_message }}
+            </span>
+            <span class="ms-auto text-muted flex-shrink-0" style="font-size:.7rem">
+              {{ s.started_at.strftime('%H:%M') if s.started_at else '' }}
+              {% if s.last_at and s.started_at and s.last_at.date() != s.started_at.date() %}
+                – {{ s.last_at.strftime('%b %d') }}
+              {% endif %}
+            </span>
+          </div>
+        </button>
+      </h2>
+      <div id="session-collapse-{{ uid }}" class="accordion-collapse collapse"
+           hx-get="/chatbot/history/{{ s.session_id }}"
+           hx-target="#session-detail-{{ uid }}"
+           hx-trigger="show.bs.collapse">
+        <div class="accordion-body p-0">
+          <div id="session-detail-{{ uid }}" class="d-flex flex-column gap-1" style="min-height:60px">
+            <div class="text-center text-muted py-3 small">
+              <div class="spinner-border spinner-border-sm me-1"></div>Loading…
+            </div>
+          </div>
+          <div class="d-flex justify-content-end px-3 py-2 border-top">
+            <button type="button"
+                    class="btn btn-outline-danger btn-sm"
+                    onclick="deleteChatSession('{{ s.session_id }}', '{{ uid }}', {{ s.msg_count }})">
+              <i class="bi bi-trash me-1"></i>Delete Session
+            </button>
           </div>
         </div>
       </div>
     </div>
+    {% endfor %}
   </div>
-  {% endfor %}
-</div>
+{% endfor %}
+
 {% else %}
 <div class="text-center text-muted py-5">
   <i class="bi bi-chat-square-text fs-2 d-block mb-2 opacity-40"></i>
-  No public chatbot sessions yet.
+  No conversations yet.
 </div>
 {% endif %}
+</div>
+
+<script>
+function refreshChatHistory(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:10px;height:10px;border-width:2px"></span>';
+  fetch('/customer-service/chat-history')
+    .then(function(r) { return r.ok ? r.text() : Promise.reject(r.status); })
+    .then(function(html) {
+        document.getElementById('chat-history-panel').outerHTML = html;
+        var panel = document.getElementById('chat-history-panel');
+        if (panel && typeof htmx !== 'undefined') htmx.process(panel);
+      })
+    .catch(function(err) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh'; alert('Refresh failed: ' + err); });
+}
+
+function clearAllChatHistory(totalSessions) {
+  if (!confirm('Delete all ' + totalSessions + ' session' + (totalSessions !== 1 ? 's' : '') + ' and their messages? This cannot be undone.')) return;
+  fetch('/customer-service/chat-history/clear', {method: 'POST'})
+    .then(function(r) {
+      if (!r.ok) throw new Error('Server error ' + r.status);
+      return r.text();
+    })
+    .then(function(html) {
+      document.getElementById('chat-history-panel').outerHTML = html;
+    })
+    .catch(function(err) { alert('Clear failed: ' + err.message); });
+}
+
+function deleteChatSession(sessionId, uid, msgCount) {
+  if (!confirm('Delete this session and its ' + msgCount + ' message' + (msgCount !== 1 ? 's' : '') + '?')) return;
+  fetch('/customer-service/chat-history/' + sessionId + '/delete', {method: 'POST'})
+    .then(function(r) {
+      if (!r.ok) throw new Error('Server error ' + r.status);
+      var row = document.getElementById('session-row-' + uid);
+      if (row) row.remove();
+    })
+    .catch(function(err) { alert('Delete failed: ' + err.message); });
+}
+</script>

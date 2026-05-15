@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}CRM – Prime Micro Markets{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0"><i class="bi bi-people me-2"></i>Client CRM</h1>
+  <div class="d-flex gap-2 align-items-center">
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#page-help" title="Help &amp; instructions">
+      <i class="bi bi-question-circle"></i>
+    </button>
+    <a href="/crm/reports" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-bar-chart me-1"></i>Reports
+    </a>
+    <button class="btn btn-primary btn-sm"
+            hx-get="/crm/new"
+            hx-target="#client-modal-body"
+            hx-swap="innerHTML"
+            data-bs-toggle="modal"
+            data-bs-target="#clientModal">
+      <i class="bi bi-plus-lg me-1"></i>New Client
+    </button>
+  </div>
+</div>
+<div class="collapse mb-3" id="page-help">
+  <div class="card border-info border-opacity-25">
+    <div class="card-body bg-info-subtle rounded small">
+      <strong>Client CRM</strong> — Manage active location clients, track MRR, and log site details.
+      <ul class="mb-0 mt-1">
+        <li>Each client represents a business where you have one or more vending machines installed.</li>
+        <li>Track commission rates, service contacts, and machine assignments per client.</li>
+        <li>The stats row shows total MRR, active vs. inactive clients, and average revenue per site.</li>
+        <li>Use <strong>Reports</strong> for revenue breakdowns, client health summaries, and MRR trends.</li>
+        <li>Clients link back to their Locations and Sales Pipeline entries.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Stats row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-primary">{{ total_clients }}</div>
+        <div class="small text-muted">Total Clients</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-success">{{ active_clients }}</div>
+        <div class="small text-muted">Active</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-info">${{ "%.0f"|format(mrr) }}</div>
+        <div class="small text-muted">Est. MRR</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold {% if pending_invoices > 0 %}text-warning{% else %}text-muted{% endif %}">
+          {{ pending_invoices }}
+        </div>
+        <div class="small text-muted">Invoices Pending</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Search & filter -->
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="get" action="/crm/" class="row g-2 align-items-end">
+      <div class="col-md-6">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" name="q" class="form-control" placeholder="Search company, contact, email, account #"
+                 value="{{ q }}">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <select name="status" class="form-select form-select-sm">
+          <option value="">All Statuses</option>
+          {% for s in account_statuses %}
+          <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>
+            {{ s | replace("_", " ") | title }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm flex-fill">Search</button>
+        {% if q or status_filter %}
+        <a href="/crm/" class="btn btn-outline-secondary btn-sm">Clear</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Client table -->
+{% if clients %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">Account #</th>
+          <th>Company</th>
+          <th>Primary Contact</th>
+          <th>Status</th>
+          <th class="text-center">Sites</th>
+          <th class="text-center">Equipment</th>
+          <th class="text-end pe-3">MRR</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for client in clients %}
+        <tr class="clickable-row" style="cursor:pointer" onclick="window.location='/crm/{{ client.id }}'">
+          <td class="ps-3">
+            <span class="badge bg-secondary font-monospace">{{ client.account_number or "-" }}</span>
+          </td>
+          <td class="fw-medium">{{ client.company_name }}</td>
+          <td>
+            <div class="small">{{ client.contact_name or "—" }}</div>
+            {% if client.contact_email %}
+            <div class="text-muted" style="font-size:0.75rem">{{ client.contact_email }}</div>
+            {% endif %}
+          </td>
+          <td>
+            {% set status_color = {'active': 'success', 'inactive': 'secondary', 'on_hold': 'warning'} %}
+            <span class="badge bg-{{ status_color.get(client.account_status, 'secondary') }}">
+              {{ client.account_status | replace("_", " ") | title }}
+            </span>
+          </td>
+          <td class="text-center">{{ client.sites | length }}</td>
+          <td class="text-center">
+            {% set total_eq = namespace(count=0) %}
+            {% for site in client.sites %}{% set total_eq.count = total_eq.count + site.equipment | length %}{% endfor %}
+            {{ total_eq.count }}
+          </td>
+          <td class="text-end pe-3 fw-semibold">
+            {% set mrr_sum = namespace(val=0) %}
+            {% for site in client.sites %}
+              {% for eq in site.equipment %}
+                {% if eq.status == 'active' and eq.monthly_fee %}
+                  {% set mrr_sum.val = mrr_sum.val + eq.monthly_fee %}
+                {% endif %}
+              {% endfor %}
+            {% endfor %}
+            {% if mrr_sum.val %}<span class="text-success">${{ "%.2f"|format(mrr_sum.val) }}</span>{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-people fs-1 d-block mb-2"></i>
+  {% if q or status_filter %}
+  No clients match your search.
+  {% else %}
+  No clients yet. <a href="#" data-bs-toggle="modal" data-bs-target="#clientModal"
+      hx-get="/crm/new" hx-target="#client-modal-body" hx-swap="innerHTML">Add your first client.</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- New Client Modal -->
+<div class="modal fade" id="clientModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">New Client</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="client-modal-body"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

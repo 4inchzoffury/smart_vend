@@ -2,11 +2,30 @@
 {% block title %}Financial Models – Prime Vending{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
   <h1 class="h3 mb-0">Financial Models</h1>
-  <a href="/financial/calculator" class="btn btn-primary btn-sm">
-    <i class="bi bi-plus-lg me-1"></i>New Model
-  </a>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#page-help" title="Help &amp; instructions">
+      <i class="bi bi-question-circle"></i>
+    </button>
+    <a href="/financial/calculator" class="btn btn-primary btn-sm">
+      <i class="bi bi-plus-lg me-1"></i>New Model
+    </a>
+  </div>
+</div>
+<div class="collapse mb-3" id="page-help">
+  <div class="card border-info border-opacity-25">
+    <div class="card-body bg-info-subtle rounded small">
+      <strong>Financial Models</strong> — Build and compare pro-forma P&amp;L scenarios for vending locations.
+      <ul class="mb-0 mt-1">
+        <li>Click <strong>New Model</strong> to create a scenario with machine count, revenue per machine, and cost assumptions.</li>
+        <li>Models calculate monthly/annual profit, break-even, and ROI automatically.</li>
+        <li>Save multiple scenarios to compare conservative, base, and optimistic projections side-by-side.</li>
+        <li>Click a model name to view the full pro-forma detail or edit its assumptions.</li>
+      </ul>
+    </div>
+  </div>
 </div>
 
 {% if scenarios %}

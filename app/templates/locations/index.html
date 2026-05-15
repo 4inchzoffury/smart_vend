@@ -4,14 +4,35 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Locations</h1>
-  <button class="btn btn-primary btn-sm"
-          hx-get="/locations/new"
-          hx-target="#location-modal-body"
-          hx-swap="innerHTML"
-          data-bs-toggle="modal"
-          data-bs-target="#locationModal">
-    <i class="bi bi-plus-lg me-1"></i>Add Location
-  </button>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#page-help" title="Help &amp; instructions">
+      <i class="bi bi-question-circle"></i>
+    </button>
+    <button class="btn btn-primary btn-sm"
+            hx-get="/locations/new"
+            hx-target="#location-modal-body"
+            hx-swap="innerHTML"
+            data-bs-toggle="modal"
+            data-bs-target="#locationModal"
+            onclick="document.getElementById('location-modal-title').textContent='Add Location'">
+      <i class="bi bi-plus-lg me-1"></i>Add Location
+    </button>
+  </div>
+</div>
+<div class="collapse mb-3" id="page-help">
+  <div class="card border-info border-opacity-25">
+    <div class="card-body bg-info-subtle rounded small">
+      <strong>Locations</strong> — Manage all physical vending machine placements.
+      <ul class="mb-0 mt-1">
+        <li><span class="badge bg-success">Active</span> locations have machines currently installed and operating.</li>
+        <li><span class="badge bg-secondary">Prospect</span> locations are under evaluation or in negotiation.</li>
+        <li>Click a location to view its machines, revenue history, and contact details.</li>
+        <li>Assign equipment from the Equipment Catalog to each location from the location detail page.</li>
+        <li>Use the <strong>Sales Pipeline</strong> to track how prospects progress to signed contracts.</li>
+      </ul>
+    </div>
+  </div>
 </div>
 
 {# ── Leaflet Map ── #}
@@ -76,7 +97,13 @@
       </div>
       <div class="card-footer bg-transparent py-1">
         <a href="/locations/{{ loc.id }}" class="btn btn-sm btn-outline-secondary py-0">View</a>
-        <a href="/locations/{{ loc.id }}/edit" class="btn btn-sm btn-outline-primary py-0 ms-1">Edit</a>
+        <button class="btn btn-sm btn-outline-primary py-0 ms-1"
+                hx-get="/locations/{{ loc.id }}/edit"
+                hx-target="#location-modal-body"
+                hx-swap="innerHTML"
+                data-bs-toggle="modal"
+                data-bs-target="#locationModal"
+                onclick="document.getElementById('location-modal-title').textContent='Edit Location'">Edit</button>
       </div>
     </div>
   </div>
@@ -131,7 +158,7 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Add Location</h5>
+        <h5 class="modal-title" id="location-modal-title">Add Location</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" id="location-modal-body"></div>

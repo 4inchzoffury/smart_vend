@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.agent import AgentJob
+from app.models.crm import Client, ClientEquipment
 from app.models.email_approval import EmailApproval
 from app.models.equipment import EquipmentUnit
 from app.models.financial import MachineProForma
@@ -68,5 +69,14 @@ def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
             .filter(AgentJob.status.in_(["pending", "running"]))
             .count(),
             "equipment_count": db.query(EquipmentUnit).count(),
+            "crm_active_clients": db.query(Client)
+            .filter(Client.account_status == "active")
+            .count(),
+            "crm_total_clients": db.query(Client).count(),
+            "crm_mrr": db.query(func.sum(ClientEquipment.monthly_fee))
+            .join(Client)
+            .filter(Client.account_status == "active", ClientEquipment.status == "active")
+            .scalar()
+            or 0.0,
         },
     )

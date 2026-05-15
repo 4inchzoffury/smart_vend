@@ -12,9 +12,19 @@
       <i class="bi bi-envelope-exclamation me-1"></i>Connect Gmail Inbox
     </a>
     {% endif %}
+    <div id="escalation-badge-wrap">
     {% if pending_escalations > 0 %}
-    <span class="badge bg-danger">{{ pending_escalations }} escalation{{ 's' if pending_escalations != 1 }}</span>
+    <button type="button" class="btn btn-sm btn-danger"
+            data-bs-toggle="modal" data-bs-target="#escalationsModal"
+            hx-get="/customer-service/escalations"
+            hx-target="#escalationsModalBody"
+            hx-swap="innerHTML"
+            hx-trigger="click">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>
+      {{ pending_escalations }} escalation{{ 's' if pending_escalations != 1 }}
+    </button>
     {% endif %}
+    </div>
   </div>
 </div>
 
@@ -40,9 +50,7 @@
   <li class="nav-item" role="presentation">
     <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-email" type="button">
       <i class="bi bi-envelope me-1"></i>Email Queue
-      {% if pending_emails > 0 %}
-      <span class="badge bg-danger ms-1">{{ pending_emails }}</span>
-      {% endif %}
+      <span id="email-tab-badge">{% if pending_emails > 0 %}<span class="badge bg-danger ms-1">{{ pending_emails }}</span>{% endif %}</span>
     </button>
   </li>
   <li class="nav-item" role="presentation">
@@ -65,45 +73,125 @@
   </div>
 
   <!-- Tab 2: Governance Rules -->
-  <div class="tab-pane fade" id="tab-governance"
-       hx-get="/customer-service/governance" hx-trigger="cs-load once" hx-swap="innerHTML">
-    <div class="text-center text-muted py-4 small">
-      <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+  <div class="tab-pane fade" id="tab-governance">
+    <div class="d-flex align-items-center justify-content-end pt-1 mb-1">
+      <button class="btn btn-sm btn-link text-muted p-0" type="button"
+              data-bs-toggle="collapse" data-bs-target="#help-governance" title="Help &amp; instructions">
+        <i class="bi bi-question-circle"></i>
+      </button>
+    </div>
+    <div class="collapse mb-3" id="help-governance">
+      <div class="card border-info border-opacity-25">
+        <div class="card-body bg-info-subtle rounded small">
+          <strong>Governance Rules</strong> — Define what the customer-facing AI chatbot can and cannot do.
+          <ul class="mb-0 mt-1">
+            <li>Rules guide how the AI handles refunds, complaints, product questions, and escalations.</li>
+            <li>Add rules with a topic, description, and action (allow / deny / escalate).</li>
+            <li>The chatbot reads these rules before responding to any customer message.</li>
+            <li>Use the <strong>Manager Chat</strong> tab to ask the AI to suggest new rules based on recent conversations.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div id="governance-content"
+         hx-get="/customer-service/governance" hx-trigger="cs-load once" hx-swap="innerHTML">
+      <div class="text-center text-muted py-4 small">
+        <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+      </div>
     </div>
   </div>
 
   <!-- Tab 3: Email Queue -->
-  <div class="tab-pane fade" id="tab-email"
-       hx-get="/customer-service/email-queue" hx-trigger="cs-load once" hx-swap="innerHTML">
-    <div class="text-center text-muted py-4 small">
-      <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+  <div class="tab-pane fade" id="tab-email">
+    <div class="d-flex align-items-center justify-content-end pt-1 mb-1">
+      <button class="btn btn-sm btn-link text-muted p-0" type="button"
+              data-bs-toggle="collapse" data-bs-target="#help-email" title="Help &amp; instructions">
+        <i class="bi bi-question-circle"></i>
+      </button>
+    </div>
+    <div class="collapse mb-3" id="help-email">
+      <div class="card border-info border-opacity-25">
+        <div class="card-body bg-info-subtle rounded small">
+          <strong>Email Queue</strong> — Review and approve AI-drafted email replies before sending.
+          <ul class="mb-0 mt-1">
+            <li>Emails from the connected Gmail inbox appear here when customers write in.</li>
+            <li>The AI drafts a reply based on governance rules and past conversation context.</li>
+            <li>Edit drafts as needed, then click <strong>Send</strong> to reply from your Gmail account.</li>
+            <li>Connect Gmail via the <em>Connect Gmail Inbox</em> button in the page header.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div id="email-content"
+         hx-get="/customer-service/email-queue" hx-trigger="cs-load once" hx-swap="innerHTML">
+      <div class="text-center text-muted py-4 small">
+        <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+      </div>
     </div>
   </div>
 
-  <!-- Tab 4: Chat History -->
-  <div class="tab-pane fade" id="tab-history"
-       hx-get="/customer-service/chat-history" hx-trigger="cs-load once" hx-swap="innerHTML">
-    <div class="text-center text-muted py-4 small">
-      <div class="spinner-border spinner-border-sm me-2"></div>Loading…
-    </div>
+  <!-- Tab 4: Chat History (pre-rendered; refresh button fetches latest) -->
+  <div class="tab-pane fade" id="tab-history">
+    {% include "customer_service/_chat_history.html" %}
   </div>
 
   <!-- Tab 5: AI Settings -->
-  <div class="tab-pane fade" id="tab-ai"
-       hx-get="/customer-service/ai-settings" hx-trigger="cs-load once" hx-swap="innerHTML">
-    <div class="text-center text-muted py-4 small">
-      <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+  <div class="tab-pane fade" id="tab-ai">
+    <div class="d-flex align-items-center justify-content-end pt-1 mb-1">
+      <button class="btn btn-sm btn-link text-muted p-0" type="button"
+              data-bs-toggle="collapse" data-bs-target="#help-ai-settings" title="Help &amp; instructions">
+        <i class="bi bi-question-circle"></i>
+      </button>
+    </div>
+    <div class="collapse mb-3" id="help-ai-settings">
+      <div class="card border-info border-opacity-25">
+        <div class="card-body bg-info-subtle rounded small">
+          <strong>AI Settings</strong> — Configure how the customer-facing chatbot and Manager AI behave.
+          <ul class="mb-0 mt-1">
+            <li>Set the AI model, response tone, and which Anthropic API key to use.</li>
+            <li>Configure the system prompt that governs all chatbot interactions.</li>
+            <li>Changes apply immediately — no restart required.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div id="ai-settings-content"
+         hx-get="/customer-service/ai-settings" hx-trigger="cs-load once" hx-swap="innerHTML">
+      <div class="text-center text-muted py-4 small">
+        <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+      </div>
     </div>
   </div>
 
 </div>
 
+<!-- Escalations Modal -->
+<div class="modal fade" id="escalationsModal" tabindex="-1" aria-labelledby="escalationsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="escalationsModalLabel">
+          <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Pending Customer Escalations
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="escalationsModalBody">
+        <div class="text-center text-muted py-3 small">
+          <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-// Trigger HTMX lazy load when a tab is first shown
+// Trigger HTMX lazy load on the inner content div (help button lives outside HTMX scope)
 document.querySelectorAll('#csTabs [data-bs-toggle="tab"]').forEach(function(btn) {
   btn.addEventListener('shown.bs.tab', function(e) {
     var pane = document.querySelector(e.target.dataset.bsTarget);
-    if (pane) htmx.trigger(pane, 'cs-load');
+    if (!pane) return;
+    var htmxEl = pane.querySelector('[hx-trigger]');
+    htmx.trigger(htmxEl || pane, 'cs-load');
   });
 });
 </script>

@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+{% block title %}{{ client.company_name }} – CRM{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <a href="/crm/" class="text-muted text-decoration-none small"><i class="bi bi-arrow-left"></i> CRM</a>
+      <span class="text-muted small">/</span>
+      <h1 class="h4 mb-0">{{ client.company_name }}</h1>
+      <span class="badge bg-secondary font-monospace small">{{ client.account_number or "—" }}</span>
+      {% set status_color = {'active': 'success', 'inactive': 'secondary', 'on_hold': 'warning'} %}
+      <span class="badge bg-{{ status_color.get(client.account_status, 'secondary') }}">
+        {{ client.account_status | replace("_", " ") | title }}
+      </span>
+    </div>
+    {% if client.prospect %}
+    <div class="mt-1 small text-muted">
+      <i class="bi bi-funnel me-1"></i>Converted from
+      <a href="/sales/{{ client.prospect.id }}" class="text-decoration-none">{{ client.prospect.company_name }}</a>
+    </div>
+    {% endif %}
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary btn-sm"
+            hx-get="/crm/{{ client.id }}/edit"
+            hx-target="#client-edit-body"
+            hx-swap="innerHTML"
+            data-bs-toggle="modal"
+            data-bs-target="#clientEditModal">
+      <i class="bi bi-pencil me-1"></i>Edit
+    </button>
+    <button class="btn btn-outline-danger btn-sm"
+            hx-delete="/crm/{{ client.id }}"
+            hx-confirm="Delete {{ client.company_name }}? This will remove all associated sites, equipment, notes, and invoices.">
+      <i class="bi bi-trash me-1"></i>Delete
+    </button>
+  </div>
+</div>
+
+<!-- Tabs -->
+{% set tab = request.query_params.get('tab', 'overview') %}
+<ul class="nav nav-tabs mb-3" id="clientTabs">
+  {% for t, icon, label in [
+    ('overview', 'bi-person-vcard', 'Overview'),
+    ('sites', 'bi-building', 'Sites & Equipment'),
+    ('billing', 'bi-credit-card', 'Billing'),
+    ('notes', 'bi-journal-text', 'Notes'),
+    ('invoices', 'bi-receipt', 'Invoices'),
+  ] %}
+  <li class="nav-item">
+    <a class="nav-link {% if tab == t %}active{% endif %}" href="/crm/{{ client.id }}?tab={{ t }}">
+      <i class="bi {{ icon }} me-1"></i>{{ label }}
+      {% if t == 'sites' %}
+        {% set eq_count = namespace(n=0) %}
+        {% for s in client.sites %}{% set eq_count.n = eq_count.n + s.equipment|length %}{% endfor %}
+        <span class="badge bg-secondary ms-1">{{ client.sites|length }}s / {{ eq_count.n }}e</span>
+      {% elif t == 'notes' %}
+        <span class="badge bg-secondary ms-1">{{ client.notes_list|length }}</span>
+      {% elif t == 'invoices' %}
+        <span class="badge bg-secondary ms-1">{{ client.invoices|length }}</span>
+      {% endif %}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+
+<!-- ── Tab: Overview ──────────────────────────────────────────────────────── -->
+{% if tab == 'overview' %}
+<div class="row g-3">
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small">Primary Contact</div>
+      <div class="card-body small">
+        <p class="mb-1 fw-medium fs-6">{{ client.contact_name or "No contact on file" }}</p>
+        {% if client.contact_title %}<p class="mb-1 text-muted">{{ client.contact_title }}</p>{% endif %}
+        {% if client.contact_email %}
+        <p class="mb-1"><i class="bi bi-envelope me-1 text-muted"></i>
+          <a href="mailto:{{ client.contact_email }}">{{ client.contact_email }}</a>
+        </p>
+        {% endif %}
+        {% if client.contact_phone %}
+        <p class="mb-0"><i class="bi bi-telephone me-1 text-muted"></i>{{ client.contact_phone }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card mt-3">
+      <div class="card-header py-2 fw-semibold small">Account Info</div>
+      <div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5">Account #</dt>
+          <dd class="col-7 font-monospace">{{ client.account_number or "—" }}</dd>
+          <dt class="col-5">Status</dt>
+          <dd class="col-7">{{ client.account_status | replace("_", " ") | title }}</dd>
+          <dt class="col-5">Client Since</dt>
+          <dd class="col-7">{{ client.created_at.strftime("%b %d, %Y") }}</dd>
+          <dt class="col-5">Sites</dt>
+          <dd class="col-7">{{ client.sites | length }}</dd>
+          {% set eq_count = namespace(n=0) %}
+          {% for s in client.sites %}{% set eq_count.n = eq_count.n + s.equipment|length %}{% endfor %}
+          <dt class="col-5">Equipment</dt>
+          <dd class="col-7">{{ eq_count.n }}</dd>
+          {% set mrr_sum = namespace(val=0) %}
+          {% for site in client.sites %}
+            {% for eq in site.equipment %}
+              {% if eq.status == 'active' and eq.monthly_fee %}
+                {% set mrr_sum.val = mrr_sum.val + eq.monthly_fee %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          <dt class="col-5">Est. MRR</dt>
+          <dd class="col-7 fw-semibold text-success">${{ "%.2f"|format(mrr_sum.val) }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-7">
+    {% if client.notes %}
+    <div class="card mb-3">
+      <div class="card-header py-2 fw-semibold small">Notes</div>
+      <div class="card-body small text-muted" style="white-space: pre-wrap">{{ client.notes }}</div>
+    </div>
+    {% endif %}
+    <!-- Recent notes timeline -->
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small d-flex justify-content-between align-items-center">
+        Recent Activity
+        <a href="/crm/{{ client.id }}?tab=notes" class="btn btn-outline-primary btn-sm py-0">View All</a>
+      </div>
+      <div class="card-body p-0">
+        {% if client.notes_list %}
+        <div class="list-group list-group-flush">
+          {% for n in client.notes_list[:5] %}
+          {% set note_icons = {'call': 'bi-telephone', 'meeting': 'bi-calendar-event', 'issue': 'bi-exclamation-triangle', 'payment': 'bi-cash', 'contract': 'bi-file-earmark-text', 'general': 'bi-chat-left-text'} %}
+          <div class="list-group-item py-2 small">
+            <div class="d-flex justify-content-between">
+              <span><i class="bi {{ note_icons.get(n.note_type, 'bi-chat-left-text') }} me-1 text-muted"></i>
+                <strong>{{ n.note_type | title }}</strong>
+                {% if n.created_by %}<span class="text-muted">· {{ n.created_by }}</span>{% endif %}
+              </span>
+              <span class="text-muted">{{ n.created_at.strftime("%b %d") }}</span>
+            </div>
+            <div class="mt-1 text-muted" style="white-space:pre-wrap">{{ n.content[:150] }}{% if n.content|length > 150 %}…{% endif %}</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-center text-muted py-3 small mb-0">No activity yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Tab: Sites & Equipment ─────────────────────────────────────────────── -->
+{% elif tab == 'sites' %}
+<div class="d-flex justify-content-end mb-3">
+  <button class="btn btn-primary btn-sm"
+          hx-get="/crm/{{ client.id }}/sites/new"
+          hx-target="#site-modal-body"
+          hx-swap="innerHTML"
+          data-bs-toggle="modal"
+          data-bs-target="#siteModal">
+    <i class="bi bi-plus-lg me-1"></i>Add Site
+  </button>
+</div>
+
+{% if client.sites %}
+  {% for site in client.sites %}
+  <div class="card mb-3">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-building text-muted"></i>
+        <span class="fw-semibold">{{ site.site_name }}</span>
+        <span class="badge {% if site.status == 'active' %}bg-success{% else %}bg-secondary{% endif %} small">
+          {{ site.status | title }}
+        </span>
+        {% if site.commission_pct %}
+        <span class="badge bg-info small">{{ site.commission_pct }}% commission</span>
+        {% endif %}
+      </div>
+      <div class="d-flex gap-1">
+        <button class="btn btn-outline-secondary btn-sm py-0"
+                hx-get="/crm/{{ client.id }}/sites/{{ site.id }}/edit"
+                hx-target="#site-modal-body"
+                hx-swap="innerHTML"
+                data-bs-toggle="modal"
+                data-bs-target="#siteModal">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-outline-danger btn-sm py-0"
+                hx-delete="/crm/{{ client.id }}/sites/{{ site.id }}"
+                hx-confirm="Delete site '{{ site.site_name }}'? All equipment at this site will also be removed.">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    </div>
+    <div class="card-body py-2 small">
+      <div class="row g-2 mb-2">
+        <div class="col-md-4">
+          {% if site.address %}
+          <div><i class="bi bi-geo-alt me-1 text-muted"></i>{{ site.address }}, {{ site.city }}, {{ site.state }} {{ site.zip_code or "" }}</div>
+          {% endif %}
+          {% if site.contact_name %}
+          <div class="mt-1"><i class="bi bi-person me-1 text-muted"></i>{{ site.contact_name }}
+            {% if site.contact_phone %} · {{ site.contact_phone }}{% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="col-md-4">
+          {% if site.contract_start or site.contract_end %}
+          <div><i class="bi bi-calendar-range me-1 text-muted"></i>
+            Contract: {{ site.contract_start or "open" }} → {{ site.contract_end or "ongoing" }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Equipment list -->
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="fw-semibold text-muted" style="font-size:0.8rem">EQUIPMENT ({{ site.equipment | length }})</span>
+        <button class="btn btn-outline-primary btn-sm py-0"
+                hx-get="/crm/{{ client.id }}/sites/{{ site.id }}/equipment/new"
+                hx-target="#eq-modal-body"
+                hx-swap="innerHTML"
+                data-bs-toggle="modal"
+                data-bs-target="#eqModal">
+          <i class="bi bi-plus-lg me-1"></i>Add Equipment
+        </button>
+      </div>
+
+      {% if site.equipment %}
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0" style="font-size:0.8rem">
+          <thead class="table-light">
+            <tr>
+              <th>Type</th>
+              <th>Manufacturer / Model</th>
+              <th>Serial #</th>
+              <th>Placement</th>
+              <th>Install Date</th>
+              <th>Status</th>
+              <th class="text-end">Monthly Fee</th>
+              <th class="text-end">Commission</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for eq in site.equipment %}
+            <tr>
+              <td>
+                <span class="badge bg-secondary">{{ eq.equipment_type | replace("_", " ") | title if eq.equipment_type else "—" }}</span>
+              </td>
+              <td>{{ eq.manufacturer or "—" }}{% if eq.model_name %} {{ eq.model_name }}{% endif %}</td>
+              <td class="font-monospace">{{ eq.serial_number or "—" }}</td>
+              <td>{{ eq.placement_description or "—" }}</td>
+              <td>{{ eq.install_date or "—" }}</td>
+              <td>
+                {% set eq_color = {'active': 'success', 'inactive': 'secondary', 'service_needed': 'warning'} %}
+                <span class="badge bg-{{ eq_color.get(eq.status, 'secondary') }}">
+                  {{ eq.status | replace("_", " ") | title }}
+                </span>
+              </td>
+              <td class="text-end">${{ "%.2f"|format(eq.monthly_fee) if eq.monthly_fee else "—" }}</td>
+              <td class="text-end">{{ eq.commission_pct }}%{% if not eq.commission_pct %}—{% endif %}</td>
+              <td class="text-end">
+                <button class="btn btn-outline-danger btn-sm py-0 px-1"
+                        hx-delete="/crm/{{ client.id }}/equipment/{{ eq.id }}"
+                        hx-confirm="Remove {{ eq.equipment_type or 'this equipment' }} from {{ site.site_name }}?">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0" style="font-size:0.8rem">No equipment added to this site yet.</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-building fs-1 d-block mb-2"></i>
+  No sites yet. <a href="#" data-bs-toggle="modal" data-bs-target="#siteModal"
+      hx-get="/crm/{{ client.id }}/sites/new" hx-target="#site-modal-body" hx-swap="innerHTML">Add the first site.</a>
+</div>
+{% endif %}
+
+
+<!-- ── Tab: Billing ───────────────────────────────────────────────────────── -->
+{% elif tab == 'billing' %}
+{% set b = client.billing %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small">Billing Profile</div>
+      <div class="card-body">
+        <form method="post" action="/crm/{{ client.id }}/billing">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Billing Email</label>
+              <input type="email" name="billing_email" class="form-control form-control-sm"
+                     value="{{ b.billing_email or '' if b else '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Billing Phone</label>
+              <input type="tel" name="billing_phone" class="form-control form-control-sm"
+                     value="{{ b.billing_phone or '' if b else '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Billing Address</label>
+              <input type="text" name="billing_address" class="form-control form-control-sm"
+                     value="{{ b.billing_address or '' if b else '' }}" placeholder="Street address">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small fw-semibold">City</label>
+              <input type="text" name="billing_city" class="form-control form-control-sm"
+                     value="{{ b.billing_city or '' if b else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">State</label>
+              <input type="text" name="billing_state" class="form-control form-control-sm"
+                     value="{{ b.billing_state or '' if b else '' }}" maxlength="2" placeholder="FL">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">ZIP</label>
+              <input type="text" name="billing_zip" class="form-control form-control-sm"
+                     value="{{ b.billing_zip or '' if b else '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Payment Method</label>
+              <select name="payment_method" class="form-select form-select-sm">
+                <option value="">— Select —</option>
+                {% for m in payment_methods %}
+                <option value="{{ m }}" {% if b and b.payment_method == m %}selected{% endif %}>
+                  {{ m | replace("_", " ") | title }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Payment Terms</label>
+              <select name="payment_terms" class="form-select form-select-sm">
+                <option value="">— Select —</option>
+                {% for t in payment_terms %}
+                <option value="{{ t }}" {% if b and b.payment_terms == t %}selected{% endif %}>
+                  {{ t | upper }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Credit Limit ($)</label>
+              <input type="number" name="credit_limit" step="0.01" class="form-control form-control-sm"
+                     value="{{ b.credit_limit if b and b.credit_limit else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Tax ID / EIN</label>
+              <input type="text" name="tax_id" class="form-control form-control-sm"
+                     value="{{ b.tax_id or '' if b else '' }}">
+            </div>
+            <div class="col-md-4 d-flex flex-column justify-content-end gap-2">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="auto_pay" id="auto_pay"
+                       {% if b and b.auto_pay %}checked{% endif %}>
+                <label class="form-check-label small" for="auto_pay">Auto-Pay Enabled</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="tax_exempt" id="tax_exempt"
+                       {% if b and b.tax_exempt %}checked{% endif %}>
+                <label class="form-check-label small" for="tax_exempt">Tax Exempt</label>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Billing Notes</label>
+              <textarea name="notes" class="form-control form-control-sm" rows="2">{{ b.notes or '' if b else '' }}</textarea>
+            </div>
+          </div>
+          <div class="d-flex justify-content-end mt-3">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i class="bi bi-floppy me-1"></i>Save Billing Info
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Tab: Notes ─────────────────────────────────────────────────────────── -->
+{% elif tab == 'notes' %}
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold small">Add Note</div>
+      <div class="card-body">
+        <form method="post" action="/crm/{{ client.id }}/notes">
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Type</label>
+            <select name="note_type" class="form-select form-select-sm">
+              {% for t in note_types %}
+              <option value="{{ t }}">{{ t | title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Note</label>
+            <textarea name="content" class="form-control form-control-sm" rows="4"
+                      placeholder="Enter note…" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm w-100">
+            <i class="bi bi-plus-lg me-1"></i>Add Note
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    {% if client.notes_list %}
+    <div class="list-group">
+      {% set note_icons = {'call': 'bi-telephone', 'meeting': 'bi-calendar-event', 'issue': 'bi-exclamation-triangle text-warning', 'payment': 'bi-cash text-success', 'contract': 'bi-file-earmark-text text-primary', 'general': 'bi-chat-left-text'} %}
+      {% set note_colors = {'call': 'primary', 'meeting': 'info', 'issue': 'warning', 'payment': 'success', 'contract': 'primary', 'general': 'secondary'} %}
+      {% for n in client.notes_list %}
+      <div class="list-group-item list-group-item-action py-3">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="badge bg-{{ note_colors.get(n.note_type, 'secondary') }} me-1">
+              <i class="bi {{ note_icons.get(n.note_type, 'bi-chat-left-text') }} me-1"></i>{{ n.note_type | title }}
+            </span>
+            {% if n.created_by %}<span class="text-muted small">by {{ n.created_by }}</span>{% endif %}
+          </div>
+          <span class="text-muted small">{{ n.created_at.strftime("%b %d, %Y %I:%M %p") }}</span>
+        </div>
+        <p class="mt-2 mb-0 small" style="white-space: pre-wrap">{{ n.content }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-journal-text fs-1 d-block mb-2"></i>
+      No notes yet. Add the first note.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+
+<!-- ── Tab: Invoices ──────────────────────────────────────────────────────── -->
+{% elif tab == 'invoices' %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    {% set paid_total = client.invoices | selectattr('status', 'eq', 'paid') | map(attribute='total_amount') | sum %}
+    {% set outstanding = client.invoices | selectattr('status', 'in', ['sent', 'overdue']) | map(attribute='total_amount') | sum %}
+    <span class="me-3 small"><strong class="text-success">${{ "%.2f"|format(paid_total) }}</strong> paid</span>
+    <span class="small"><strong class="text-warning">${{ "%.2f"|format(outstanding) }}</strong> outstanding</span>
+  </div>
+  <button class="btn btn-primary btn-sm"
+          data-bs-toggle="modal" data-bs-target="#invoiceModal">
+    <i class="bi bi-plus-lg me-1"></i>New Invoice
+  </button>
+</div>
+
+{% if client.invoices %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">Invoice #</th>
+          <th>Site</th>
+          <th>Date</th>
+          <th>Due</th>
+          <th class="text-end">Amount</th>
+          <th>Status</th>
+          <th class="pe-3">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in client.invoices %}
+        {% set inv_colors = {'draft': 'secondary', 'sent': 'info', 'paid': 'success', 'overdue': 'danger', 'void': 'secondary'} %}
+        <tr>
+          <td class="ps-3 font-monospace small">{{ inv.invoice_number or "—" }}</td>
+          <td class="small">{{ inv.site.site_name if inv.site else "—" }}</td>
+          <td class="small">{{ inv.invoice_date }}</td>
+          <td class="small">{{ inv.due_date or "—" }}</td>
+          <td class="text-end fw-semibold">${{ "%.2f"|format(inv.total_amount) }}</td>
+          <td>
+            <span class="badge bg-{{ inv_colors.get(inv.status, 'secondary') }}">{{ inv.status | title }}</span>
+          </td>
+          <td class="pe-3">
+            {% if inv.status not in ['paid', 'void'] %}
+            <form method="post" action="/crm/invoices/{{ inv.id }}/status" class="d-inline">
+              <div class="d-flex gap-1">
+                {% if inv.status == 'draft' %}
+                <input type="hidden" name="status" value="sent">
+                <button type="submit" class="btn btn-outline-info btn-sm py-0 px-2" style="font-size:0.75rem">Mark Sent</button>
+                {% elif inv.status in ['sent', 'overdue'] %}
+                <input type="hidden" name="status" value="paid">
+                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-2" style="font-size:0.75rem">Mark Paid</button>
+                {% endif %}
+                <input type="hidden" name="status" value="void">
+              </div>
+            </form>
+            {% elif inv.status == 'paid' %}
+            <span class="text-muted small">{{ inv.paid_at.strftime("%b %d") if inv.paid_at else "" }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-receipt fs-1 d-block mb-2"></i>
+  No invoices yet.
+</div>
+{% endif %}
+{% endif %}
+
+
+<!-- ── Modals ──────────────────────────────────────────────────────────────── -->
+<div class="modal fade" id="clientEditModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Client</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="client-edit-body"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="siteModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Site</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="site-modal-body"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="eqModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Equipment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="eq-modal-body"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="invoiceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">New Invoice</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="post" action="/crm/{{ client.id }}/invoices">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Invoice Date <span class="text-danger">*</span></label>
+              <input type="date" name="invoice_date" class="form-control form-control-sm" required
+                     value="{{ now().strftime('%Y-%m-%d') if now else '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Due Date</label>
+              <input type="date" name="due_date" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Site (optional)</label>
+              <select name="site_id" class="form-select form-select-sm">
+                <option value="">— All / General —</option>
+                {% for site in client.sites %}
+                <option value="{{ site.id }}">{{ site.site_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Subtotal ($)</label>
+              <input type="number" name="subtotal" step="0.01" class="form-control form-control-sm"
+                     value="0.00" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Tax ($)</label>
+              <input type="number" name="tax_amount" step="0.01" class="form-control form-control-sm"
+                     value="0.00">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Notes</label>
+              <textarea name="notes" class="form-control form-control-sm" rows="2"></textarea>
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">Create Invoice</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Preserve active tab after form submit
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  var tab = params.get('tab');
+  if (tab) {
+    var link = document.querySelector('#clientTabs a[href*="tab=' + tab + '"]');
+    if (link) link.classList.add('active');
+  }
+  // Invoice date default
+  var invDate = document.querySelector('input[name="invoice_date"]');
+  if (invDate && !invDate.value) invDate.value = new Date().toISOString().split('T')[0];
+  // Invoice status — handle void separately (own form)
+  document.querySelectorAll('form[action*="/invoices/"]').forEach(function (form) {
+    var voidBtn = form.querySelector('button[value="void"]');
+    if (voidBtn) {
+      voidBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (confirm('Void this invoice?')) {
+          form.querySelector('input[name="status"]').value = 'void';
+          form.submit();
+        }
+      });
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -69,6 +69,42 @@ def chatbot_message(
     return html
 
 
+@router.post("/lead", response_class=HTMLResponse)
+def chatbot_submit_lead(
+    request: Request,
+    session_id: str = Form(""),
+    name: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    location: str = Form(""),
+    description: str = Form(""),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    if not name.strip():
+        return HTMLResponse(
+            '<p style="color:#dc3545;font-size:.75rem;margin:4px 0 6px;">Please enter your name.</p>',
+            status_code=422,
+        )
+    from app.services.cs_chatbot_agent import _handle_capture_lead
+    _handle_capture_lead(
+        {"name": name, "email": email, "phone": phone,
+         "location": location, "description": description},
+        session_id.strip() or "widget-form",
+        db,
+    )
+    return HTMLResponse(
+        '<div style="text-align:center;padding:12px 0;">'
+        '<div style="font-size:2rem;margin-bottom:6px;">✅</div>'
+        '<p style="font-weight:600;color:#198754;margin-bottom:4px;font-size:.88rem;">Request received!</p>'
+        '<p style="font-size:.75rem;color:#666;margin-bottom:10px;">A real team member will personally reach out soon.</p>'
+        '<button type="button" onclick="hideCallbackForm()" '
+        'style="background:none;border:1px solid #dee2e6;border-radius:6px;'
+        'padding:4px 14px;font-size:.78rem;cursor:pointer;color:#6c757d;">'
+        'Back to Chat</button>'
+        '</div>'
+    )
+
+
 @router.get("/history/{session_id}", response_class=HTMLResponse)
 def chatbot_session_history(
     session_id: str,

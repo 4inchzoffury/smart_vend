@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func as sql_func
 from sqlalchemy.orm import Session
@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.agent import AgentJob
 from app.models.inventory import InventoryLog, Product, Supplier
-from app.services import inventory_agent
+from app.services import inventory_agent, price_comparator
 from app.services.inventory_agent import PRODUCT_CATEGORY_OPTIONS
+from app.services.price_comparator import VENDOR_KEYS, load_vendor_settings, save_vendor_setting
+from app.services.price_fetcher.models import VENDOR_META
 from app.views import templates
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
@@ -22,6 +24,21 @@ PRODUCT_CATEGORIES = [
     "snack_chips", "snack_candy", "snack_healthy",
     "meal_sandwich", "meal_salad", "personal_care", "other",
 ]
+
+# Human-readable labels for internal category slugs
+CATEGORY_LABELS: dict[str, str] = {
+    "beverage_water": "Water / Still Beverages",
+    "beverage_energy": "Energy Drinks",
+    "beverage_soda": "Soda / Soft Drinks",
+    "beverage_juice": "Juice",
+    "snack_chips": "Chips & Crisps",
+    "snack_candy": "Candy & Confections",
+    "snack_healthy": "Healthy Snacks",
+    "meal_sandwich": "Sandwiches & Wraps",
+    "meal_salad": "Salads & Fresh Food",
+    "personal_care": "Gum, Mints & Personal Care",
+    "other": "Other",
+}
 
 
 def _get_setting(db: Session, key: str, default: str = "") -> str:
@@ -130,23 +147,40 @@ def inventory_index(
     supplier_id: str | None = None,
     low_stock: bool = False,
     init_supplier: str | None = None,
+    tab: str = "products",
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     sid = int(supplier_id) if supplier_id else None
     init_sid = int(init_supplier) if init_supplier else None
-    query = db.query(Product).filter(Product.is_active.is_(True))
+    q = db.query(Product).filter(Product.is_active.is_(True))
     if category:
-        query = query.filter(Product.category == category)
+        q = q.filter(Product.category == category)
     if sid:
-        query = query.filter(Product.primary_supplier_id == sid)
+        q = q.filter(Product.primary_supplier_id == sid)
     if low_stock:
-        query = query.filter(
-            Product.par_level.is_not(None), Product.on_hand_qty < Product.par_level
-        )
-    products = query.order_by(Product.category, Product.name).all()
+        q = q.filter(Product.par_level.is_not(None), Product.on_hand_qty < Product.par_level)
+    products = q.order_by(Product.category, Product.name).all()
     suppliers = db.query(Supplier).order_by(Supplier.name).all()
     db_cats = {r[0] for r in db.query(Product.category).distinct() if r[0]}
     categories = PRODUCT_CATEGORIES + [c for c in sorted(db_cats) if c not in PRODUCT_CATEGORIES]
+    vendor_cfg = load_vendor_settings(db)
+    compare_jobs = (
+        db.query(AgentJob)
+        .filter(AgentJob.job_type == "price_comparison")
+        .order_by(AgentJob.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    search_provider = _get_setting(db, "inventory_search_provider", "duckduckgo")
+    from app.config import settings as app_settings
+    tavily_available = bool(app_settings.tavily_api_key)
+    sourcing_jobs = (
+        db.query(AgentJob)
+        .filter(AgentJob.job_type == "inventory_research")
+        .order_by(AgentJob.created_at.desc())
+        .limit(20)
+        .all()
+    )
     return templates.TemplateResponse(
         request,
         "inventory/index.html",
@@ -155,10 +189,23 @@ def inventory_index(
             "products": products,
             "suppliers": suppliers,
             "categories": categories,
+            "category_labels": CATEGORY_LABELS,
             "category_filter": category,
             "supplier_filter": sid,
             "low_stock": low_stock,
             "init_supplier_id": init_sid,
+            "active_tab": tab,
+            # comparator
+            "vendor_keys": VENDOR_KEYS,
+            "vendor_meta": VENDOR_META,
+            "vendor_cfg": vendor_cfg,
+            "compare_jobs": compare_jobs,
+            "search_provider": search_provider,
+            "tavily_available": tavily_available,
+            # AI sourcing
+            "category_options": PRODUCT_CATEGORY_OPTIONS,
+            "current_provider": search_provider,
+            "sourcing_jobs": sourcing_jobs,
         },
     )
 
@@ -384,6 +431,202 @@ def product_create(
     db.commit()
     return RedirectResponse(url="/inventory/", status_code=303)
 
+
+# ---------------------------------------------------------------------------
+# Price Comparator routes  (must be before /{product_id} wildcard routes)
+# ---------------------------------------------------------------------------
+
+@router.get("/compare/stores", response_class=HTMLResponse)
+def compare_stores(
+    request: Request,
+    brand: str = Query("walmart"),
+    compare_walmart_zip: str = Query(""),
+    compare_sams_zip: str = Query(""),
+) -> HTMLResponse:
+    """Return nearby store list HTML for store picker in settings panel."""
+    from app.services import store_locator
+
+    zip_code = (compare_walmart_zip if brand == "walmart" else compare_sams_zip).strip()
+    stores: list[dict] = []
+    error: str | None = None
+
+    if zip_code:
+        try:
+            stores = store_locator.find_stores(zip_code, brand)
+        except Exception as exc:
+            error = str(exc)
+    else:
+        error = "Enter a ZIP code first."
+
+    return templates.TemplateResponse(
+        request,
+        "inventory/_store_picker.html",
+        {
+            "stores": stores,
+            "brand": brand,
+            "zip_code": zip_code,
+            "error": error,
+        },
+    )
+
+
+@router.post("/compare/settings", response_class=HTMLResponse)
+def compare_settings_save(
+    request: Request,
+    compare_sams_zip: str = Form(""),
+    compare_sams_club_id: str = Form(""),
+    compare_sams_club_name: str = Form(""),
+    compare_walmart_zip: str = Form(""),
+    compare_walmart_store_id: str = Form(""),
+    compare_walmart_store_name: str = Form(""),
+    compare_webstaurantstore_email: str = Form(""),
+    compare_vendors_supply_email: str = Form(""),
+    compare_candy_machines_email: str = Form(""),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Save vendor account config."""
+    settings_to_save: dict[str, str] = {
+        "compare_webstaurantstore_email": compare_webstaurantstore_email.strip(),
+        "compare_vendors_supply_email": compare_vendors_supply_email.strip(),
+        "compare_candy_machines_email": compare_candy_machines_email.strip(),
+        "compare_sams_zip": compare_sams_zip.strip(),
+        "compare_walmart_zip": compare_walmart_zip.strip(),
+    }
+
+    sams_club_id = compare_sams_club_id.strip()
+    if sams_club_id:
+        settings_to_save["compare_sams_club_id"] = sams_club_id
+        if compare_sams_club_name.strip():
+            settings_to_save["compare_sams_club_name"] = compare_sams_club_name.strip()
+
+    walmart_store_id = compare_walmart_store_id.strip()
+    if walmart_store_id:
+        settings_to_save["compare_walmart_store_id"] = walmart_store_id
+        if compare_walmart_store_name.strip():
+            settings_to_save["compare_walmart_store_name"] = compare_walmart_store_name.strip()
+
+    for key, value in settings_to_save.items():
+        if value:
+            save_vendor_setting(db, key, value)
+
+    # Redirect so the full page reloads with updated vendor badges in the search form
+    from starlette.responses import Response as StarletteResponse
+    resp = StarletteResponse(status_code=200)
+    resp.headers["HX-Redirect"] = "/inventory/?tab=compare"
+    return resp
+
+
+@router.post("/compare", response_class=HTMLResponse)
+def compare_run(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    product_query: str = Form(...),
+    vendors: list[str] = Form(default=[]),
+    search_provider: str = Form("duckduckgo"),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    vendor_cfg = load_vendor_settings(db)
+    params = {
+        "product_query": product_query.strip(),
+        "vendors": vendors or VENDOR_KEYS,
+        "search_provider": search_provider,
+        "vendor_config": vendor_cfg,
+    }
+    job = AgentJob(
+        job_type="price_comparison",
+        status="pending",
+        input_params=json.dumps(params),
+    )
+    db.add(job)
+    db.commit()
+    background_tasks.add_task(price_comparator.run_price_comparison_job, job.id)
+    return RedirectResponse(url=f"/inventory/compare/{job.id}", status_code=303)
+
+
+@router.get("/compare/history", response_class=HTMLResponse)
+def compare_history(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    jobs = (
+        db.query(AgentJob)
+        .filter(AgentJob.job_type == "price_comparison")
+        .order_by(AgentJob.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    return templates.TemplateResponse(
+        request, "inventory/_comparator_history.html", {"jobs": jobs}
+    )
+
+
+@router.get("/compare/{job_id}/poll", response_class=HTMLResponse)
+def compare_poll(job_id: int, request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    job = db.get(AgentJob, job_id)
+    if not job:
+        return HTMLResponse(content="<div>Job not found</div>", status_code=404)
+    results: list[dict] = []
+    if job.status == "done" and job.draft_body:
+        try:
+            results = json.loads(job.draft_body)
+            results.sort(key=lambda r: (r.get("unit_price") is None, r.get("unit_price") or 0))
+        except Exception:
+            pass
+    input_params: dict = {}
+    if job.input_params:
+        try:
+            input_params = json.loads(job.input_params)
+        except Exception:
+            pass
+    return templates.TemplateResponse(
+        request,
+        "inventory/_comparator_poll.html",
+        {"job": job, "results": results, "input_params": input_params, "vendor_meta": VENDOR_META},
+    )
+
+
+@router.get("/compare/{job_id}", response_class=HTMLResponse)
+def compare_results(
+    job_id: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    job = db.get(AgentJob, job_id)
+    if not job:
+        return Response(status_code=404)
+    results: list[dict] = []
+    if job.draft_body:
+        try:
+            results = json.loads(job.draft_body)
+            results.sort(key=lambda r: (r.get("unit_price") is None, r.get("unit_price") or 0))
+        except Exception:
+            pass
+    input_params: dict = {}
+    if job.input_params:
+        try:
+            input_params = json.loads(job.input_params)
+        except Exception:
+            pass
+    return templates.TemplateResponse(
+        request,
+        "inventory/compare_results.html",
+        {
+            "active_nav": "inventory",
+            "job": job,
+            "results": results,
+            "input_params": input_params,
+            "vendor_meta": VENDOR_META,
+        },
+    )
+
+
+@router.post("/compare/{job_id}/delete", response_class=HTMLResponse)
+def compare_delete(job_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
+    job = db.get(AgentJob, job_id)
+    if job and job.job_type == "price_comparison":
+        db.delete(job)
+        db.commit()
+    return HTMLResponse(content="", status_code=200)
+
+
+# ---------------------------------------------------------------------------
+# Product wildcard routes  (must be after all fixed-path routes above)
+# ---------------------------------------------------------------------------
 
 @router.get("/{product_id}/edit", response_class=HTMLResponse)
 def product_edit_form(

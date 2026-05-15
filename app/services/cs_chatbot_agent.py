@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import engine
 from app.models.chat import ChatMessage
 from app.models.cs_governance import CSGovernanceRule
 from app.models.settings import AppSetting
@@ -16,7 +16,15 @@ from app.services import calendly as calendly_svc
 
 _MAX_TOOL_CALLS = 5
 _MAX_HISTORY = 10
-_RATE_LIMIT_PER_HOUR = 20
+_MAX_TOKENS_CHAT = 380      # keeps responses concise; cuts generation time roughly in half vs 768
+_RATE_LIMIT_PER_HOUR: dict[str, int] = {
+    "anthropic": 20,
+    "groq": 20,
+    "openai": 20,
+    "gemini": 20,
+    "ollama": 500,
+}
+_RATE_LIMIT_DEFAULT = 20
 
 _CATEGORY_LABELS = {
     "tone": "Tone & Style",
@@ -36,6 +44,7 @@ PROVIDER_MODELS: dict[str, list[str]] = {
     "groq": ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "llama-3.1-70b-versatile"],
     "openai": ["gpt-4o-mini", "gpt-4o"],
     "gemini": ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest"],
+    "ollama": ["llama3.2:3b", "phi4-mini", "mistral:7b"],
 }
 
 
@@ -51,7 +60,7 @@ def get_active_provider(db: Session) -> tuple[str, str]:
 # ── System prompt ────────────────────────────────────────────────────────────
 
 
-def build_chatbot_system_prompt(db: Session) -> str:
+def build_chatbot_system_prompt(db: Session, include_tools: bool = True) -> str:
     rules = (
         db.query(CSGovernanceRule)
         .filter(CSGovernanceRule.is_active.is_(True))
@@ -80,25 +89,46 @@ def build_chatbot_system_prompt(db: Session) -> str:
 
         base += "RULES YOU MUST FOLLOW:\n" + "\n\n".join(rule_sections) + "\n\n"
 
-    calendly_note = (
-        (
+    if include_tools and settings.calendly_api_key:
+        calendly_note = (
             "When asked about scheduling or booking a meeting, use the "
             "check_calendly_availability tool to fetch real-time available slots."
         )
-        if settings.calendly_api_key
-        else (
-            f"When asked about scheduling, direct them to: {settings.calendly_url}"
-            if settings.calendly_url
-            else "When asked about scheduling, ask them to email us at primemicromarkets@gmail.com."
+    elif settings.calendly_url:
+        calendly_note = f"When asked about scheduling, direct them to: {settings.calendly_url}"
+    else:
+        calendly_note = "When asked about scheduling, ask them to email us at primemicromarkets@gmail.com."
+
+    if include_tools:
+        escalation_note = (
+            "When a question or situation is beyond your ability to resolve — such as legal matters, "
+            "contract disputes, or situations requiring human judgement — use the "
+            "request_human_followup tool."
         )
+    else:
+        escalation_note = (
+            "When a question or situation is beyond your ability to resolve — such as legal matters, "
+            "contract disputes, or situations requiring human judgement — ask the customer to email "
+            "us at primemicromarkets@gmail.com and a team member will follow up."
+        )
+
+    lead_capture_note = (
+        "CONTACT OPTIONS: When a customer asks about getting a unit, scheduling, pricing, "
+        "or wants to be contacted, always mention all three ways to connect:\n"
+        "  1. Book a consultation via Calendly\n"
+        "  2. Email us at primemicromarkets@gmail.com\n"
+        "  3. Click the 'Request a Callback' button below the chat input to leave their "
+        "     contact info — a real team member will personally reach out\n"
+        "Never offer only option 1 alone. Always mention the callback button for customers "
+        "who prefer a personal call."
     )
 
     base += (
         f"{calendly_note}\n\n"
-        f"When a question or situation is beyond your ability to resolve — such as legal matters, "
-        f"contract disputes, or situations requiring human judgement — use the "
-        f"request_human_followup tool.\n\n"
-        f"Keep responses concise and helpful. You are representing a professional business."
+        f"{escalation_note}\n\n"
+        f"{lead_capture_note}\n\n"
+        f"Keep responses concise — 2 to 4 sentences maximum unless listing specific details. "
+        f"Answer the question directly, then stop. You are representing a professional business."
     )
     return base
 
@@ -165,6 +195,88 @@ _TOOL_ESCALATE_OAI = {
     },
 }
 
+_TOOL_CAPTURE_LEAD = {
+    "name": "capture_lead",
+    "description": (
+        "Save a site visitor's contact info to the sales pipeline so a real team member can "
+        "follow up. Call this ONLY after the customer has reviewed a summary of their info "
+        "and confirmed they want it submitted."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "Customer's full name"},
+            "email": {"type": "string", "description": "Customer's email address"},
+            "phone": {"type": "string", "description": "Customer's phone number"},
+            "location": {
+                "type": "string",
+                "description": "Address or description of the location for the proposed unit",
+            },
+            "description": {
+                "type": "string",
+                "description": "What the customer is looking for or their situation",
+            },
+        },
+        "required": ["name"],
+    },
+}
+
+_TOOL_CAPTURE_LEAD_OAI = {
+    "type": "function",
+    "function": {
+        "name": "capture_lead",
+        "description": _TOOL_CAPTURE_LEAD["description"],
+        "parameters": _TOOL_CAPTURE_LEAD["input_schema"],
+    },
+}
+
+
+def _handle_capture_lead(tool_input: dict, session_id: str, db: Session) -> str:
+    from app.models.sales import OutreachLog, Prospect
+
+    name = (tool_input.get("name") or "").strip() or "Site Visitor"
+    email = (tool_input.get("email") or "").strip() or None
+    phone = (tool_input.get("phone") or "").strip() or None
+    location = (tool_input.get("location") or "").strip() or None
+    description = (tool_input.get("description") or "").strip() or None
+
+    company = (location or f"Inbound — {name}")[:200]
+    notes_parts = []
+    if description:
+        notes_parts.append(f"Looking for: {description}")
+    notes_parts.append(f"Chatbot session: {session_id[:8]}")
+
+    prospect = Prospect(
+        company_name=company,
+        contact_name=name[:150],
+        contact_email=email[:200] if email else None,
+        contact_phone=phone[:30] if phone else None,
+        address=location[:300] if location else None,
+        source="AI Chatbot — Site Visitor",
+        notes=" | ".join(notes_parts),
+        pipeline_stage="lead",
+    )
+    db.add(prospect)
+    db.flush()
+
+    db.add(
+        OutreachLog(
+            prospect_id=prospect.id,
+            channel="chatbot",
+            direction="inbound",
+            contacted_at=datetime.now(),
+            subject_or_summary="Inbound inquiry via AI Chatbot widget",
+            notes=(
+                f"Site visitor submitted contact info through the public chatbot. "
+                f"Chat session: {session_id[:8]}."
+            ),
+        )
+    )
+    db.commit()
+    return (
+        "Lead saved to the sales pipeline. A team member will be notified to personally follow up."
+    )
+
 
 def _handle_tool(name: str, tool_input: dict, session_id: str, db: Session) -> str:
     if name == "check_calendly_availability":
@@ -175,6 +287,9 @@ def _handle_tool(name: str, tool_input: dict, session_id: str, db: Session) -> s
             if settings.calendly_url:
                 return f"Book directly here: {settings.calendly_url}"
             return f"Unable to fetch availability ({exc}). Please email primemicromarkets@gmail.com to schedule."
+
+    if name == "capture_lead":
+        return _handle_capture_lead(tool_input, session_id, db)
 
     if name == "request_human_followup":
         reason = tool_input.get("reason", "Not specified")
@@ -216,7 +331,8 @@ def _handle_tool(name: str, tool_input: dict, session_id: str, db: Session) -> s
 # ── Rate limiting ─────────────────────────────────────────────────────────────
 
 
-def _is_rate_limited(session_id: str, db: Session) -> bool:
+def _is_rate_limited(session_id: str, db: Session, provider: str = "anthropic") -> bool:
+    limit = _RATE_LIMIT_PER_HOUR.get(provider, _RATE_LIMIT_DEFAULT)
     cutoff = datetime.now() - timedelta(hours=1)
     count = (
         db.query(ChatMessage)
@@ -227,7 +343,7 @@ def _is_rate_limited(session_id: str, db: Session) -> bool:
         )
         .count()
     )
-    return count >= _RATE_LIMIT_PER_HOUR
+    return count >= limit
 
 
 # ── History loader ────────────────────────────────────────────────────────────
@@ -261,9 +377,9 @@ def _run_anthropic(
     while tool_calls <= _MAX_TOOL_CALLS:
         response = client.messages.create(
             model=model,
-            max_tokens=768,
+            max_tokens=_MAX_TOKENS_CHAT,
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            tools=[_TOOL_CALENDLY, _TOOL_ESCALATE],
+            tools=[_TOOL_CALENDLY, _TOOL_ESCALATE, _TOOL_CAPTURE_LEAD],
             messages=messages,
         )
         messages.append({"role": "assistant", "content": response.content})
@@ -309,6 +425,8 @@ def _run_openai_compat(
     base_url: str | None,
     session_id: str,
     db: Session,
+    max_tokens: int = _MAX_TOKENS_CHAT,
+    use_tools: bool = True,
 ) -> str:
     try:
         from openai import OpenAI  # type: ignore[import-untyped]
@@ -323,15 +441,24 @@ def _run_openai_compat(
         }
         for m in messages
     ]
+
+    if not use_tools:
+        response = client.chat.completions.create(
+            model=model,
+            messages=oai_messages,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content or "I'm sorry, I couldn't generate a response."
+
     tool_calls_count = 0
 
     while tool_calls_count <= _MAX_TOOL_CALLS:
         response = client.chat.completions.create(
             model=model,
             messages=oai_messages,
-            tools=[_TOOL_CALENDLY_OAI, _TOOL_ESCALATE_OAI],
+            tools=[_TOOL_CALENDLY_OAI, _TOOL_ESCALATE_OAI, _TOOL_CAPTURE_LEAD_OAI],
             tool_choice="auto",
-            max_tokens=768,
+            max_tokens=max_tokens,
         )
         choice = response.choices[0]
         msg = choice.message
@@ -376,12 +503,79 @@ def _run_gemini(messages: list[dict], system: str, model: str, session_id: str, 
     )
 
 
+# ── Ollama lead extraction ────────────────────────────────────────────────────
+
+_CONTACT_MARKER = "[CONTACT_NOTED]"
+_CONTACT_MARKER_RE = re.compile(r'\*{0,2}\[CONTACT_NOTED\]\*{0,2}', re.IGNORECASE)
+
+
+def _save_lead_from_conversation(session_id: str, db: Session) -> None:
+    """Build a Prospect from the recent chatbot conversation history."""
+    from app.models.sales import OutreachLog, Prospect
+
+    msgs = (
+        db.query(ChatMessage)
+        .filter(
+            ChatMessage.session_id == session_id,
+            ChatMessage.role.in_(["user", "assistant"]),
+        )
+        .order_by(ChatMessage.id)
+        .limit(30)
+        .all()
+    )
+    conversation = "\n".join(
+        f"{'Customer' if m.role == 'user' else 'Assistant'}: {m.content}"
+        for m in msgs
+    )
+
+    email_m = re.search(r'\b[\w.+-]+@[\w-]+\.[\w.]+\b', conversation)
+    phone_m = re.search(r'\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b', conversation)
+    email = email_m.group(0) if email_m else None
+    phone = phone_m.group(0) if phone_m else None
+
+    label = email if email else f"session {session_id[:8]}"
+    prospect = Prospect(
+        company_name=f"Chatbot Inquiry — {label}"[:200],
+        contact_email=email[:200] if email else None,
+        contact_phone=phone[:30] if phone else None,
+        source="AI Chatbot — Site Visitor",
+        notes=f"Conversation:\n{conversation}"[:2000],
+        pipeline_stage="lead",
+    )
+    db.add(prospect)
+    db.flush()
+    db.add(
+        OutreachLog(
+            prospect_id=prospect.id,
+            channel="chatbot",
+            direction="inbound",
+            contacted_at=datetime.now(),
+            subject_or_summary="Inbound lead via AI Chatbot widget",
+            notes=f"Session: {session_id[:8]}. Full conversation stored in notes.",
+        )
+    )
+    db.commit()
+
+
+def _extract_ollama_lead(reply: str, session_id: str, db: Session) -> str:
+    """Detect [CONTACT_NOTED] marker, save lead from conversation, strip the marker."""
+    if "CONTACT_NOTED" not in reply.upper():
+        return reply
+    try:
+        _save_lead_from_conversation(session_id, db)
+    except Exception:
+        pass  # DB error must not break the chat response
+    return _CONTACT_MARKER_RE.sub("", reply).strip()
+
+
 # ── Main background task ─────────────────────────────────────────────────────
 
 
 def get_chatbot_reply(session_id: str, user_message: str, db: Session, before_id: int = 0) -> str:
     """Synchronous Claude call using the caller's DB session. Saves and returns the reply."""
-    if _is_rate_limited(session_id, db):
+    provider, model = get_active_provider(db)
+
+    if _is_rate_limited(session_id, db, provider=provider):
         reply = (
             "You've sent a lot of messages recently. Please email us directly at "
             "primemicromarkets@gmail.com and we'll be happy to help!"
@@ -389,9 +583,9 @@ def get_chatbot_reply(session_id: str, user_message: str, db: Session, before_id
         db.add(ChatMessage(session_id=session_id, role="assistant", content=reply))
         db.commit()
         return reply
-
-    provider, model = get_active_provider(db)
-    system = build_chatbot_system_prompt(db)
+    # Ollama (local small models) can't reliably handle tool schemas — disable them
+    include_tools = provider != "ollama"
+    system = build_chatbot_system_prompt(db, include_tools=include_tools)
 
     # Load history excluding the current user message to avoid duplicates
     q = db.query(ChatMessage).filter(
@@ -434,6 +628,18 @@ def get_chatbot_reply(session_id: str, user_message: str, db: Session, before_id
             if not settings.gemini_api_key:
                 raise RuntimeError("GEMINI_API_KEY not configured.")
             reply = _run_gemini(messages, system, model, session_id, db)
+
+        elif provider == "ollama":
+            reply = _run_openai_compat(
+                messages, system, model,
+                api_key="ollama",
+                base_url=settings.ollama_base_url,
+                session_id=session_id,
+                db=db,
+                max_tokens=1024,
+                use_tools=False,
+            )
+            reply = _extract_ollama_lead(reply, session_id, db)
 
         else:
             raise RuntimeError(f"Unknown provider: {provider}")

@@ -1,0 +1,68 @@
+{# Escalations modal body — also used for dismiss OOB updates #}
+{% if escalations %}
+<p class="text-muted small mb-3">
+  These customers asked the chatbot for a human follow-up. Review each one and mark it handled once you have reached out.
+</p>
+<div class="d-flex flex-column gap-2" id="escalations-list">
+  {% for esc in escalations %}
+  <div class="card border-{{ 'danger' if esc.urgency == 'urgent' else 'warning' }}">
+    <div class="card-body p-3">
+      <div class="d-flex justify-content-between align-items-start gap-3">
+        <div class="flex-grow-1">
+          <div class="mb-1">
+            <span class="badge bg-{{ 'danger' if esc.urgency == 'urgent' else 'warning text-dark' }} me-2">
+              {{ esc.urgency | title if esc.urgency else 'Normal' }}
+            </span>
+            <span class="text-muted" style="font-size:.75rem">
+              {% if esc.created_at %}{{ esc.created_at[:16].replace('T', ' ') }}{% endif %}
+            </span>
+          </div>
+          <p class="mb-1 fw-semibold small">{{ esc.reason }}</p>
+          <p class="mb-0 text-muted" style="font-size:.75rem">
+            Session ID: <code>{{ esc.session_id }}</code>
+          </p>
+        </div>
+        <form hx-post="/customer-service/escalations/{{ loop.index0 }}/dismiss"
+              hx-target="#escalationsModalBody"
+              hx-swap="innerHTML"
+              hx-confirm="Mark this escalation as handled?">
+          <button type="submit" class="btn btn-sm btn-outline-success flex-shrink-0">
+            <i class="bi bi-check-lg me-1"></i>Handled
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<div class="mt-3 d-flex justify-content-end">
+  <form hx-post="/customer-service/escalations/dismiss-all"
+        hx-target="#escalationsModalBody"
+        hx-swap="innerHTML"
+        hx-confirm="Mark all escalations as handled?">
+    <button type="submit" class="btn btn-sm btn-outline-danger">
+      <i class="bi bi-check-all me-1"></i>Mark All Handled
+    </button>
+  </form>
+</div>
+{% else %}
+<div class="text-center text-muted py-4">
+  <i class="bi bi-check-circle fs-2 d-block mb-2 text-success opacity-75"></i>
+  No pending escalations. All caught up!
+</div>
+{% endif %}
+
+{# OOB: update the escalation badge in the page header #}
+<div id="escalation-badge-wrap" hx-swap-oob="true">
+  {% if pending_escalations > 0 %}
+  <button type="button" class="btn btn-sm btn-danger"
+          data-bs-toggle="modal" data-bs-target="#escalationsModal"
+          hx-get="/customer-service/escalations"
+          hx-target="#escalationsModalBody"
+          hx-swap="innerHTML"
+          hx-trigger="click">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    {{ pending_escalations }} escalation{{ 's' if pending_escalations != 1 }}
+  </button>
+  {% endif %}
+</div>

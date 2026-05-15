@@ -85,11 +85,7 @@
     </div>
   </div>
   <div class="d-flex justify-content-end gap-2 mt-3">
-    {% if is_edit %}
-    <a href="/locations/{{ location.id }}" class="btn btn-secondary btn-sm">Cancel</a>
-    {% else %}
     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-    {% endif %}
     <button type="submit" class="btn btn-primary btn-sm">
       {{ "Save Changes" if is_edit else "Add Location" }}
     </button>

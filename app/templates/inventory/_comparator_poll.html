@@ -1,0 +1,170 @@
+{# HTMX poll partial — returned by GET /inventory/compare/{job_id}/poll #}
+
+{% if job.status in ('pending', 'running') %}
+<div hx-get="/inventory/compare/{{ job.id }}/poll"
+     hx-trigger="every 3s"
+     hx-target="this"
+     hx-swap="outerHTML"
+     class="py-4 text-center">
+  <div class="spinner-border text-primary mb-3" role="status">
+    <span class="visually-hidden">Loading…</span>
+  </div>
+  <div class="text-muted small">
+    {% if job.status == 'pending' %}Queued — starting shortly…
+    {% else %}Fetching prices from vendors…{% endif %}
+  </div>
+  <div class="text-muted" style="font-size:.75rem; margin-top:.25rem">
+    Direct fetch → AI fallback → compiling results
+  </div>
+</div>
+
+{% elif job.status == 'error' %}
+<div class="alert alert-danger">
+  <i class="bi bi-exclamation-triangle me-2"></i>
+  <strong>Error:</strong> {{ job.error_message or "Unknown error" }}
+</div>
+
+{% elif job.status == 'done' %}
+
+{% set query = input_params.get('product_query', 'Product') %}
+{% set selected_vendors = input_params.get('vendors', []) %}
+
+<div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h5 class="mb-1">Results for: <strong>{{ query }}</strong></h5>
+    <div class="text-muted small">
+      {{ results | length }} price records · {{ job.prospects_found }} across {{ selected_vendors | length }} vendors
+      {% if job.started_at and job.finished_at %}
+      · {{ (job.finished_at - job.started_at).seconds }}s
+      {% endif %}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/inventory/compare/{{ job.id }}" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-arrows-fullscreen me-1"></i>Full View
+    </a>
+    <button class="btn btn-sm btn-outline-secondary"
+            onclick="exportCompareCsv({{ results | tojson }})">
+      <i class="bi bi-download me-1"></i>CSV
+    </button>
+  </div>
+</div>
+
+{% if results %}
+
+{# Banner when all (or most) results are AI fallback estimates #}
+{% set ai_count = results | selectattr('source', 'equalto', 'ai_search') | list | length %}
+{% if ai_count == results | length %}
+<div class="alert alert-info py-2 small mb-3 d-flex align-items-start gap-2">
+  <i class="bi bi-robot flex-shrink-0" style="margin-top:.15rem"></i>
+  <span>
+    Direct vendor APIs were unavailable for this product — all prices are AI-assisted web search estimates.
+    Use these for planning only; <strong>verify current prices before ordering</strong>.
+  </span>
+</div>
+{% elif ai_count > 0 %}
+<div class="text-muted small mb-2">
+  <i class="bi bi-info-circle me-1"></i>{{ ai_count }} of {{ results | length }} results are AI estimates — direct fetch was unavailable for some vendors.
+</div>
+{% endif %}
+
+{# Determine best unit price per vendor group for highlighting #}
+{% set best_price = namespace(val=None) %}
+{% for r in results %}
+  {% if r.unit_price is not none %}
+    {% if best_price.val is none or r.unit_price < best_price.val %}
+      {% set best_price.val = r.unit_price %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+
+<div class="table-responsive">
+  <table class="table table-sm table-hover align-middle">
+    <thead class="table-light small">
+      <tr>
+        <th>Vendor</th>
+        <th>Product Found</th>
+        <th class="text-end">Unit Price</th>
+        <th class="text-end d-none d-md-table-cell">Case Price</th>
+        <th class="text-end d-none d-md-table-cell">Case Qty</th>
+        <th class="d-none d-lg-table-cell">Source</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in results %}
+      {% set meta = vendor_meta.get(r.vendor_key, {}) %}
+      {% set is_best = best_price.val is not none and r.unit_price == best_price.val %}
+      <tr {% if is_best %}class="table-success"{% endif %}>
+        <td class="small">
+          <span class="d-flex align-items-center gap-1">
+            <i class="bi {{ meta.get('icon', 'bi-shop') }} text-{{ meta.get('color', 'secondary') }}"></i>
+            <span class="fw-medium">{{ r.vendor_name }}</span>
+            {% if is_best %}
+            <span class="badge bg-success ms-1" style="font-size:.65rem">Best</span>
+            {% endif %}
+          </span>
+          {% if r.notes %}
+          <div class="text-muted" style="font-size:.7rem">{{ r.notes }}</div>
+          {% endif %}
+        </td>
+        <td class="small">
+          {% if r.url %}
+          <a href="{{ r.url }}" target="_blank" rel="noopener" class="text-decoration-none text-truncate d-block" style="max-width:200px">
+            {{ r.product_name }}
+          </a>
+          {% else %}
+          <span class="text-truncate d-block" style="max-width:200px">{{ r.product_name }}</span>
+          {% endif %}
+          {% if r.unit_size %}<div class="text-muted" style="font-size:.7rem">{{ r.unit_size }}</div>{% endif %}
+        </td>
+        <td class="text-end small fw-semibold">
+          {% if r.unit_price is not none %}
+          ${{ "%.2f"|format(r.unit_price) }}
+          {% else %}–{% endif %}
+        </td>
+        <td class="text-end small d-none d-md-table-cell">
+          {% if r.case_price is not none %}${{ "%.2f"|format(r.case_price) }}{% else %}–{% endif %}
+        </td>
+        <td class="text-end small d-none d-md-table-cell">
+          {{ r.case_qty or "–" }}
+        </td>
+        <td class="d-none d-lg-table-cell">
+          {% if r.source == 'api' %}
+          <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:.65rem">API</span>
+          {% elif r.source == 'scrape' %}
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:.65rem">Live</span>
+          {% else %}
+          <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size:.65rem">AI Est.</span>
+          {% endif %}
+          {% if r.confidence == 'low' %}
+          <i class="bi bi-exclamation-circle text-warning ms-1" title="Low confidence — verify before ordering"></i>
+          {% endif %}
+        </td>
+        <td>
+          {% if r.url %}
+          <a href="{{ r.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary py-0 px-1">
+            <i class="bi bi-box-arrow-up-right"></i>
+          </a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="text-muted small mt-1">
+  <i class="bi bi-info-circle me-1"></i>
+  <strong>API</strong> = direct vendor API · <strong>Live</strong> = real-time page scrape ·
+  <strong>AI Est.</strong> = AI-assisted web search fallback (verify before ordering)
+</div>
+
+{% else %}
+<div class="text-center text-muted py-4">
+  <i class="bi bi-search fs-2 d-block mb-2"></i>
+  No prices found. Try a different product name or check vendor settings.
+</div>
+{% endif %}
+
+{% endif %}

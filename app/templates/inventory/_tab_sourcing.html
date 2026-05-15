@@ -1,0 +1,146 @@
+{# AI Sourcing tab — embedded in inventory/index.html #}
+
+<div class="pt-1">
+
+  <div class="d-flex align-items-center justify-content-end mb-1">
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#help-sourcing" title="Help &amp; instructions">
+      <i class="bi bi-question-circle"></i>
+    </button>
+  </div>
+  <div class="collapse mb-3" id="help-sourcing">
+    <div class="card border-info border-opacity-25">
+      <div class="card-body bg-info-subtle rounded small">
+        <strong>AI Sourcing</strong> — Use Claude AI to find bulk suppliers and distributors for vending products.
+        <ul class="mb-0 mt-1">
+          <li>Select product categories you want to source (snacks, drinks, candy, etc.).</li>
+          <li>Claude searches the web for wholesale distributors with pricing and minimum orders.</li>
+          <li>Results are saved as suppliers you can import to the <strong>Suppliers</strong> tab.</li>
+          <li>Choose DuckDuckGo (free) or Tavily (better accuracy, API key required).</li>
+          <li>Jobs run in the background — navigate away and come back to check results.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Token usage -->
+  <div class="card border-0 bg-light px-3 py-2 mb-4"
+       id="sourcing-usage-bar"
+       hx-get="/inventory/search/usage"
+       hx-trigger="load"
+       hx-swap="innerHTML">
+    <span class="text-muted small">Loading usage stats…</span>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Search Form -->
+    <div class="col-md-5">
+      <div class="card border-primary border-opacity-25">
+        <div class="card-header bg-transparent">
+          <h6 class="mb-0 text-primary"><i class="bi bi-search me-1"></i>Find Suppliers & Distributors</h6>
+        </div>
+        <div class="card-body">
+          <form method="post" action="/inventory/search">
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Location</label>
+              <div class="row g-2">
+                <div class="col-8">
+                  <input type="text" name="location_city" class="form-control form-control-sm"
+                         value="Panama City" placeholder="City" required>
+                </div>
+                <div class="col-4">
+                  <input type="text" name="location_state" class="form-control form-control-sm"
+                         value="FL" placeholder="State" required>
+                </div>
+              </div>
+              <div class="form-text">AI will search for distributors accessible from this market.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Product Categories</label>
+              <div class="row row-cols-1 row-cols-sm-2 g-1">
+                {% set vending_defaults = [
+                  "snacks (chips, crackers, pretzels)",
+                  "candy & confections",
+                  "beverages (water, juice, soft drinks)",
+                  "energy & sports drinks",
+                  "healthy snacks (protein bars, nuts)",
+                  "personal care (gum, mints)"
+                ] %}
+                {% for opt in category_options %}
+                <div class="col">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="product_categories"
+                           value="{{ opt }}" id="scat_{{ loop.index }}"
+                           {% if opt in vending_defaults %}checked{% endif %}>
+                    <label class="form-check-label small" for="scat_{{ loop.index }}">{{ opt | title }}</label>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">
+                Search Focus / Keywords
+                <span class="text-muted fw-normal small ms-1">(optional)</span>
+              </label>
+              <textarea name="search_focus" class="form-control form-control-sm" rows="2"
+                        placeholder="e.g. vending-specific distributors, Vistar or McLane, small minimums"></textarea>
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label fw-semibold small">Max Suppliers</label>
+                <input type="number" name="max_results" class="form-control form-control-sm"
+                       min="5" max="50" step="5" value="15">
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold small">Search Provider</label>
+                <div class="d-flex flex-column gap-1 mt-1">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="search_provider" value="duckduckgo"
+                           id="ssp_ddg" {% if current_provider != 'tavily' %}checked{% endif %}>
+                    <label class="form-check-label small" for="ssp_ddg">
+                      DuckDuckGo <span class="badge bg-success ms-1">Free</span>
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="search_provider" value="tavily"
+                           id="ssp_tavily" {% if current_provider == 'tavily' %}checked{% endif %}>
+                    <label class="form-check-label small" for="ssp_tavily">Tavily</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-play-fill me-1"></i>Find Suppliers
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Job History -->
+    <div class="col-md-7">
+      <div class="card">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Searches</h6>
+          <button class="btn btn-sm btn-outline-secondary"
+                  hx-get="/inventory/search/jobs"
+                  hx-target="#sourcing-job-history"
+                  hx-swap="innerHTML">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </div>
+        <div id="sourcing-job-history" style="max-height:420px;overflow-y:auto">
+          {% include "inventory/_search_job_history.html" %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

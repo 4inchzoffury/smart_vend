@@ -19,6 +19,8 @@ gspread>=6.0.0
 google-auth>=2.30.0
 
 # AI / Lead generation
+# Note: Ollama is a system-level install (https://ollama.com), not a pip package.
+# The openai SDK below handles all calls to the Ollama local REST endpoint.
 anthropic>=0.28.0
 openai>=1.40.0
 tavily-python>=0.3.0
@@ -30,6 +32,10 @@ tzdata>=2024.1
 # Auth
 authlib>=1.3.0
 itsdangerous>=2.1.2
+
+# HTML parsing (price scraper)
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
 
 # Dev / test
 pytest>=8.0.0

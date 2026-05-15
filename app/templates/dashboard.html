@@ -2,9 +2,31 @@
 {% block title %}Dashboard – Prime Vending{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Dashboard</h1>
-  <small class="text-muted">Prime Vending · Panama City, FL</small>
+  <div class="d-flex align-items-center gap-2">
+    <small class="text-muted d-none d-sm-inline">Prime Vending · Panama City, FL</small>
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#page-help" title="Help &amp; instructions">
+      <i class="bi bi-question-circle"></i>
+    </button>
+  </div>
+</div>
+<div class="collapse mb-3" id="page-help">
+  <div class="card border-info border-opacity-25">
+    <div class="card-body bg-info-subtle rounded small">
+      <strong>Dashboard</strong> — Your Prime Vending command center. Each card links to a module.
+      <ul class="mb-0 mt-1">
+        <li><strong>Research Tasks</strong> — Track startup research items (permits, suppliers, regulations).</li>
+        <li><strong>Financial Models</strong> — Build and compare pro-forma P&amp;L scenarios.</li>
+        <li><strong>Locations &amp; Sales Pipeline</strong> — Manage prospects and signed machine locations.</li>
+        <li><strong>CRM</strong> — Track active clients, MRR, and generate revenue reports.</li>
+        <li><strong>Inventory</strong> — Product catalog, stock levels, and price comparisons.</li>
+        <li><strong>AI Lead Generation</strong> — Claude finds and emails potential location partners.</li>
+        <li><strong>Customer Service</strong> — Manage the public-facing chatbot and email queue.</li>
+      </ul>
+    </div>
+  </div>
 </div>
 
 <div class="row g-3">
@@ -75,6 +97,27 @@
       </div>
       <div class="card-footer bg-transparent">
         <a href="/sales/" class="btn btn-sm btn-outline-warning">View Pipeline</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-4">
+    <div class="card h-100 border-primary border-opacity-25">
+      <div class="card-body">
+        <h6 class="card-title text-primary">
+          <i class="bi bi-people me-1"></i>CRM
+        </h6>
+        <p class="card-text">
+          <span class="badge bg-success me-1">{{ crm_active_clients }} active</span>
+          <span class="badge bg-secondary me-1">{{ crm_total_clients }} total</span>
+          {% if crm_mrr > 0 %}
+          <span class="badge bg-info">${{ "%.0f"|format(crm_mrr) }}/mo MRR</span>
+          {% endif %}
+        </p>
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="/crm/" class="btn btn-sm btn-outline-primary me-1">View Clients</a>
+        <a href="/crm/reports" class="btn btn-sm btn-outline-secondary">Reports</a>
       </div>
     </div>
   </div>

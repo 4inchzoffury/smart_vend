@@ -1,0 +1,105 @@
+{% set pq = ('&priority=' ~ priority_filter) if priority_filter else '' %}
+{% set sq = ('&status=' ~ status_filter) if status_filter else '' %}
+
+<ul class="nav nav-tabs mb-1" id="statusTabs">
+  <li class="nav-item">
+    <a class="nav-link {% if not status_filter %}active{% endif %}"
+       href="#"
+       hx-get="/research/{{ ('?priority=' ~ priority_filter) if priority_filter else '' }}"
+       hx-target="#filter-and-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      All <span class="badge bg-secondary ms-1">{{ total }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter == 'in_progress' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?status=in_progress{{ pq }}"
+       hx-target="#filter-and-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      In Progress <span class="badge bg-warning text-dark ms-1">{{ status_counts.in_progress }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter == 'blocked' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?status=blocked{{ pq }}"
+       hx-target="#filter-and-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      Blocked <span class="badge bg-danger ms-1">{{ status_counts.blocked }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter == 'not_started' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?status=not_started{{ pq }}"
+       hx-target="#filter-and-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      Not Started <span class="badge bg-secondary ms-1">{{ status_counts.not_started }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter == 'done' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?status=done{{ pq }}"
+       hx-target="#filter-and-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      Done <span class="badge bg-success ms-1">{{ status_counts.done }}</span>
+    </a>
+  </li>
+</ul>
+
+<ul class="nav nav-pills mb-3" id="priorityTabs" style="font-size:0.82rem">
+  <li class="nav-item">
+    <a class="nav-link py-1 px-2 {% if not priority_filter %}active{% endif %}"
+       href="#"
+       hx-get="/research/{{ ('?status=' ~ status_filter) if status_filter else '' }}"
+       hx-target="#filter-and-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      All priorities
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link py-1 px-2 {% if priority_filter == 'high' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?priority=high{{ sq }}"
+       hx-target="#filter-and-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      High
+      <span class="badge bg-secondary ms-1">{{ priority_counts.high }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link py-1 px-2 {% if priority_filter == 'medium' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?priority=medium{{ sq }}"
+       hx-target="#filter-and-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      Medium
+      <span class="badge bg-secondary ms-1">{{ priority_counts.medium }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link py-1 px-2 {% if priority_filter == 'low' %}active{% endif %}"
+       href="#"
+       hx-get="/research/?priority=low{{ sq }}"
+       hx-target="#filter-and-board"
+       hx-swap="innerHTML"
+       hx-push-url="true">
+      Low
+      <span class="badge bg-secondary ms-1">{{ priority_counts.low }}</span>
+    </a>
+  </li>
+</ul>
+
+<div id="task-board">
+  {% include "research/_task_board.html" %}
+</div>

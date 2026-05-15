@@ -50,15 +50,22 @@
         {% if prospect.contact_phone %}<p class="mb-1"><i class="bi bi-telephone me-1"></i>{{ prospect.contact_phone }}</p>{% endif %}
         {% if prospect.linkedin_url %}<p class="mb-0"><a href="{{ prospect.linkedin_url }}" target="_blank"><i class="bi bi-linkedin me-1"></i>LinkedIn</a></p>{% endif %}
       </div>
-      {% if prospect.contact_email %}
-      <div class="card-footer bg-transparent">
+      <div class="card-footer bg-transparent d-flex gap-2 flex-wrap">
+        {% if prospect.contact_email %}
         <form method="post" action="/leads/prospects/{{ prospect.id }}/draft">
           <button type="submit" class="btn btn-sm btn-outline-primary">
             <i class="bi bi-robot me-1"></i>Draft Email with AI
           </button>
         </form>
+        {% endif %}
+        {% if prospect.pipeline_stage == 'signed' %}
+        <form method="post" action="/crm/convert/{{ prospect.id }}">
+          <button type="submit" class="btn btn-sm btn-success">
+            <i class="bi bi-people me-1"></i>Convert to CRM Client
+          </button>
+        </form>
+        {% endif %}
       </div>
-      {% endif %}
     </div>
   </div>
   <div class="col-md-7">

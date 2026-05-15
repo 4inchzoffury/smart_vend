@@ -4,7 +4,27 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-2">
   <h1 class="h3 mb-0"><i class="bi bi-robot me-2"></i>AI Lead Generation</h1>
-  <small class="text-muted">Claude + Tavily</small>
+  <div class="d-flex align-items-center gap-2">
+    <small class="text-muted d-none d-sm-inline">Claude + Tavily</small>
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#page-help" title="Help &amp; instructions">
+      <i class="bi bi-question-circle"></i>
+    </button>
+  </div>
+</div>
+<div class="collapse mb-3" id="page-help">
+  <div class="card border-info border-opacity-25">
+    <div class="card-body bg-info-subtle rounded small">
+      <strong>AI Lead Generation</strong> — Use Claude AI to research and contact potential vending location partners.
+      <ul class="mb-0 mt-1">
+        <li>Enter a city/area and business type (e.g. "gyms in Panama City, FL") and click <strong>Run Research</strong>.</li>
+        <li>Claude searches the web for matching businesses and generates a prospect list with contact info.</li>
+        <li>Found prospects are added to your <strong>Sales Pipeline</strong> automatically.</li>
+        <li>Review AI-drafted outreach emails in the <strong>Draft Review</strong> section before sending.</li>
+        <li>Token usage shows how much of your Anthropic API quota each run consumed.</li>
+      </ul>
+    </div>
+  </div>
 </div>
 
 <!-- Token usage bar -->

@@ -1,25 +1,29 @@
-"""Seed research tasks from Research_Tracker_Next_Steps_v1.0.md into the database.
+"""Seed / update research tasks from research_tracker.md into the database.
 
-Idempotent: skips rows whose task_number already exists.
+Upsert behaviour (safe to re-run at any time):
+  - New tasks (task_number not in DB) are inserted.
+  - Existing tasks have what / why / how_source / priority updated from the file.
+  - status is NEVER overwritten (preserves in-progress / done / blocked work).
+  - notes is preserved if the DB row already has a value; populated from the
+    markdown only when the DB notes field is currently NULL.
 
 Usage:
     python scripts/seed_research_tasks.py
-    python scripts/seed_research_tasks.py "G:/My Drive/Smart Cooler Vending/Research_Tracker.md"
+    python scripts/seed_research_tasks.py "/path/to/research_tracker.md"
 """
 
 import re
 import sys
 from pathlib import Path
 
-# Allow running from the repo root without installing the package
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy.orm import Session
 
 from app.database import Base, engine
-from app.models.research import ResearchTask  # noqa: F401 — ensure table is created
+from app.models.research import ResearchTask  # noqa: F401
 
-DEFAULT_MD_PATH = Path("G:/My Drive/Smart Cooler Vending/Research_Tracker_Next_Steps_v1.0.md")
+DEFAULT_MD_PATH = Path("G:/My Drive/Smart Cooler Vending/research_tracker.md")
 
 SECTION_NAMES: dict[int, str] = {
     1: "Market Validation",
@@ -38,7 +42,6 @@ STATUS_MAP: dict[str, str] = {
     "🟡": "in_progress",
     "🔴": "blocked",
     "✅": "done",
-    # text fallbacks
     "not started": "not_started",
     "in progress": "in_progress",
     "blocked": "blocked",
@@ -51,8 +54,12 @@ def _parse_status(raw: str) -> str:
     return STATUS_MAP.get(raw, STATUS_MAP.get(raw.lower(), "not_started"))
 
 
+def _parse_priority(raw: str) -> str:
+    val = raw.strip().lower()
+    return val if val in ("high", "medium", "low") else "medium"
+
+
 def _split_row(line: str) -> list[str]:
-    """Split a markdown table row on '|', strip whitespace from each cell."""
     parts = line.strip().strip("|").split("|")
     return [p.strip() for p in parts]
 
@@ -62,28 +69,28 @@ def _is_separator(line: str) -> bool:
 
 
 def parse_markdown(md_path: Path) -> list[dict]:
-    """Parse Research_Tracker markdown into a list of task dicts."""
     tasks: list[dict] = []
     current_section = 0
     section_task_counts: dict[int, int] = {}
     in_table = False
+    has_priority_col = False
 
     lines = md_path.read_text(encoding="utf-8").splitlines()
 
     for line in lines:
-        # Detect section header: "## Section N —" or "## N."
         sec_match = re.match(r"^#{1,3}\s+Section\s+(\d+)", line, re.IGNORECASE)
         if not sec_match:
             sec_match = re.match(r"^#{1,3}\s+(\d+)\.", line)
         if sec_match:
             current_section = int(sec_match.group(1))
             in_table = False
+            has_priority_col = False
             continue
 
         if current_section == 0:
             continue
 
-        # Section 9 is a bullet list
+        # Section 9 — bullet list
         if current_section == 9:
             bullet = re.match(r"^[-*]\s+\*\*(.+?)\*\*[:\s]*(.*)", line)
             if bullet:
@@ -105,9 +112,10 @@ def parse_markdown(md_path: Path) -> list[dict]:
                 })
             continue
 
-        # Table header row — mark that we're inside a table
-        if line.strip().startswith("|") and "What" in line:
+        # Table header — detect columns (match "What" as a full cell, not a substring)
+        if line.strip().startswith("|") and re.search(r'\|\s*What\s*\|', line):
             in_table = True
+            has_priority_col = bool(re.search(r'\|\s*Priority\s*\|', line, re.IGNORECASE))
             continue
 
         if _is_separator(line):
@@ -119,7 +127,7 @@ def parse_markdown(md_path: Path) -> list[dict]:
         cells = _split_row(line)
 
         if current_section == 8:
-            # Section 8 columns: # | Decision | Inputs Needed | Target Resolution
+            # Columns: # | Decision | Inputs Needed | Target Resolution
             if len(cells) < 2:
                 continue
             n = section_task_counts.get(8, 0) + 1
@@ -145,16 +153,30 @@ def parse_markdown(md_path: Path) -> list[dict]:
                 "is_strategic_decision": True,
             })
         else:
-            # Sections 1–7 columns: # | What | Why | How/Source | Owner/Due | Status | Notes
+            # Sections 1–7
+            # With priority col:    # | What | Priority | Why | How/Source | Owner/Due | Status | Notes
+            # Without priority col: # | What | Why | How/Source | Owner/Due | Status | Notes
             if len(cells) < 2:
                 continue
+
             task_num_raw = cells[0]
-            what = cells[1] if len(cells) > 1 else ""
-            why = cells[2] if len(cells) > 2 else ""
-            how_source = cells[3] if len(cells) > 3 else ""
-            owner_due = cells[4] if len(cells) > 4 else ""
-            status_raw = cells[5] if len(cells) > 5 else ""
-            notes = cells[6] if len(cells) > 6 else ""
+
+            if has_priority_col:
+                what        = cells[1] if len(cells) > 1 else ""
+                priority    = _parse_priority(cells[2]) if len(cells) > 2 else "medium"
+                why         = cells[3] if len(cells) > 3 else ""
+                how_source  = cells[4] if len(cells) > 4 else ""
+                owner_due   = cells[5] if len(cells) > 5 else ""
+                status_raw  = cells[6] if len(cells) > 6 else ""
+                notes       = cells[7] if len(cells) > 7 else ""
+            else:
+                what        = cells[1] if len(cells) > 1 else ""
+                priority    = "medium"
+                why         = cells[2] if len(cells) > 2 else ""
+                how_source  = cells[3] if len(cells) > 3 else ""
+                owner_due   = cells[4] if len(cells) > 4 else ""
+                status_raw  = cells[5] if len(cells) > 5 else ""
+                notes       = cells[6] if len(cells) > 6 else ""
 
             if not what or what.lower() in ("what", "task", "#"):
                 continue
@@ -177,7 +199,7 @@ def parse_markdown(md_path: Path) -> list[dict]:
                 "owner": owner_due or None,
                 "due_date_raw": None,
                 "status": _parse_status(status_raw),
-                "priority": "medium",
+                "priority": priority,
                 "notes": notes or None,
                 "is_strategic_decision": False,
             })
@@ -190,18 +212,31 @@ def seed(md_path: Path) -> None:
     tasks = parse_markdown(md_path)
     print(f"Parsed {len(tasks)} tasks from {md_path.name}")
 
-    inserted = skipped = 0
+    inserted = updated = 0
     with Session(engine) as db:
-        existing = {t.task_number for t in db.query(ResearchTask.task_number).all()}
+        existing: dict[str, ResearchTask] = {
+            t.task_number: t for t in db.query(ResearchTask).all()
+        }
         for t in tasks:
-            if t["task_number"] in existing:
-                skipped += 1
-                continue
-            db.add(ResearchTask(**t))
-            inserted += 1
+            row = existing.get(t["task_number"])
+            if row is None:
+                db.add(ResearchTask(**t))
+                inserted += 1
+            else:
+                # Update content fields; never touch status
+                row.what = t["what"]
+                row.why = t["why"]
+                row.how_source = t["how_source"]
+                row.owner = t["owner"]
+                row.priority = t["priority"]
+                row.is_strategic_decision = t["is_strategic_decision"]
+                # Only populate notes if the DB row has none
+                if row.notes is None and t["notes"]:
+                    row.notes = t["notes"]
+                updated += 1
         db.commit()
 
-    print(f"  Inserted: {inserted}  Skipped (already exist): {skipped}")
+    print(f"  Inserted: {inserted}  Updated: {updated}")
 
 
 if __name__ == "__main__":

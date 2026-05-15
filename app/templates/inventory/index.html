@@ -1,115 +1,215 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Product Inventory – Prime Vending{% endblock %}
 
 {% block content %}
 <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
-  <h1 class="h3 mb-0">Product Inventory</h1>
-  <div class="d-flex gap-2 flex-wrap">
-    <a href="/inventory/suppliers" class="btn btn-outline-secondary btn-sm">Suppliers</a>
-    <a href="/inventory/search" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-robot me-1"></i>AI Sourcing
-    </a>
-    <button class="btn btn-primary btn-sm"
-            hx-get="/inventory/new{% if init_supplier_id %}?supplier_id={{ init_supplier_id }}{% endif %}"
-            hx-target="#product-modal-body"
-            hx-swap="innerHTML"
-            data-bs-toggle="modal"
-            data-bs-target="#productModal"
-            id="add-product-btn">
-      <i class="bi bi-plus-lg me-1"></i>Add Product
+  <h1 class="h3 mb-0"><i class="bi bi-box me-2 text-primary"></i>Product Inventory</h1>
+</div>
+
+<!-- Tab navigation -->
+<ul class="nav nav-tabs mb-0" id="inventoryTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab == 'products' %}active{% endif %}"
+            id="tab-products" data-bs-toggle="tab" data-bs-target="#pane-products"
+            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'products' else 'false' }}">
+      <i class="bi bi-grid me-1"></i>Products
     </button>
-  </div>
-</div>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab == 'compare' %}active{% endif %}"
+            id="tab-compare" data-bs-toggle="tab" data-bs-target="#pane-compare"
+            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'compare' else 'false' }}">
+      <i class="bi bi-bar-chart-line me-1"></i>Price Comparator
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab == 'suppliers' %}active{% endif %}"
+            id="tab-suppliers" data-bs-toggle="tab" data-bs-target="#pane-suppliers"
+            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'suppliers' else 'false' }}">
+      <i class="bi bi-building me-1"></i>Suppliers
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab == 'sourcing' %}active{% endif %}"
+            id="tab-sourcing" data-bs-toggle="tab" data-bs-target="#pane-sourcing"
+            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'sourcing' else 'false' }}">
+      <i class="bi bi-robot me-1"></i>AI Sourcing
+    </button>
+  </li>
+</ul>
 
-<form class="row g-2 mb-3" method="get" action="/inventory/"
-      onsubmit="Array.from(this.elements).forEach(el=>{if(el.name&&!el.value)el.disabled=true})"
-  <div class="col-md-3">
-    <select name="category" class="form-select form-select-sm"
-            onchange="this.form.submit()">
-      <option value="">All Categories</option>
-      {% for cat in categories %}
-      <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat | replace("_", " ") | title }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-md-3">
-    <select name="supplier_id" class="form-select form-select-sm"
-            onchange="this.form.submit()">
-      <option value="">All Suppliers</option>
-      {% for s in suppliers %}
-      <option value="{{ s.id }}" {% if supplier_filter == s.id %}selected{% endif %}>{{ s.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-auto">
-    <div class="form-check mt-1">
-      <input class="form-check-input" type="checkbox" name="low_stock" value="1"
-             id="lowStock" {% if low_stock %}checked{% endif %}
-             onchange="this.form.submit()">
-      <label class="form-check-label small" for="lowStock">Low Stock Only</label>
+<div class="tab-content border border-top-0 rounded-bottom p-3 bg-body" id="inventoryTabContent">
+
+  <!-- ===================== TAB: PRODUCTS ===================== -->
+  <div class="tab-pane fade {% if active_tab == 'products' %}show active{% endif %}" id="pane-products" role="tabpanel">
+
+    <div class="d-flex align-items-center justify-content-end pt-1 mb-1">
+      <button class="btn btn-sm btn-link text-muted p-0" type="button"
+              data-bs-toggle="collapse" data-bs-target="#help-products" title="Help &amp; instructions">
+        <i class="bi bi-question-circle"></i>
+      </button>
     </div>
-  </div>
-</form>
+    <div class="collapse mb-3" id="help-products">
+      <div class="card border-info border-opacity-25">
+        <div class="card-body bg-info-subtle rounded small">
+          <strong>Product Catalog</strong> — Manage all vending products with cost, sell price, and stock tracking.
+          <ul class="mb-0 mt-1">
+            <li>Use <strong>Add Product</strong> to create a new SKU with cost, price, and par level.</li>
+            <li>Yellow rows are below par level — restock with the <i class="bi bi-plus-circle"></i> button.</li>
+            <li>Filter by category or supplier; toggle <em>Low Stock</em> to focus on restocking priorities.</li>
+            <li>Margin badges: <span class="badge bg-success">green</span> ≥ 45%, <span class="badge bg-warning text-dark">yellow</span> 30–44%, <span class="badge bg-danger">red</span> &lt; 30%.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
 
-{% if products %}
-<div class="table-responsive">
-  <table class="table table-sm table-hover align-middle">
-    <thead class="table-light small">
-      <tr>
-        <th class="d-none d-sm-table-cell">SKU</th>
-        <th>Name</th>
-        <th class="d-none d-md-table-cell">Category</th>
-        <th class="d-none d-md-table-cell">Supplier</th>
-        <th class="text-end d-none d-sm-table-cell">Cost</th>
-        <th class="text-end">Price</th>
-        <th class="text-end">Margin%</th>
-        <th class="text-end">On Hand</th>
-        <th class="text-end d-none d-sm-table-cell">Par</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for p in products %}
-      {% set margin = ((p.sell_price - p.unit_cost) / p.sell_price * 100) if p.sell_price and p.unit_cost else none %}
-      <tr {% if p.par_level and p.on_hand_qty < p.par_level %}class="table-warning"{% endif %}>
-        <td class="text-muted small d-none d-sm-table-cell">{{ p.sku }}</td>
-        <td class="fw-medium small">{{ p.name }}</td>
-        <td class="small text-muted d-none d-md-table-cell">{{ p.category | replace("_", " ") | title if p.category else "-" }}</td>
-        <td class="small text-muted d-none d-md-table-cell">{{ p.primary_supplier.name if p.primary_supplier else "-" }}</td>
-        <td class="text-end small d-none d-sm-table-cell">${{ "%.2f" | format(p.unit_cost) if p.unit_cost else "-" }}</td>
-        <td class="text-end small">${{ "%.2f" | format(p.sell_price) if p.sell_price else "-" }}</td>
-        <td class="text-end small">
-          {% if margin is not none %}
-          <span class="{% if margin < 30 %}text-danger{% elif margin < 45 %}text-warning{% else %}text-success{% endif %} fw-medium">
-            {{ "%.0f" | format(margin) }}%
-          </span>
-          {% else %}–{% endif %}
-        </td>
-        <td class="text-end small {% if p.par_level and p.on_hand_qty < p.par_level %}text-danger fw-bold{% endif %}">
-          {{ p.on_hand_qty }}
-        </td>
-        <td class="text-end small text-muted d-none d-sm-table-cell">{{ p.par_level or "-" }}</td>
-        <td class="text-end">
-          <button class="btn btn-sm btn-outline-success py-0 px-1"
-                  onclick="document.getElementById('restock-product-id').value='{{ p.id }}'; document.getElementById('restock-product-name').textContent='{{ p.name }}';"
-                  data-bs-toggle="modal" data-bs-target="#restockModal">
-            <i class="bi bi-plus-circle"></i>
-          </button>
-          <a href="/inventory/{{ p.id }}/edit" class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1">
-            <i class="bi bi-pencil"></i>
-          </a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+      <div class="d-flex gap-2 flex-wrap">
+        <!-- Category filter -->
+        <select class="form-select form-select-sm" style="width:auto"
+                onchange="applyProductFilter(this, 'category')">
+          <option value="">All Categories</option>
+          {% for cat in categories %}
+          <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>
+            {{ category_labels.get(cat, cat | replace('_', ' ') | title) }}
+          </option>
+          {% endfor %}
+        </select>
+        <!-- Supplier filter -->
+        <select class="form-select form-select-sm" style="width:auto"
+                onchange="applyProductFilter(this, 'supplier_id')">
+          <option value="">All Suppliers</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {% if supplier_filter == s.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+        <!-- Low stock toggle -->
+        <div class="form-check form-switch mt-1 ms-1">
+          <input class="form-check-input" type="checkbox" id="lowStockToggle"
+                 {% if low_stock %}checked{% endif %}
+                 onchange="applyProductFilter(this, 'low_stock', this.checked ? '1' : '')">
+          <label class="form-check-label small" for="lowStockToggle">Low Stock</label>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm"
+              hx-get="/inventory/new{% if init_supplier_id %}?supplier_id={{ init_supplier_id }}{% endif %}"
+              hx-target="#product-modal-body"
+              hx-swap="innerHTML"
+              data-bs-toggle="modal"
+              data-bs-target="#productModal">
+        <i class="bi bi-plus-lg me-1"></i>Add Product
+      </button>
+    </div>
+
+    {% if products %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr class="small text-muted">
+            <th class="d-none d-sm-table-cell">SKU</th>
+            <th>Name / Brand</th>
+            <th class="d-none d-md-table-cell">Category</th>
+            <th class="d-none d-lg-table-cell">Supplier</th>
+            <th class="text-end d-none d-sm-table-cell">Cost</th>
+            <th class="text-end">Price</th>
+            <th class="text-end">Margin</th>
+            <th class="text-center">Stock</th>
+            <th class="d-none d-sm-table-cell text-center">Par</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          {% set margin = ((p.sell_price - p.unit_cost) / p.sell_price * 100) if p.sell_price and p.unit_cost else none %}
+          {% set low = p.par_level and p.on_hand_qty < p.par_level %}
+          <tr {% if low %}class="table-warning"{% endif %}>
+            <td class="text-muted small d-none d-sm-table-cell font-monospace">{{ p.sku }}</td>
+            <td class="small">
+              <span class="fw-medium">{{ p.name }}</span>
+              {% if p.brand %}<br><span class="text-muted" style="font-size:.75rem">{{ p.brand }}</span>{% endif %}
+            </td>
+            <td class="small text-muted d-none d-md-table-cell">
+              {{ category_labels.get(p.category, p.category | replace('_', ' ') | title) if p.category else "–" }}
+            </td>
+            <td class="small text-muted d-none d-lg-table-cell">
+              {{ p.primary_supplier.name if p.primary_supplier else "–" }}
+            </td>
+            <td class="text-end small d-none d-sm-table-cell">
+              {{ "$%.2f"|format(p.unit_cost) if p.unit_cost else "–" }}
+            </td>
+            <td class="text-end small fw-semibold">
+              {{ "$%.2f"|format(p.sell_price) if p.sell_price else "–" }}
+            </td>
+            <td class="text-end small">
+              {% if margin is not none %}
+              <span class="badge {% if margin < 30 %}bg-danger{% elif margin < 45 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                {{ "%.0f"|format(margin) }}%
+              </span>
+              {% else %}–{% endif %}
+            </td>
+            <td class="text-center small {% if low %}text-danger fw-bold{% endif %}">
+              {{ p.on_hand_qty }}
+            </td>
+            <td class="text-center small text-muted d-none d-sm-table-cell">
+              {{ p.par_level or "–" }}
+            </td>
+            <td class="text-end text-nowrap">
+              <button class="btn btn-sm btn-outline-success py-0 px-1"
+                      title="Restock"
+                      onclick="openRestock({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')"
+                      data-bs-toggle="modal" data-bs-target="#restockModal">
+                <i class="bi bi-plus-circle"></i>
+              </button>
+              <a href="/inventory/{{ p.id }}/edit"
+                 class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1" title="Edit">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <button class="btn btn-sm btn-outline-danger py-0 px-1 ms-1"
+                      title="Deactivate"
+                      hx-delete="/inventory/{{ p.id }}"
+                      hx-confirm="Deactivate '{{ p.name }}'?"
+                      hx-target="closest tr"
+                      hx-swap="delete">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="text-muted small mt-2">
+      {{ products | length }} product{{ 's' if products | length != 1 }}
+      {% if category_filter or supplier_filter or low_stock %}
+      · <a href="/inventory/" class="text-muted">Clear filters</a>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-5">
+      <i class="bi bi-box fs-1 d-block mb-2"></i>
+      No products found. <button class="btn btn-primary btn-sm ms-2"
+        hx-get="/inventory/new" hx-target="#product-modal-body" hx-swap="innerHTML"
+        data-bs-toggle="modal" data-bs-target="#productModal">Add First Product</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ===================== TAB: PRICE COMPARATOR ===================== -->
+  <div class="tab-pane fade {% if active_tab == 'compare' %}show active{% endif %}" id="pane-compare" role="tabpanel">
+    {% include "inventory/_tab_comparator.html" %}
+  </div>
+
+  <!-- ===================== TAB: SUPPLIERS ===================== -->
+  <div class="tab-pane fade {% if active_tab == 'suppliers' %}show active{% endif %}" id="pane-suppliers" role="tabpanel">
+    {% include "inventory/_tab_suppliers.html" %}
+  </div>
+
+  <!-- ===================== TAB: AI SOURCING ===================== -->
+  <div class="tab-pane fade {% if active_tab == 'sourcing' %}show active{% endif %}" id="pane-sourcing" role="tabpanel">
+    {% include "inventory/_tab_sourcing.html" %}
+  </div>
+
 </div>
-{% else %}
-<div class="text-center text-muted py-5">
-  <i class="bi bi-box fs-1 d-block mb-2"></i>
-  No products yet. Add your first SKU.
-</div>
-{% endif %}
 
 <!-- Add Product Modal -->
 <div class="modal fade" id="productModal" tabindex="-1">
@@ -152,22 +252,74 @@
     </div>
   </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-  document.getElementById('restockModal').addEventListener('show.bs.modal', function () {
-    const pid = document.getElementById('restock-product-id').value;
-    document.getElementById('restock-form').action = '/inventory/' + pid + '/restock';
-  });
+function openRestock(pid, name) {
+  document.getElementById('restock-product-id').value = pid;
+  document.getElementById('restock-product-name').textContent = name;
+  document.getElementById('restock-form').action = '/inventory/' + pid + '/restock';
+}
 
-  {% if init_supplier_id %}
-  document.addEventListener('DOMContentLoaded', function () {
-    htmx.ajax('GET', '/inventory/new?supplier_id={{ init_supplier_id }}', {
-      target: '#product-modal-body',
-      swap: 'innerHTML'
-    }).then(function () {
-      new bootstrap.Modal(document.getElementById('productModal')).show();
+function applyProductFilter(el, param, value) {
+  const url = new URL(window.location.href);
+  const v = value !== undefined ? value : el.value;
+  if (v) {
+    url.searchParams.set(param, v);
+  } else {
+    url.searchParams.delete(param);
+  }
+  url.searchParams.set('tab', 'products');
+  window.location.href = url.toString();
+}
+
+// Restore active tab from URL param or hash
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const tabParam = params.get('tab');
+  const tabHash = window.location.hash.replace('#', '');
+  const tabId = tabParam || tabHash;
+  if (tabId && tabId !== 'products') {
+    const btn = document.getElementById('tab-' + tabId);
+    if (btn) {
+      const tab = new bootstrap.Tab(btn);
+      tab.show();
+    }
+  }
+
+  // Update URL hash on tab change (no full reload)
+  document.querySelectorAll('#inventoryTabs button[data-bs-toggle="tab"]').forEach(function (btn) {
+    btn.addEventListener('shown.bs.tab', function (e) {
+      const id = e.target.id.replace('tab-', '');
+      history.replaceState(null, '', '#' + id);
     });
   });
-  {% endif %}
+})();
+
+{% if init_supplier_id %}
+document.addEventListener('DOMContentLoaded', function () {
+  htmx.ajax('GET', '/inventory/new?supplier_id={{ init_supplier_id }}', {
+    target: '#product-modal-body',
+    swap: 'innerHTML'
+  }).then(function () {
+    new bootstrap.Modal(document.getElementById('productModal')).show();
+  });
+});
+{% endif %}
+
+// Hide/show the comparator placeholder when the settings panel opens/closes
+(function () {
+  var panel = document.getElementById('settingsPanel');
+  var placeholder = document.getElementById('compare-placeholder');
+  if (panel && placeholder) {
+    panel.addEventListener('show.bs.collapse', function () {
+      placeholder.classList.add('d-none');
+    });
+    panel.addEventListener('hide.bs.collapse', function () {
+      placeholder.classList.remove('d-none');
+    });
+  }
+})();
 </script>
 {% endblock %}

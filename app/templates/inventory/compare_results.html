@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Price Comparison – {{ input_params.get('product_query', 'Results') }} – Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="h4 mb-0">
+    <i class="bi bi-bar-chart-line me-2 text-primary"></i>Price Comparison
+    <span class="text-muted fw-normal fs-6 ms-2">#{{ job.id }}</span>
+  </h1>
+  <div class="d-flex gap-2">
+    <a href="/inventory/#compare" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back to Comparator
+    </a>
+  </div>
+</div>
+
+<!-- Summary bar -->
+<div class="card border-0 bg-light mb-4">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap small">
+      <div>
+        <i class="bi bi-search me-1 text-muted"></i>
+        <span class="text-muted">Product:</span>
+        <span class="fw-semibold">{{ input_params.get('product_query', '–') }}</span>
+      </div>
+      {% if input_params.get('vendors') %}
+      <div>
+        <i class="bi bi-shop me-1 text-muted"></i>
+        <span class="text-muted">Vendors:</span>
+        <span class="fw-semibold">{{ input_params.vendors | length }}</span>
+      </div>
+      {% endif %}
+      {% if job.prospects_found %}
+      <div>
+        <i class="bi bi-list-ul me-1 text-muted"></i>
+        <span class="fw-semibold">{{ job.prospects_found }} results</span>
+      </div>
+      {% endif %}
+      {% if job.started_at and job.finished_at %}
+      <div class="text-muted">
+        <i class="bi bi-clock me-1"></i>{{ (job.finished_at - job.started_at).seconds }}s
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Poll div handles both in-progress and done states -->
+<div id="compare-results-container"
+     {% if job.status in ('pending', 'running') %}
+     hx-get="/inventory/compare/{{ job.id }}/poll"
+     hx-trigger="load, every 3s"
+     hx-target="this"
+     hx-swap="innerHTML"
+     {% endif %}>
+
+  {% if job.status in ('pending', 'running') %}
+  <div class="text-center py-5">
+    <div class="spinner-border text-primary mb-3" role="status"></div>
+    <div class="text-muted">Fetching prices…</div>
+  </div>
+  {% else %}
+  {% include "inventory/_comparator_poll.html" %}
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function exportCompareCsv(results) {
+  const headers = ['Vendor', 'Product', 'Unit Price', 'Case Price', 'Case Qty', 'Source', 'URL', 'Notes'];
+  const rows = results.map(r => [
+    r.vendor_name,
+    r.product_name,
+    r.unit_price != null ? r.unit_price : '',
+    r.case_price != null ? r.case_price : '',
+    r.case_qty != null ? r.case_qty : '',
+    r.source,
+    r.url || '',
+    r.notes || '',
+  ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'price_comparison.csv';
+  a.click();
+}
+</script>
+{% endblock %}

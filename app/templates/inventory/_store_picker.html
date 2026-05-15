@@ -1,0 +1,25 @@
+{# Inline store picker — rendered into #walmart-store-picker or #sams-store-picker #}
+{% if error %}
+<div class="alert alert-warning py-1 px-2 mt-1 mb-0" style="font-size:.72rem">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+</div>
+{% elif not stores %}
+<div class="text-muted mt-1" style="font-size:.72rem">
+  No stores found within 100 km of ZIP {{ zip_code }}.
+</div>
+{% else %}
+<div class="list-group list-group-flush border rounded mt-1" style="font-size:.76rem; max-height:160px; overflow-y:auto">
+  {% for s in stores %}
+  <button type="button"
+          class="list-group-item list-group-item-action py-1 px-2 d-flex justify-content-between align-items-center"
+          onclick="pickStore('{{ brand }}', '{{ s.id }}', '{{ s.name }}{% if s.city %} – {{ s.city }}{% if s.state %}, {{ s.state }}{% endif %}{% endif %}')">
+    <span>
+      <strong>#{{ s.id }}</strong>
+      {% if s.name != "Walmart" and s.name != "Sam's Club" %}{{ s.name }}{% endif %}
+      {% if s.city %}· {{ s.city }}{% if s.state %}, {{ s.state }}{% endif %}{% endif %}
+    </span>
+    <span class="text-muted ms-2 flex-shrink-0">{{ s.distance_miles }} mi</span>
+  </button>
+  {% endfor %}
+</div>
+{% endif %}

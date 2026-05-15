@@ -20,14 +20,34 @@
     <span class="badge bg-primary">{{ active_location.name }}</span>
     {% endif %}
   </div>
-  <button class="btn btn-primary btn-sm"
-          hx-get="/sales/new"
-          hx-target="#prospect-modal-body"
-          hx-swap="innerHTML"
-          data-bs-toggle="modal"
-          data-bs-target="#prospectModal">
-    <i class="bi bi-plus-lg me-1"></i>Add Prospect
-  </button>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#page-help" title="Help &amp; instructions">
+      <i class="bi bi-question-circle"></i>
+    </button>
+    <button class="btn btn-primary btn-sm"
+            hx-get="/sales/new"
+            hx-target="#prospect-modal-body"
+            hx-swap="innerHTML"
+            data-bs-toggle="modal"
+            data-bs-target="#prospectModal">
+      <i class="bi bi-plus-lg me-1"></i>Add Prospect
+    </button>
+  </div>
+</div>
+<div class="collapse mb-3" id="page-help">
+  <div class="card border-info border-opacity-25">
+    <div class="card-body bg-info-subtle rounded small">
+      <strong>Sales Pipeline</strong> — Track location prospects through your sales process with a Kanban board.
+      <ul class="mb-0 mt-1">
+        <li>Stages: <strong>Lead → Contacted → Site Visit → Proposal → Signed / Lost</strong>.</li>
+        <li>Click <strong>Add Prospect</strong> to create a new lead with business name, contact info, and location.</li>
+        <li>Click a prospect card to update its stage, add notes, or log follow-up actions.</li>
+        <li>Filter by location using the dropdown to focus on a specific site's pipeline.</li>
+        <li>Signed prospects automatically become active Locations visible on the Locations page.</li>
+      </ul>
+    </div>
+  </div>
 </div>
 
 <div class="row g-2 flex-nowrap overflow-auto pb-2">

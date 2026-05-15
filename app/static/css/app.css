@@ -28,8 +28,6 @@ code, pre, kbd, .font-monospace {
    (avoids Bootstrap modal backdrop weirdness) */
 .modal,
 .modal-backdrop,
-.collapse,
-.collapsing,
 .htmx-indicator {
   transition: none !important;
 }
@@ -114,6 +112,41 @@ code, pre, kbd, .font-monospace {
 .priority-high   { background-color: var(--badge-high-bg); color: var(--badge-high-fg); }
 .priority-medium { background-color: var(--badge-med-bg);  color: var(--badge-med-fg); }
 .priority-low    { background-color: var(--badge-low-bg);  color: var(--badge-low-fg); }
+
+/* ============================================================
+   DEPENDENCY CHIPS (research task prerequisites)
+   ============================================================ */
+.dep-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+.dep-label {
+  font-size: 0.70rem;
+  color: var(--pmm-muted);
+  margin-right: 1px;
+}
+.dep-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.70rem;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--bs-secondary-bg);
+  color: var(--bs-secondary-color);
+  border: 1px solid var(--bs-border-color);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dep-dot { font-size: 0.42rem; flex-shrink: 0; }
+.dep-chip-done        .dep-dot { color: #22c55e; }
+.dep-chip-in_progress .dep-dot { color: #f59e0b; }
+.dep-chip-blocked     .dep-dot { color: #ef4444; }
+.dep-chip-not_started .dep-dot { color: var(--bs-secondary-color); }
 
 /* ============================================================
    LOCATION STATUS

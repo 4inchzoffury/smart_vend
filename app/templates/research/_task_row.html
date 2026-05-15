@@ -1,9 +1,29 @@
-<tr id="task-{{ task.id }}">
-  <td class="text-muted small">{{ task.task_number }}</td>
+<tr id="task-{{ task.id }}"
+    style="cursor:pointer"
+    hx-get="/research/{{ task.id }}/edit"
+    hx-target="#task-modal-body"
+    hx-swap="innerHTML"
+    data-bs-toggle="modal"
+    data-bs-target="#taskModal">
+  <td class="drag-handle text-muted" style="cursor:grab;width:30px"
+      onclick="event.stopPropagation()">
+    <i class="bi bi-grip-vertical"></i>
+  </td>
   <td>
     <div class="fw-medium small">{{ task.what }}</div>
     {% if task.notes %}
     <div class="text-muted" style="font-size:0.78rem">{{ task.notes }}</div>
+    {% endif %}
+    {% set task_deps = (deps_by_task if deps_by_task is defined else {}).get(task.id, []) %}
+    {% if task_deps %}
+    <div class="dep-list mt-1">
+      <span class="dep-label">Requires:</span>
+      {% for dep in task_deps %}
+      <span class="dep-chip dep-chip-{{ dep.status }}" title="{{ dep.what }}">
+        <i class="bi bi-circle-fill dep-dot"></i>{{ dep.what | truncate(48, true, '…') }}
+      </span>
+      {% endfor %}
+    </div>
     {% endif %}
   </td>
   <td>
@@ -12,6 +32,7 @@
           hx-target="#task-{{ task.id }}"
           hx-swap="outerHTML"
           title="Click to advance status"
+          onclick="event.stopPropagation()"
           style="cursor:pointer">
       {{ task.status | replace("_", " ") | title }}
     </span>
@@ -20,7 +41,7 @@
     <span class="badge priority-{{ task.priority }}">{{ task.priority | title }}</span>
   </td>
   <td class="small text-muted">{{ task.due_date_raw or "—" }}</td>
-  <td class="text-end">
+  <td class="text-end" onclick="event.stopPropagation()">
     <button class="btn btn-sm btn-outline-secondary py-0 px-1 me-1"
             hx-get="/research/{{ task.id }}/edit"
             hx-target="#task-modal-body"
@@ -29,6 +50,14 @@
             data-bs-target="#taskModal"
             title="Edit">
       <i class="bi bi-pencil"></i>
+    </button>
+    <button class="btn btn-sm btn-outline-secondary py-0 px-1 me-1"
+            hx-post="/research/{{ task.id }}/duplicate"
+            hx-target="#task-board"
+            hx-swap="innerHTML"
+            hx-confirm="Duplicate this task?"
+            title="Duplicate">
+      <i class="bi bi-copy"></i>
     </button>
     <button class="btn btn-sm btn-outline-danger py-0 px-1"
             hx-delete="/research/{{ task.id }}"
