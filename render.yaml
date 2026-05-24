@@ -1,0 +1,82 @@
+# Render Blueprint — Prime Micro Markets `smart_vend`
+# Full rationale and phased plan: RENDER_DEPLOYMENT_PLAN.md
+#
+# To deploy: in the Render dashboard, New → Blueprint, connect the
+# prime-micro-markets/smart_vend repo, and create resources from this file.
+# Secrets marked `sync: false` are entered once during that creation flow
+# (and never committed). The web service and database share a region so the
+# internal DATABASE_URL resolves privately.
+
+databases:
+  - name: smart-vend-db
+    # ~1 GB managed Postgres with daily backups (see plan §8). Drop to
+    # `basic-256mb` to cut cost, or raise to `basic-4gb`+ later — data migrates.
+    plan: basic-1gb
+    databaseName: smart_vend
+    user: smart_vend
+    region: virginia
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: smart-vend
+    runtime: python
+    # Always-on Starter. The free tier spins down after ~15 min idle, which
+    # breaks OAuth sessions and in-flight BackgroundTasks (plan §6).
+    plan: starter
+    region: virginia
+    branch: main
+    buildCommand: "pip install -r requirements.txt"
+    # Runs after build, before the new instance takes traffic. Uses the same
+    # DATABASE_URL as the app (alembic/env.py), so it migrates Postgres.
+    preDeployCommand: "alembic upgrade head"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    # Public landing page returns 200 without auth — a valid health probe.
+    healthCheckPath: /
+    envVars:
+      # Injected from the managed Postgres above as postgresql://… ; the app
+      # rewrites the scheme to the psycopg 3 driver (app/database.py).
+      - key: DATABASE_URL
+        fromDatabase:
+          name: smart-vend-db
+          property: connectionString
+      # Fresh 256-bit secret for signed session cookies (do NOT reuse local dev's).
+      - key: SESSION_SECRET_KEY
+        generateValue: true
+
+      # --- Required secrets (entered at Blueprint creation) ---
+      - key: GROQ_API_KEY          # public chatbot, free tier (plan §4a)
+        sync: false
+      - key: ANTHROPIC_API_KEY     # chatbot fallback + all internal AI
+        sync: false
+      - key: TAVILY_API_KEY        # lead research / web search
+        sync: false
+      - key: GOOGLE_CLIENT_ID      # staff Google OAuth
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: ALLOWED_EMAILS        # comma-separated allowlist for internal app
+        sync: false
+      - key: GMAIL_USER            # outbound email + inbox monitor
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+
+      # --- Google Sheets sync (Phase 3 step 3) ---
+      # Upload service_account.json as a Render Secret File mounted at this path.
+      - key: GOOGLE_SHEETS_CREDS_FILE
+        value: /etc/secrets/service_account.json
+      - key: SPREADSHEET_ID
+        sync: false
+
+      # --- Optional (leave blank at creation if unused) ---
+      - key: FIRECRAWL_API_KEY     # structured scraping; falls back to BeautifulSoup
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CALENDLY_URL
+        sync: false
+      - key: CALENDLY_API_KEY
+        sync: false

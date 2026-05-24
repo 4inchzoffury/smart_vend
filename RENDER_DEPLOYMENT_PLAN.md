@@ -130,7 +130,7 @@ hosted API ever would**. Self-hosting on Render loses on both cost and speed.
 - Verify row counts and spot-check CRM/leads/equipment tables.
 
 ### Phase 3 — Deploy & wire up
-1. Connect the existing GitHub repo (`4inchzoffury/smart_vend`) to Render and deploy via the blueprint.
+1. Connect the existing GitHub repo (`prime-micro-markets/smart_vend`, company-owned Org) to Render and deploy via the blueprint. Authorize Render against the **`prime-micro-markets`** Org, not a personal account.
 2. Set all secrets as Render env vars: **`GROQ_API_KEY` (required — powers the public chatbot; free key from console.groq.com)**, `ANTHROPIC_API_KEY` (required — chatbot fallback + all internal AI), `TAVILY_API_KEY`, `FIRECRAWL_API_KEY`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `GEMINI_API_KEY`/`OPENAI_API_KEY` (optional, only if used), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET_KEY` (generate a fresh one), `ALLOWED_EMAILS`, `SPREADSHEET_ID`. `DATABASE_URL` is injected by Render from the managed Postgres. The Groq default is set in code (`cs_chatbot_agent.py`); the CS settings UI (`/customer-service` → AI settings, persisted as `cs_ai_provider` / `cs_ai_model` in `AppSetting`) can override per environment.
 3. **Google Sheets service account** — `secrets/service_account.json` is gitignored. Provide it on Render as a *secret file* (or base64 env var) and point `GOOGLE_SHEETS_CREDS_FILE` at it.
 4. **Update Google OAuth** authorized redirect URIs to the Render URL first (`https://<service>.onrender.com/auth/callback`), then add the custom domain.

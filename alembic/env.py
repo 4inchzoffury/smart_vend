@@ -2,7 +2,7 @@ from logging.config import fileConfig
 
 import app.models  # noqa: F401 — registers all models with Base
 from alembic import context
-from app.database import Base
+from app.database import DATABASE_URL, Base
 from sqlalchemy import engine_from_config, pool
 
 config = context.config
@@ -14,9 +14,11 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    # Use the app's resolved DATABASE_URL (env-driven, psycopg-normalized) rather
+    # than the SQLite default hardcoded in alembic.ini, so migrations target the
+    # same database the app does — Postgres on Render, SQLite locally.
     context.configure(
-        url=url,
+        url=DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -26,8 +28,11 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    section = config.get_section(config.config_ini_section, {})
+    # Override the alembic.ini default with the env-driven DATABASE_URL (see above).
+    section["sqlalchemy.url"] = DATABASE_URL
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

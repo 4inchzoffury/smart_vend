@@ -9,6 +9,9 @@ jinja2==3.1.6
 # Database
 sqlalchemy==2.0.49
 alembic==1.18.4
+# Postgres driver for the Render deployment (psycopg 3). [binary] ships prebuilt
+# wheels so no libpq/build toolchain is needed. Local dev on SQLite ignores it.
+psycopg[binary]==3.3.4
 
 # Config / env
 pydantic-settings==2.14.0
