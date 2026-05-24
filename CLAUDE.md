@@ -32,13 +32,13 @@ python scripts/seed_research_tasks.py "path/to/Research_Tracker.md"
 
 ## Tech Stack
 
-FastAPI 0.115 + Uvicorn · SQLite + SQLAlchemy 2.0 (sync) + Alembic · Jinja2 + Bootstrap 5.3 · HTMX 1.9 · pydantic-settings · Anthropic Claude + Tavily · Cloudflare Tunnel · Ruff · pytest
+FastAPI + Uvicorn · SQLite (dev) / Postgres (prod, psycopg 3) + SQLAlchemy 2.0 (sync) + Alembic · Jinja2 + Bootstrap 5.3 · HTMX 1.9 · pydantic-settings · Anthropic Claude + Groq + Tavily · Hosted on Render · Ruff · pytest
 
 ## Architecture
 
 ### App factory (`app/main.py`)
 
-`main.py` imports all routers and mounts them. The lifespan handler calls `Base.metadata.create_all()` on startup (auto-creates tables, no migration needed for fresh installs). `SessionMiddleware` must be added last (outermost). `ProxyHeadersMiddleware` is required to trust `X-Forwarded-Proto` from Cloudflare Tunnel — without it, OAuth redirects break.
+`main.py` imports all routers and mounts them. The lifespan handler calls `Base.metadata.create_all()` on startup (auto-creates tables, no migration needed for fresh installs). `SessionMiddleware` must be added last (outermost). `ProxyHeadersMiddleware` is required to trust `X-Forwarded-Proto` from the hosting proxy (Render in prod, formerly Cloudflare Tunnel); without it, OAuth redirects break. A `www`→apex 301 redirect middleware is registered outermost so one canonical host is served.
 
 `app/models/settings.py` must be imported in `main.py` via a side-effect import (`from app.models import settings as _settings_models`) to register `AppSetting` with `Base` before `create_all` runs.
 
@@ -76,7 +76,6 @@ Key-value config persisted in SQLite (`app_settings` table). Currently used to r
 | `/locations/` | Locations & machine assignment | Required |
 | `/sales/` | Sales pipeline (Kanban) | Required |
 | `/inventory/` | Product catalog + restock log | Required |
-| `/sync/` | Google Sheets push/pull | Required |
 | `/leads/` | AI lead generation + email outreach | Required |
 | `/customer-service/` | CS governance/approval queue | Required |
 
@@ -92,14 +91,24 @@ GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 SESSION_SECRET_KEY=...
 ALLOWED_EMAILS=comma,separated,list
-GOOGLE_SHEETS_CREDS_FILE=./secrets/service_account.json
-SPREADSHEET_ID=...
+GROQ_API_KEY=gsk_...
 ```
 
-Google Sheets sync needs `secrets/service_account.json` (gitignored). The app starts without any API keys set — AI features return errors until configured.
+The app starts without any API keys set; AI features return errors until configured. Unknown env vars are ignored (`extra="ignore"` in `app/config.py`), so retired keys won't crash startup. `GROQ_API_KEY` powers the public chatbot (free tier) with a Claude Haiku fallback.
 
 ## Database Notes
 
-- SQLite file: `smart_vend.db` (gitignored)
-- Tests use in-memory SQLite with mocked Sheets calls — no credentials needed
-- Schema changes require an Alembic migration; `create_all` only adds missing tables, does not alter columns
+- Production runs on **Render managed Postgres**; local dev uses SQLite (`smart_vend.db`, gitignored). `app/database.py` branches engine config on the URL scheme and normalizes Postgres URLs to the psycopg 3 driver.
+- Tests use in-memory SQLite; no credentials needed.
+- Schema changes require an Alembic migration; `create_all` only adds missing tables, does not alter columns. On deploy, `scripts/init_db.py` runs `create_all` + stamp on an empty DB, else `alembic upgrade head` (the initial migration is an empty baseline, so a bare `alembic upgrade head` cannot build from scratch).
+
+## Ops (Render)
+
+Production is hosted on **Render**, deployed from `main` via the `render.yaml` blueprint. Live site: `https://primemicromarkets.com` (apex; `www` 301-redirects to it). DNS + registrar: Cloudflare.
+
+- **Resources:** web service `srv-d89ldt6l51nc73d8v6rg` (smart-vend), managed Postgres `dpg-d89lddml51nc73d8v3t0-a` (smart-vend-db), region `virginia`.
+- **Deploys:** push to `main` → auto-deploy. Pipeline: build `pip install -r requirements.txt` → preDeploy `python scripts/init_db.py` → start `uvicorn`. A failed build/preDeploy/health-check keeps the previous version live (zero-downtime).
+- **Secrets:** set as Render env vars in the dashboard, never committed. `DATABASE_URL` is injected from the managed Postgres; `SESSION_SECRET_KEY` is auto-generated.
+- **Claude-managed:** the Render **MCP server** is configured (hosted `https://mcp.render.com/mcp`; API key in local `~/.claude.json`, not committed). After a Claude Code restart loads it, Claude can list services, trigger deploys, tail logs, manage env vars, and query Postgres directly.
+- **Staged SEO:** robots.txt / sitemap / canonical / OG / JSON-LD / noindex live on the `feature/seo-enhancements` branch (not merged until ready).
+- **One-time data migration:** `scripts/migrate_sqlite_to_postgres.py` (used for the initial SQLite→Postgres cutover).
