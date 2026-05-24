@@ -9,7 +9,7 @@
                 {% else %}
                   background:#f8f9fa;border:1px solid #dee2e6;
                 {% endif %}">
-      {{ msg.content }}
+      {{ msg.content | chat_format if msg.role == "assistant" else msg.content }}
     </div>
     <div class="text-muted mt-1" style="font-size:.65rem">
       {{ msg.created_at.strftime('%b %d, %H:%M') if msg.created_at else '' }}

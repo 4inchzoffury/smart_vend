@@ -51,7 +51,7 @@ The deployable blueprint (`render.yaml`) is already on `main`.
 | `SPREADSHEET_ID` | the Sheet ID | For Google Sheets sync (pairs with the secret file in §5). |
 | `FIRECRAWL_API_KEY` | optional | Leave blank if unused (falls back to BeautifulSoup). |
 | `GEMINI_API_KEY` / `OPENAI_API_KEY` | optional | Leave blank unless used. |
-| `CALENDLY_URL` / `CALENDLY_API_KEY` | optional | Leave blank unless used. |
+| `GOOGLE_BOOKING_URL` | optional | Google Calendar Appointment Schedule booking-page URL. Chatbot shows live open slots (from the connected Gmail account's calendar) and links here to confirm. Leave blank to fall back to email. |
 | `GOOGLE_SHEETS_CREDS_FILE` | *(pre-set)* | Already `/etc/secrets/service_account.json` in the blueprint — see §5. |
 
 > The app starts fine with optional keys blank; those features just return errors until configured.

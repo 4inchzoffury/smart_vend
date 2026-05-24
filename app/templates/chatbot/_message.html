@@ -1,24 +1,8 @@
 {# Single chat message bubble.
-   Context: msg (ChatMessage), session_id (str), last_id (int), show_poll (bool)
+   Context: msg (ChatMessage), msg.role is "user" or "assistant"
 #}
 <div class="chat-msg chat-msg--{{ msg.role }}">
   <div class="chat-label chat-label--{{ msg.role }}">{{ "You" if msg.role == "user" else "Prime Micro Markets" }}</div>
   <div class="chat-bubble chat-bubble--{{ msg.role }}">{{ msg.content | chat_format if msg.role == "assistant" else msg.content }}</div>
   <div class="chat-ts">{{ msg.created_at.strftime('%H:%M') if msg.created_at else '' }}</div>
 </div>
-
-{% if show_poll %}
-<div id="chat-poll"
-     hx-get="/chatbot/{{ session_id }}/poll?after_id={{ last_id }}"
-     hx-trigger="load delay:200ms"
-     hx-target="#chat-poll"
-     hx-swap="outerHTML">
-  <div class="chat-msg chat-msg--assistant">
-    <div class="chat-label chat-label--assistant">Prime Micro Markets</div>
-    <div class="chat-bubble chat-bubble--assistant chat-bubble--thinking">
-      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      <span class="thinking-text">Crafting a response…</span>
-    </div>
-  </div>
-</div>
-{% endif %}

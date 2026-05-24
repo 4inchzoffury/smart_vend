@@ -20,8 +20,10 @@ class Settings(BaseSettings):
     firecrawl_api_key: str = ""
     gmail_user: str = ""
     gmail_app_password: str = ""
-    calendly_url: str = ""
-    calendly_api_key: str = ""
+    # Google Calendar "Appointment Schedule" public booking page URL. The chatbot
+    # shows live open slots (computed from the calendar's free/busy via
+    # app/services/google_calendar.py) and links here for the customer to confirm.
+    google_booking_url: str = ""
 
     # Additional AI providers for the customer service chatbot
     groq_api_key: str = ""

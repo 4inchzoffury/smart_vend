@@ -13,7 +13,7 @@ from app.config import settings
 from app.models.chat import ChatMessage
 from app.models.cs_governance import CSGovernanceRule
 from app.models.settings import AppSetting
-from app.services import calendly as calendly_svc
+from app.services import google_calendar as gcal_svc
 
 _log = logging.getLogger(__name__)
 
@@ -98,15 +98,16 @@ def build_chatbot_system_prompt(db: Session, include_tools: bool = True) -> str:
 
         base += "RULES YOU MUST FOLLOW:\n" + "\n\n".join(rule_sections) + "\n\n"
 
-    if include_tools and settings.calendly_api_key:
-        calendly_note = (
-            "When asked about scheduling or booking a meeting, use the "
-            "check_calendly_availability tool to fetch real-time available slots."
+    if include_tools:
+        scheduling_note = (
+            "When asked about scheduling or booking a meeting, use the check_availability "
+            "tool to fetch real-time open consultation slots from the company calendar, "
+            "then share them with the customer."
         )
-    elif settings.calendly_url:
-        calendly_note = f"When asked about scheduling, direct them to: {settings.calendly_url}"
+    elif settings.google_booking_url:
+        scheduling_note = f"When asked about scheduling, direct them to book here: {settings.google_booking_url}"
     else:
-        calendly_note = "When asked about scheduling, ask them to email us at primemicromarkets@gmail.com."
+        scheduling_note = "When asked about scheduling, ask them to email us at primemicromarkets@gmail.com."
 
     if include_tools:
         escalation_note = (
@@ -124,7 +125,7 @@ def build_chatbot_system_prompt(db: Session, include_tools: bool = True) -> str:
     lead_capture_note = (
         "CONTACT OPTIONS: When a customer asks about getting a unit, scheduling, pricing, "
         "or wants to be contacted, always mention all three ways to connect:\n"
-        "  1. Book a consultation via Calendly\n"
+        "  1. Book a consultation (you can show open times on our calendar)\n"
         "  2. Email us at primemicromarkets@gmail.com\n"
         "  3. Click the 'Request a Callback' button below the chat input to leave their "
         "     contact info — a real team member will personally reach out\n"
@@ -133,7 +134,7 @@ def build_chatbot_system_prompt(db: Session, include_tools: bool = True) -> str:
     )
 
     base += (
-        f"{calendly_note}\n\n"
+        f"{scheduling_note}\n\n"
         f"{escalation_note}\n\n"
         f"{lead_capture_note}\n\n"
         f"Keep responses concise — 2 to 4 sentences maximum unless listing specific details. "
@@ -144,11 +145,12 @@ def build_chatbot_system_prompt(db: Session, include_tools: bool = True) -> str:
 
 # ── Tool definitions ─────────────────────────────────────────────────────────
 
-_TOOL_CALENDLY = {
-    "name": "check_calendly_availability",
+_TOOL_AVAILABILITY = {
+    "name": "check_availability",
     "description": (
-        "Check real-time availability and return the next available booking slots. "
-        "Use this when a customer asks about scheduling a call, demo, or site visit."
+        "Check the company calendar and return the next open consultation time slots. "
+        "Use this when a customer asks about scheduling a call, demo, or site visit, "
+        "or asks what times are available."
     ),
     "input_schema": {
         "type": "object",
@@ -186,12 +188,12 @@ _TOOL_ESCALATE = {
 }
 
 # OpenAI-format equivalents (used for Groq, OpenAI, Gemini-OpenAI-compat)
-_TOOL_CALENDLY_OAI = {
+_TOOL_AVAILABILITY_OAI = {
     "type": "function",
     "function": {
-        "name": "check_calendly_availability",
-        "description": _TOOL_CALENDLY["description"],
-        "parameters": _TOOL_CALENDLY["input_schema"],
+        "name": "check_availability",
+        "description": _TOOL_AVAILABILITY["description"],
+        "parameters": _TOOL_AVAILABILITY["input_schema"],
     },
 }
 
@@ -288,13 +290,12 @@ def _handle_capture_lead(tool_input: dict, session_id: str, db: Session) -> str:
 
 
 def _handle_tool(name: str, tool_input: dict, session_id: str, db: Session) -> str:
-    if name == "check_calendly_availability":
+    if name == "check_availability":
         try:
-            slots = calendly_svc.get_upcoming_slots(max_slots=8)
-            return calendly_svc.format_slots_for_chat(slots)
+            return gcal_svc.get_availability_message(db)
         except Exception as exc:
-            if settings.calendly_url:
-                return f"Book directly here: {settings.calendly_url}"
+            if settings.google_booking_url:
+                return f"Book directly here: {settings.google_booking_url}"
             return f"Unable to fetch availability ({exc}). Please email primemicromarkets@gmail.com to schedule."
 
     if name == "capture_lead":
@@ -388,7 +389,7 @@ def _run_anthropic(
             model=model,
             max_tokens=_MAX_TOKENS_CHAT,
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            tools=[_TOOL_CALENDLY, _TOOL_ESCALATE, _TOOL_CAPTURE_LEAD],
+            tools=[_TOOL_AVAILABILITY, _TOOL_ESCALATE, _TOOL_CAPTURE_LEAD],
             messages=messages,
         )
         messages.append({"role": "assistant", "content": response.content})
@@ -465,7 +466,7 @@ def _run_openai_compat(
         response = client.chat.completions.create(
             model=model,
             messages=oai_messages,
-            tools=[_TOOL_CALENDLY_OAI, _TOOL_ESCALATE_OAI, _TOOL_CAPTURE_LEAD_OAI],
+            tools=[_TOOL_AVAILABILITY_OAI, _TOOL_ESCALATE_OAI, _TOOL_CAPTURE_LEAD_OAI],
             tool_choice="auto",
             max_tokens=max_tokens,
         )

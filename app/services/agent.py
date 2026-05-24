@@ -78,10 +78,10 @@ def _extract_json_leads(text: str) -> list[dict[str, Any]]:
 
 def _build_template_email(prospect: Prospect) -> tuple[str, str]:
     """Return (subject, body) template draft — no AI, generated from prospect data."""
-    calendly = settings.calendly_url
+    booking_url = settings.google_booking_url
     scheduling = (
-        f"Feel free to grab a time that works here: {calendly}"
-        if calendly
+        f"Feel free to grab a time that works here: {booking_url}"
+        if booking_url
         else "Just reply and we can find a time that works."
     )
     subject = f"Modernize {prospect.company_name}'s Amenities — Smart Cooler Partnership"
@@ -300,10 +300,10 @@ def run_research_job(job_id: int) -> None:
 
 
 def _build_email_draft_prompt(prospect: Prospect) -> str:
-    calendly = settings.calendly_url
+    booking_url = settings.google_booking_url
     scheduling_note = (
-        f"Include this scheduling link for them to book a quick call: {calendly}"
-        if calendly
+        f"Include this scheduling link for them to book a quick call: {booking_url}"
+        if booking_url
         else "Suggest they reply to schedule a brief call or site visit."
     )
     phone_line = f"\n  Phone: {prospect.contact_phone}" if prospect.contact_phone else ""
