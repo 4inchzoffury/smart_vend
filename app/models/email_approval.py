@@ -22,6 +22,10 @@ class EmailApproval(Base):
     original_body: Mapped[str] = mapped_column(Text, nullable=False)
     draft_subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
     draft_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # customer | vendor | promotional | internal | spam | other | unclassified
+    category: Mapped[str] = mapped_column(String(20), nullable=False, default="unclassified")
+    # One-line rationale from the classifier (powers the "why was this filtered" UI).
+    classification_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # pending | approved | rejected | sent | draft_failed
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     reviewed_by: Mapped[str | None] = mapped_column(String(150), nullable=True)

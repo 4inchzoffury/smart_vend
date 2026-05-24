@@ -1,0 +1,161 @@
+{# Single email approval card. Context: a (EmailApproval), gmail_connected #}
+{% set cat_color = {'customer':'success','vendor':'secondary','promotional':'secondary','internal':'info','spam':'dark','other':'secondary','unclassified':'warning'}.get(a.category, 'secondary') %}
+<div class="card" id="approval-{{ a.id }}">
+  <div class="card-header d-flex justify-content-between align-items-start gap-2 py-2">
+    <div>
+      <span class="fw-semibold small">{{ a.original_subject }}</span>
+      <div class="text-muted" style="font-size:.75rem">
+        From: {{ a.sender_name or '' }} &lt;{{ a.sender_email }}&gt; &nbsp;·&nbsp;
+        {{ a.created_at.strftime('%b %d, %H:%M') if a.created_at else '' }}
+      </div>
+      <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
+        <span class="badge bg-{{ cat_color }} bg-opacity-75">
+          <i class="bi bi-tag me-1"></i>{{ a.category.replace('_', ' ').title() }}
+        </span>
+        {% if a.classification_reason %}
+        <span class="text-muted fst-italic" style="font-size:.72rem">{{ a.classification_reason }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+      <span class="badge bg-{{ {'pending':'warning','approved':'info','sent':'success','rejected':'danger','draft_failed':'secondary'}.get(a.status,'secondary') }} text-dark">
+        {{ a.status.replace('_', ' ').title() }}
+      </span>
+      {% if a.category != 'customer' %}
+      <form hx-post="/customer-service/email-queue/{{ a.id }}/reclassify"
+            hx-target="#approval-{{ a.id }}"
+            hx-swap="outerHTML">
+        <input type="hidden" name="category" value="customer">
+        <button type="submit" class="btn btn-outline-success btn-sm py-0 px-1"
+                title="Treat as customer mail (drafts a reply)">
+          <i class="bi bi-person-check" style="font-size:.75rem"></i>
+        </button>
+      </form>
+      {% endif %}
+      <button class="btn btn-outline-danger btn-sm py-0 px-1"
+              hx-delete="/customer-service/email-queue/{{ a.id }}"
+              hx-target="#approval-{{ a.id }}"
+              hx-swap="outerHTML"
+              hx-confirm="Delete this email from the queue?"
+              title="Delete">
+        <i class="bi bi-trash" style="font-size:.75rem"></i>
+      </button>
+    </div>
+  </div>
+  <div class="card-body p-3">
+    <div class="row g-3">
+      <!-- Original email -->
+      <div class="col-md-6">
+        <div class="small fw-semibold mb-1 text-muted text-uppercase" style="font-size:.7rem;letter-spacing:.05em">Original Email</div>
+        <div class="bg-body-secondary rounded p-2" style="font-size:.82rem;max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-word">{{ a.original_body }}</div>
+      </div>
+      <!-- AI Draft -->
+      <div class="col-md-6">
+        <div class="small fw-semibold mb-1 text-muted text-uppercase" style="font-size:.7rem;letter-spacing:.05em">AI Draft Reply</div>
+        {% if a.status in ('pending', 'approved') and a.draft_body %}
+        <div id="draft-view-{{ a.id }}">
+          <div class="bg-body-secondary rounded p-2 mb-2" style="font-size:.82rem;max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-word">
+            <strong>Subject:</strong> {{ a.draft_subject or ('Re: ' + a.original_subject) }}<br><br>{{ a.draft_body }}
+          </div>
+          {% if a.status == 'pending' %}
+          <div class="d-flex gap-2 flex-wrap">
+            <form hx-post="/customer-service/email-queue/{{ a.id }}/approve"
+                  hx-target="#approval-{{ a.id }}"
+                  hx-swap="outerHTML">
+              <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi bi-send-check me-1"></i>Approve & Send
+              </button>
+            </form>
+            <button class="btn btn-outline-secondary btn-sm"
+                    onclick="document.getElementById('draft-view-{{ a.id }}').style.display='none';
+                             document.getElementById('draft-edit-{{ a.id }}').style.display='block'">
+              <i class="bi bi-pencil me-1"></i>Edit Draft
+            </button>
+            <form hx-post="/customer-service/email-queue/{{ a.id }}/reject"
+                  hx-target="#approval-{{ a.id }}"
+                  hx-swap="outerHTML">
+              <button type="submit" class="btn btn-outline-secondary btn-sm"
+                      hx-confirm="Mark as no reply needed and close this email?">
+                <i class="bi bi-x-circle me-1"></i>No Reply Needed
+              </button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+        <!-- Edit form (hidden) -->
+        <div id="draft-edit-{{ a.id }}" style="display:none">
+          <form hx-post="/customer-service/email-queue/{{ a.id }}/edit-draft"
+                hx-target="#approval-{{ a.id }}"
+                hx-swap="outerHTML">
+            <input type="text" name="draft_subject" class="form-control form-control-sm mb-1"
+                   value="{{ a.draft_subject or ('Re: ' + a.original_subject) }}">
+            <textarea name="draft_body" class="form-control form-control-sm mb-2"
+                      rows="6">{{ a.draft_body }}</textarea>
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary btn-sm">Save Draft</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm"
+                      onclick="document.getElementById('draft-view-{{ a.id }}').style.display='block';
+                               document.getElementById('draft-edit-{{ a.id }}').style.display='none'">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+        {% elif a.status == 'sent' %}
+        <div class="alert alert-success p-2 small mb-0">
+          <i class="bi bi-check-circle me-1"></i>Sent
+          {{ a.sent_at.strftime('%b %d, %H:%M') if a.sent_at else '' }}
+          {% if a.reviewed_by %}by {{ a.reviewed_by }}{% endif %}
+        </div>
+        {% elif a.status == 'rejected' %}
+        <div class="text-muted small fst-italic">Draft rejected.</div>
+        {% elif a.status == 'draft_failed' %}
+        <div class="alert alert-warning p-2 small mb-2">
+          <i class="bi bi-exclamation-triangle me-1"></i>AI draft generation failed.
+          {% if a.review_notes %}<div class="mt-1 opacity-75">{{ a.review_notes }}</div>{% endif %}
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <form hx-post="/customer-service/email-queue/{{ a.id }}/generate-draft"
+                hx-target="#approval-{{ a.id }}"
+                hx-swap="outerHTML"
+                hx-indicator="#draft-spinner-{{ a.id }}">
+            <button type="submit" class="btn btn-outline-primary btn-sm">
+              <span id="draft-spinner-{{ a.id }}" class="spinner-border spinner-border-sm me-1 htmx-indicator"></span>
+              <i class="bi bi-arrow-repeat me-1"></i>Retry AI Draft
+            </button>
+          </form>
+          <form hx-post="/customer-service/email-queue/{{ a.id }}/reject"
+                hx-target="#approval-{{ a.id }}"
+                hx-swap="outerHTML">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                    hx-confirm="Mark as no reply needed and close this email?">
+              <i class="bi bi-x-circle me-1"></i>No Reply Needed
+            </button>
+          </form>
+        </div>
+        {% else %}
+        <div class="text-muted small mb-2">No AI draft yet. Generate one if this email needs a reply.</div>
+        <div class="d-flex gap-2 flex-wrap">
+          <form hx-post="/customer-service/email-queue/{{ a.id }}/generate-draft"
+                hx-target="#approval-{{ a.id }}"
+                hx-swap="outerHTML"
+                hx-indicator="#draft-spinner-{{ a.id }}">
+            <button type="submit" class="btn btn-outline-primary btn-sm">
+              <span id="draft-spinner-{{ a.id }}" class="spinner-border spinner-border-sm me-1 htmx-indicator"></span>
+              <i class="bi bi-stars me-1"></i>Generate AI Draft
+            </button>
+          </form>
+          <form hx-post="/customer-service/email-queue/{{ a.id }}/reject"
+                hx-target="#approval-{{ a.id }}"
+                hx-swap="outerHTML">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                    hx-confirm="Mark as no reply needed and close this email?">
+              <i class="bi bi-x-circle me-1"></i>No Reply Needed
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>

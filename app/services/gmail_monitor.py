@@ -1,6 +1,6 @@
 """Gmail API integration for monitoring the company inbox and drafting AI replies.
 
-OAuth flow: Google OAuth 2.0 with gmail.readonly + gmail.send scopes.
+OAuth flow: Google OAuth 2.0 with gmail.readonly + gmail.send + calendar.freebusy scopes.
 Tokens are stored in AppSetting (gmail_refresh_token, gmail_access_token, gmail_token_expiry).
 The existing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are reused.
 """
@@ -8,7 +8,9 @@ The existing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are reused.
 from __future__ import annotations
 
 import base64
+import logging
 import re
+import time
 from datetime import UTC, datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -20,12 +22,28 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.email_approval import EmailApproval
 from app.models.settings import AppSetting
+from app.services import cs_email_agent
+
+_log = logging.getLogger(__name__)
+
+# Look back this far on the very first poll (no high-water mark stored yet).
+_INITIAL_LOOKBACK_SECONDS = 7 * 24 * 3600
+# Re-scan this much before the last high-water mark each poll, so a message that
+# arrived right at the previous boundary is never skipped. Dedup makes the
+# overlap harmless.
+_OVERLAP_SECONDS = 3600
+_MAX_RESULTS = 50
 
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 _GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
 _SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.send",
+    # Read-only free/busy for the chatbot's live availability tool
+    # (app/services/google_calendar.py). Adding this scope means the stored refresh
+    # token must be re-minted: re-run /customer-service/gmail/connect once after
+    # deploy to re-consent.
+    "https://www.googleapis.com/auth/calendar.freebusy",
 ]
 
 
@@ -183,16 +201,41 @@ def _extract_header(headers: list[dict], name: str) -> str:
     return ""
 
 
+def _poll_window_query(db: Session) -> str:
+    """Build the Gmail search query for new mail since the last high-water mark.
+
+    Time-windowed (``after:`` epoch seconds) rather than ``is:unread`` so polling
+    is read-state-independent: we never mutate the live inbox, and dedup by
+    message id makes the overlapping rescan idempotent.
+    """
+    last_epoch = _get(db, "gmail_last_poll_epoch")
+    now = int(time.time())
+    if last_epoch:
+        try:
+            since = int(last_epoch) - _OVERLAP_SECONDS
+        except ValueError:
+            since = now - _INITIAL_LOOKBACK_SECONDS
+    else:
+        since = now - _INITIAL_LOOKBACK_SECONDS
+    return f"category:primary -from:me after:{since}"
+
+
 def poll_new_emails(db: Session) -> list[EmailApproval]:
-    """Fetch new unread customer emails and create EmailApproval records."""
+    """Fetch recent inbound mail, classify it, and create EmailApproval records.
+
+    Non-destructive: it does NOT mark anything read in Gmail. Customer mail is
+    auto-drafted; everything else is filed with its category so the UI can show
+    why it was filtered. Updates the poll high-water mark on completion.
+    """
     token = get_valid_access_token(db)
     result = _gmail_get(
         "messages",
         token,
-        params={"q": "is:unread -from:me category:primary", "maxResults": "20"},
+        params={"q": _poll_window_query(db), "maxResults": str(_MAX_RESULTS)},
     )
     messages = result.get("messages", [])
     created: list[EmailApproval] = []
+    poll_started = int(time.time())
 
     for msg_ref in messages:
         msg_id = msg_ref["id"]
@@ -221,6 +264,8 @@ def poll_new_emails(db: Session) -> list[EmailApproval]:
             sender_name = m.group(1).strip()
             sender_email = m.group(2).strip()
 
+        category, reason = cs_email_agent.classify_email(subject, body or "", sender_email, db)
+
         approval = EmailApproval(
             gmail_thread_id=thread_id,
             gmail_message_id=msg_id,
@@ -228,6 +273,8 @@ def poll_new_emails(db: Session) -> list[EmailApproval]:
             sender_name=sender_name,
             original_subject=subject,
             original_body=body or "(empty body)",
+            category=category,
+            classification_reason=reason,
             status="pending",
         )
         try:
@@ -237,65 +284,25 @@ def poll_new_emails(db: Session) -> list[EmailApproval]:
             db.rollback()
             continue
 
-        # Mark email as read
-        try:
-            _gmail_post(f"messages/{msg_id}/modify", token, {"removeLabelIds": ["UNREAD"]})
-        except Exception:
-            pass
-
         db.commit()
         db.refresh(approval)
+
+        # Auto-draft a reply for genuine customer mail only.
+        if category == "customer":
+            try:
+                cs_email_agent.draft_reply(approval, db)
+            except Exception as exc:  # noqa: BLE001 — a draft failure must not abort the poll
+                _log.warning("Auto-draft failed for approval %s: %s", approval.id, exc)
+                db.rollback()
+
         created.append(approval)
 
-    return created
-
-
-def draft_ai_reply(approval: EmailApproval, db: Session) -> None:
-    """Use Claude to draft a reply for an EmailApproval record."""
-    if not settings.anthropic_api_key:
-        approval.status = "draft_failed"
-        db.commit()
-        return
-
-    try:
-        import anthropic  # type: ignore[import-untyped]
-
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        prompt = (
-            f"You are drafting a customer service email reply for Prime Micro Markets, "
-            f"a veteran-owned smart cooler vending company in Bay County, FL.\n\n"
-            f"Original email from {approval.sender_name or approval.sender_email}:\n"
-            f"Subject: {approval.original_subject}\n\n"
-            f"{approval.original_body}\n\n"
-            f"Write a professional, friendly reply email. Address the customer's concern. "
-            f"Sign as 'Prime Micro Markets Team'.\n\n"
-            f"Format your reply as:\n"
-            f"Subject: <subject line starting with Re:>\n\n"
-            f"<email body>"
-        )
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=800,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text = response.content[0].text if response.content else ""
-
-        import re as _re
-
-        subject_match = _re.match(r"Subject:\s*(.+?)(\n|$)", text)
-        if subject_match:
-            approval.draft_subject = subject_match.group(1).strip()
-            approval.draft_body = text[subject_match.end() :].strip()
-        else:
-            approval.draft_subject = f"Re: {approval.original_subject}"
-            approval.draft_body = text.strip()
-
-        approval.status = "pending"
-    except Exception as exc:
-        approval.status = "draft_failed"
-        approval.review_notes = str(exc)
-
+    # Advance the high-water mark to the moment the poll began.
+    _set(db, "gmail_last_poll_epoch", str(poll_started))
+    _set(db, "gmail_last_poll_at", datetime.now(tz=UTC).isoformat())
     db.commit()
+
+    return created
 
 
 def send_reply_via_gmail_api(approval: EmailApproval, db: Session) -> None:
@@ -313,9 +320,16 @@ def send_reply_via_gmail_api(approval: EmailApproval, db: Session) -> None:
     _gmail_post("messages/send", token, {"raw": raw, "threadId": approval.gmail_thread_id})
 
 
-def poll_and_draft() -> None:
-    """Poll Gmail and create approval records. AI drafts are generated on demand."""
+def poll_and_process(db: Session | None = None) -> list[EmailApproval]:
+    """Entry point for the scheduler and the manual 'Poll now' button.
+
+    Fetches recent mail, classifies it, and auto-drafts customer replies. Opens
+    its own DB session when called without one (e.g. from the background loop).
+    """
+    if db is not None:
+        return poll_new_emails(db)
+
     from app.database import engine
 
-    with Session(engine) as db:
-        poll_new_emails(db)
+    with Session(engine) as owned_db:
+        return poll_new_emails(owned_db)

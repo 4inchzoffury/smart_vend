@@ -10,7 +10,7 @@ from datetime import date as date_type, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func as sql_func
 from sqlalchemy.orm import Session
@@ -48,8 +48,53 @@ def _gmail_connected(db: Session) -> bool:
     return bool(row and row.value)
 
 
+# Buckets shown under "Other / Filtered" — everything that is not customer mail.
+_OTHER_CATEGORIES = ["vendor", "promotional", "internal", "spam", "other", "unclassified"]
+_DEFAULT_POLL_INTERVAL = "10"
+
+
 def _pending_emails_count(db: Session) -> int:
-    return db.query(EmailApproval).filter(EmailApproval.status == "pending").count()
+    """Pending mail that needs a human reply — customer mail only (not filtered noise)."""
+    return (
+        db.query(EmailApproval)
+        .filter(EmailApproval.status == "pending", EmailApproval.category == "customer")
+        .count()
+    )
+
+
+def _query_email_queue(db: Session, status: str, category: str) -> list[EmailApproval]:
+    q = db.query(EmailApproval).filter(EmailApproval.status == status)
+    if category == "other":
+        q = q.filter(EmailApproval.category.in_(_OTHER_CATEGORIES))
+    else:
+        q = q.filter(EmailApproval.category == "customer")
+    return q.order_by(EmailApproval.created_at.desc()).limit(50).all()
+
+
+def _format_last_poll(db: Session) -> str:
+    raw = _get_setting(db, "gmail_last_poll_at", "")
+    if not raw:
+        return ""
+    try:
+        return datetime.fromisoformat(raw).strftime("%b %d, %H:%M UTC")
+    except ValueError:
+        return ""
+
+
+def _email_queue_context(
+    db: Session, approvals: list[EmailApproval], status: str, category: str
+) -> dict:
+    return {
+        "approvals": approvals,
+        "status": status,
+        "category": category,
+        "gmail_connected": _gmail_connected(db),
+        "pending_count": _pending_emails_count(db),
+        "last_poll_at": _format_last_poll(db),
+        "autopoll_enabled": _get_setting(db, "gmail_autopoll_enabled", "1") != "0",
+        "poll_interval": _get_setting(db, "gmail_poll_interval_minutes", _DEFAULT_POLL_INTERVAL)
+        or _DEFAULT_POLL_INTERVAL,
+    }
 
 
 def _pending_escalations_count(db: Session) -> int:
@@ -265,23 +310,14 @@ def cs_governance_toggle(
 def cs_email_queue(
     request: Request,
     status: str = "pending",
+    category: str = "customer",
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    approvals = (
-        db.query(EmailApproval)
-        .filter(EmailApproval.status == status)
-        .order_by(EmailApproval.created_at.desc())
-        .limit(50)
-        .all()
-    )
+    approvals = _query_email_queue(db, status, category)
     return templates.TemplateResponse(
         request,
         "customer_service/_email_queue.html",
-        {
-            "approvals": approvals,
-            "status": status,
-            "gmail_connected": _gmail_connected(db),
-        },
+        _email_queue_context(db, approvals, status, category),
     )
 
 
@@ -313,12 +349,8 @@ def cs_email_approve(
     db.refresh(approval)
     return templates.TemplateResponse(
         request,
-        "customer_service/_email_queue.html",
-        {
-            "approvals": [approval],
-            "status": approval.status,
-            "gmail_connected": _gmail_connected(db),
-        },
+        "customer_service/_email_card.html",
+        {"a": approval, "gmail_connected": _gmail_connected(db)},
     )
 
 
@@ -339,12 +371,8 @@ def cs_email_reject(
     db.refresh(approval)
     return templates.TemplateResponse(
         request,
-        "customer_service/_email_queue.html",
-        {
-            "approvals": [approval],
-            "status": approval.status,
-            "gmail_connected": _gmail_connected(db),
-        },
+        "customer_service/_email_card.html",
+        {"a": approval, "gmail_connected": _gmail_connected(db)},
     )
 
 
@@ -365,8 +393,8 @@ def cs_email_edit_draft(
     db.refresh(approval)
     return templates.TemplateResponse(
         request,
-        "customer_service/_email_queue.html",
-        {"approvals": [approval], "status": "pending", "gmail_connected": _gmail_connected(db)},
+        "customer_service/_email_card.html",
+        {"a": approval, "gmail_connected": _gmail_connected(db)},
     )
 
 
@@ -376,17 +404,17 @@ def cs_generate_draft(
     request: Request,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    from app.services import gmail_monitor
+    from app.services import cs_email_agent
 
     approval = db.get(EmailApproval, approval_id)
     if not approval:
         return Response(status_code=404)
-    gmail_monitor.draft_ai_reply(approval, db)
+    cs_email_agent.draft_reply(approval, db)
     db.refresh(approval)
     return templates.TemplateResponse(
         request,
-        "customer_service/_email_queue.html",
-        {"approvals": [approval], "status": "pending", "gmail_connected": _gmail_connected(db)},
+        "customer_service/_email_card.html",
+        {"a": approval, "gmail_connected": _gmail_connected(db)},
     )
 
 
@@ -409,23 +437,50 @@ def cs_email_delete(
 @router.post("/email-queue/clear-resolved", response_class=HTMLResponse)
 def cs_email_clear_resolved(
     request: Request,
+    status: str = "pending",
+    category: str = "customer",
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    db.query(EmailApproval).filter(
-        EmailApproval.status.in_(["sent", "rejected"])
-    ).delete(synchronize_session=False)
-    db.commit()
-    approvals = (
-        db.query(EmailApproval)
-        .filter(EmailApproval.status == "pending")
-        .order_by(EmailApproval.created_at.desc())
-        .limit(50)
-        .all()
+    db.query(EmailApproval).filter(EmailApproval.status.in_(["sent", "rejected"])).delete(
+        synchronize_session=False
     )
+    db.commit()
+    approvals = _query_email_queue(db, status, category)
     return templates.TemplateResponse(
         request,
         "customer_service/_email_queue.html",
-        {"approvals": approvals, "status": "pending", "gmail_connected": _gmail_connected(db)},
+        _email_queue_context(db, approvals, status, category),
+    )
+
+
+@router.post("/email-queue/{approval_id}/reclassify", response_class=HTMLResponse)
+def cs_email_reclassify(
+    approval_id: int,
+    request: Request,
+    category: str = Form(...),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Manually move a misfiled email into another bucket.
+
+    If it becomes customer mail and has no draft yet, draft a reply on the spot.
+    """
+    approval = db.get(EmailApproval, approval_id)
+    if not approval:
+        return Response(status_code=404)
+    approval.category = category
+    approval.classification_reason = "Manually reclassified by staff"
+    db.commit()
+
+    if category == "customer" and approval.status == "pending" and not approval.draft_body:
+        from app.services import cs_email_agent
+
+        cs_email_agent.draft_reply(approval, db)
+
+    db.refresh(approval)
+    return templates.TemplateResponse(
+        request,
+        "customer_service/_email_card.html",
+        {"a": approval, "gmail_connected": _gmail_connected(db)},
     )
 
 
@@ -443,9 +498,7 @@ def cs_escalations(request: Request, db: Session = Depends(get_db)) -> HTMLRespo
 
 
 @router.post("/escalations/dismiss-all", response_class=HTMLResponse)
-def cs_escalation_dismiss_all(
-    request: Request, db: Session = Depends(get_db)
-) -> HTMLResponse:
+def cs_escalation_dismiss_all(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     _set_setting(db, "chatbot_escalation_pending", json.dumps([]))
     return templates.TemplateResponse(
         request,
@@ -521,17 +574,51 @@ def cs_gmail_callback(
 @router.post("/gmail/poll", response_class=HTMLResponse)
 def cs_gmail_poll(
     request: Request,
-    background_tasks: BackgroundTasks,
+    status: str = "pending",
+    category: str = "customer",
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
+    """Manual 'Poll now' — runs synchronously and returns the refreshed queue."""
     from app.services import gmail_monitor
 
     if not _gmail_connected(db):
-        return HTMLResponse('<span class="text-danger small">Gmail not connected.</span>')
+        return HTMLResponse(
+            '<div class="alert alert-warning p-2 small mb-0">Gmail not connected.</div>'
+        )
 
-    background_tasks.add_task(gmail_monitor.poll_and_draft)
+    try:
+        gmail_monitor.poll_and_process(db)
+    except Exception as exc:  # noqa: BLE001 — surface the error, still render the queue
+        logger.warning("Manual Gmail poll failed: %s", exc)
+
+    approvals = _query_email_queue(db, status, category)
+    return templates.TemplateResponse(
+        request,
+        "customer_service/_email_queue.html",
+        _email_queue_context(db, approvals, status, category),
+    )
+
+
+@router.post("/email-queue/autopoll", response_class=HTMLResponse)
+def cs_email_autopoll(
+    request: Request,
+    enabled: str = Form("0"),
+    interval: str = Form(_DEFAULT_POLL_INTERVAL),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Persist the auto-poll on/off toggle and interval (picked up by the loop)."""
+    is_on = enabled in ("1", "true", "on", "True")
+    _set_setting(db, "gmail_autopoll_enabled", "1" if is_on else "0")
+    try:
+        minutes = max(1, int(interval))
+    except ValueError:
+        minutes = int(_DEFAULT_POLL_INTERVAL)
+    _set_setting(db, "gmail_poll_interval_minutes", str(minutes))
+
+    state = f"on — checking every {minutes} min" if is_on else "off — manual polling only"
     return HTMLResponse(
-        '<span class="text-success small"><i class="bi bi-check me-1"></i>Polling started…</span>'
+        f'<span class="text-success small"><i class="bi bi-check-circle me-1"></i>'
+        f"Auto-poll {state}.</span>"
     )
 
 
@@ -636,8 +723,7 @@ def _build_chat_history_context(db: Session) -> dict:
         grouped[day].append(s)
 
     session_groups = [
-        {"date": d, "sessions": grouped[d]}
-        for d in sorted(grouped.keys(), reverse=True)
+        {"date": d, "sessions": grouped[d]} for d in sorted(grouped.keys(), reverse=True)
     ]
 
     return {
@@ -673,19 +759,44 @@ def cs_chat_history_delete_session(
     return HTMLResponse("")
 
 
+@router.post("/chat-history/delete-batch", response_class=HTMLResponse)
+def cs_chat_history_delete_batch(
+    request: Request,
+    session_ids: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Delete several public chatbot sessions at once. Manager chats are never touched."""
+    safe_ids = [s for s in session_ids if s and not s.startswith("manager:")]
+    if safe_ids:
+        db.query(ChatMessage).filter(ChatMessage.session_id.in_(safe_ids)).delete(
+            synchronize_session=False
+        )
+        db.commit()
+    return templates.TemplateResponse(
+        request,
+        "customer_service/_chat_history.html",
+        _build_chat_history_context(db),
+    )
+
+
 @router.post("/chat-history/clear", response_class=HTMLResponse)
 def cs_chat_history_delete_all(
     request: Request,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    db.query(ChatMessage).filter(
-        ChatMessage.session_id.notlike("manager:%")
-    ).delete(synchronize_session=False)
+    db.query(ChatMessage).filter(ChatMessage.session_id.notlike("manager:%")).delete(
+        synchronize_session=False
+    )
     db.commit()
     return templates.TemplateResponse(
         request,
         "customer_service/_chat_history.html",
-        {"session_groups": [], "total_sessions": 0, "today": date_type.today(), "yesterday": date_type.today()},
+        {
+            "session_groups": [],
+            "total_sessions": 0,
+            "today": date_type.today(),
+            "yesterday": date_type.today(),
+        },
     )
 
 

@@ -8,8 +8,10 @@ try:
 except ImportError:
     pass
 
-from collections.abc import AsyncGenerator, Awaitable, Callable  # noqa: I001 — keep truststore injection above all imports
-from contextlib import asynccontextmanager
+import asyncio  # noqa: I001 — keep truststore injection above all imports
+import logging
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request, Response
@@ -33,11 +35,18 @@ from app.routers import equipment as equipment_router
 from app.routers import public as public_router
 from app.services.auth import require_user
 
+_log = logging.getLogger(__name__)
+
+# In-process inbox poller cadence.
+_POLL_STARTUP_DELAY_SECONDS = 30  # let startup/health check settle before first poll
+_DEFAULT_POLL_INTERVAL_MINUTES = 10
+
 _LEAD_CAPTURE_RULE_TITLE = "Lead Capture — Callback Option"
 _LEAD_CAPTURE_RULE_TEXT = (
     "LEAD CAPTURE: When a potential customer expresses interest in getting a unit installed "
     "or wants to be contacted, proactively offer three options: "
-    "(1) schedule a consultation via Calendly, "
+    "(1) schedule a consultation (use the check_availability tool to show "
+    "open times on our calendar), "
     "(2) email us directly at primemicromarkets@gmail.com, or "
     "(3) leave their contact info here for a personal callback from a real team member. "
     "If they choose option 3, collect their full name, email address, phone number, "
@@ -64,6 +73,58 @@ def _seed_governance_rules(db: DBSession) -> None:
             )
         )
         db.commit()
+    elif "Calendly" in exists.rule_text:
+        # One-time migration of the stale seeded default off Calendly. Scoped to rows
+        # that still mention Calendly so a rule an admin rewrote by hand in the
+        # Governance UI is left untouched.
+        exists.rule_text = _LEAD_CAPTURE_RULE_TEXT
+        db.commit()
+
+
+def _autopoll_config() -> tuple[bool, int, bool]:
+    """Read (enabled, interval_minutes, gmail_connected) from AppSetting.
+
+    Runs in a worker thread (sync DB), so it owns a short-lived session.
+    """
+    from app.models.settings import AppSetting
+
+    with DBSession(engine) as db:
+        enabled_row = db.get(AppSetting, "gmail_autopoll_enabled")
+        interval_row = db.get(AppSetting, "gmail_poll_interval_minutes")
+        gmail_row = db.get(AppSetting, "gmail_refresh_token")
+
+    enabled = (enabled_row.value if enabled_row else "1") != "0"
+    try:
+        interval = int(interval_row.value) if interval_row and interval_row.value else 0
+    except ValueError:
+        interval = 0
+    interval = interval or _DEFAULT_POLL_INTERVAL_MINUTES
+    gmail_connected = bool(gmail_row and gmail_row.value)
+    return enabled, max(1, interval), gmail_connected
+
+
+async def _inbox_poll_loop() -> None:
+    """Poll the connected Gmail inbox on a configurable interval, forever.
+
+    The poller is sync (httpx + a sync Session), so each step runs off the event
+    loop via ``asyncio.to_thread``. One failing iteration never kills the loop.
+    """
+    await asyncio.sleep(_POLL_STARTUP_DELAY_SECONDS)
+    while True:
+        interval = _DEFAULT_POLL_INTERVAL_MINUTES
+        try:
+            enabled, interval, connected = await asyncio.to_thread(_autopoll_config)
+            if enabled and connected:
+                from app.services import gmail_monitor
+
+                created = await asyncio.to_thread(gmail_monitor.poll_and_process)
+                if created:
+                    _log.info("Inbox poll filed %d new email(s).", len(created))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — keep the loop alive across failures
+            _log.warning("Inbox poll iteration failed: %s", exc)
+        await asyncio.sleep(interval * 60)
 
 
 @asynccontextmanager
@@ -71,7 +132,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Base.metadata.create_all(bind=engine)
     with DBSession(engine) as db:
         _seed_governance_rules(db)
-    yield
+    poll_task = asyncio.create_task(_inbox_poll_loop())
+    try:
+        yield
+    finally:
+        poll_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await poll_task
 
 
 app = FastAPI(title=settings.app_title, lifespan=lifespan)
