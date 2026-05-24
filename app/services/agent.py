@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime
 from typing import Any
@@ -13,13 +14,13 @@ from app.config import settings
 from app.database import engine
 from app.models.agent import AgentJob
 from app.models.sales import Prospect
-from app.services import web_search
+from app.services import app_settings, web_search
 
-_MAX_TOOL_CALLS = 15
+logger = logging.getLogger(__name__)
+
+# Model and tool-call limits are runtime-configurable via the AppSetting
+# table (see app.services.app_settings.DEFAULTS for fallback values).
 _MAX_LOG_CHARS = 20_000
-
-_RESEARCH_MODEL = "claude-haiku-4-5-20251001"
-_EMAIL_MODEL = "claude-haiku-4-5-20251001"
 
 
 def _make_search_tool(location: str) -> dict[str, Any]:
@@ -69,17 +70,10 @@ def _build_research_system_prompt(
 
 
 def _extract_json_leads(text: str) -> list[dict[str, Any]]:
-    text = text.strip()
-    # Strip markdown code fences if Claude wrapped the JSON
-    text = re.sub(r"```(?:json)?\s*", "", text)
-    match = re.search(r"\[.*\]", text, re.DOTALL)
-    if not match:
-        return []
-    try:
-        data = json.loads(match.group())
-        return [d for d in data if isinstance(d, dict) and d.get("company_name")]
-    except json.JSONDecodeError:
-        return []
+    from app.services.json_extract import extract_json_list
+
+    data = extract_json_list(text, context="lead research")
+    return [d for d in data if d.get("company_name")]
 
 
 def _build_template_email(prospect: Prospect) -> tuple[str, str]:
@@ -135,6 +129,11 @@ def run_research_job(job_id: int) -> None:
             max_leads: int = int(params.get("max_leads", 20))
             provider: str = params.get("search_provider", "duckduckgo")
 
+            research_model = app_settings.get_str(db, "research_model")
+            max_tool_calls = app_settings.get_int(
+                db, "research_max_tool_calls", minimum=1, maximum=50
+            )
+
             system_prompt = _build_research_system_prompt(
                 venue_types=venue_types,
                 location=location,
@@ -151,9 +150,9 @@ def run_research_job(job_id: int) -> None:
             tool_call_count = 0
             total_tokens = 0
 
-            while tool_call_count <= _MAX_TOOL_CALLS:
+            while tool_call_count <= max_tool_calls:
                 raw = client.messages.with_raw_response.create(
-                    model=_RESEARCH_MODEL,
+                    model=research_model,
                     max_tokens=2048,
                     system=[
                         {
@@ -175,8 +174,8 @@ def run_research_job(job_id: int) -> None:
                         rl_reset = raw.headers.get("anthropic-ratelimit-tokens-reset")
                         job.ratelimit_tokens_remaining = int(rl_remaining) if rl_remaining else None
                         job.ratelimit_tokens_reset = rl_reset
-                    except Exception:  # noqa: S110
-                        pass
+                    except Exception:
+                        logger.debug("Failed to parse rate-limit headers for job %d", job_id)
 
                 messages.append({"role": "assistant", "content": response.content})
 
@@ -229,7 +228,7 @@ def run_research_job(job_id: int) -> None:
                     ),
                 })
                 compile_raw = client.messages.with_raw_response.create(
-                    model=_RESEARCH_MODEL,
+                    model=research_model,
                     max_tokens=2048,
                     system=[
                         {
@@ -292,6 +291,7 @@ def run_research_job(job_id: int) -> None:
             job.status = "done"
 
         except Exception as exc:
+            logger.exception("Research job %d failed", job_id)
             job.status = "error"
             job.error_message = str(exc)
 
@@ -359,7 +359,7 @@ def run_email_draft_job(job_id: int) -> None:
 
             client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
             raw = client.messages.with_raw_response.create(
-                model=_EMAIL_MODEL,
+                model=app_settings.get_str(db, "email_model"),
                 max_tokens=1024,
                 messages=[{"role": "user", "content": _build_email_draft_prompt(prospect)}],
             )
@@ -371,8 +371,8 @@ def run_email_draft_job(job_id: int) -> None:
                 rl_reset = raw.headers.get("anthropic-ratelimit-tokens-reset")
                 job.ratelimit_tokens_remaining = int(rl_remaining) if rl_remaining else None
                 job.ratelimit_tokens_reset = rl_reset
-            except Exception:  # noqa: S110
-                pass
+            except Exception:
+                logger.debug("Failed to parse rate-limit headers for email draft job %d", job_id)
 
             full_text = response.content[0].text if response.content else ""
 
@@ -388,6 +388,7 @@ def run_email_draft_job(job_id: int) -> None:
             job.status = "done"
 
         except Exception as exc:
+            logger.exception("Email draft job %d failed", job_id)
             job.status = "error"
             job.error_message = str(exc)
 

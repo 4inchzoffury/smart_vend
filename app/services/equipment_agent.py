@@ -13,6 +13,7 @@ Flow per run:
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime
 from pathlib import Path
@@ -21,13 +22,15 @@ from typing import Any
 import httpx
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
+
 _SSL_VERIFY = False  # Windows Python can't verify Shopify's intermediate CA via certifi
 
 from app.config import settings
 from app.database import engine
 from app.models.agent import AgentJob
 from app.models.equipment import EquipmentUnit
-from app.services import vendguys_scraper
+from app.services import app_settings, firecrawl_client, vendguys_scraper
 from app.services.vendguys_scraper import VGProduct, fetch_cantaloupe_catalog
 
 # ── image storage ────────────────────────────────────────────────────────────
@@ -41,9 +44,9 @@ _BROWSER_UA = (
 )
 
 # ── agent config ─────────────────────────────────────────────────────────────
-_BATCH_SIZE = 4
+# Model and batch size are runtime-configurable via the AppSetting table
+# (see app.services.app_settings.DEFAULTS for fallback values).
 _MAX_LOG_CHARS = 20_000
-_MODEL = "claude-haiku-4-5-20251001"
 
 _SYSTEM_PROMPT = """\
 You are a data extraction assistant for vending equipment specs.
@@ -258,6 +261,7 @@ def _extract_batch(
     client: Any,
     contexts: list[dict[str, Any]],
     log_entries: list[dict],
+    model: str,
 ) -> tuple[list[dict[str, Any]], int]:
     """Single Claude call — no tool use — to extract specs for up to 4 units.
 
@@ -272,7 +276,7 @@ def _extract_batch(
     user_message = "\n\n".join(sections)
 
     response = client.messages.create(
-        model=_MODEL,
+        model=model,
         max_tokens=4096,
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
@@ -317,6 +321,11 @@ def run_equipment_refresh_job(job_id: int) -> None:
             else:
                 unit_ids = params.get("unit_ids", [])
 
+            equipment_model = app_settings.get_str(db, "equipment_model")
+            batch_size = app_settings.get_int(
+                db, "equipment_batch_size", minimum=1, maximum=10
+            )
+
             units = (
                 db.query(EquipmentUnit).filter(EquipmentUnit.id.in_(unit_ids)).all()
                 if unit_ids
@@ -355,7 +364,7 @@ def run_equipment_refresh_job(job_id: int) -> None:
             final_data: list[dict[str, Any]] = []
             total_tokens = 0
 
-            batches = [contexts[i:i + _BATCH_SIZE] for i in range(0, len(contexts), _BATCH_SIZE)]
+            batches = [contexts[i:i + batch_size] for i in range(0, len(contexts), batch_size)]
             for batch_num, batch in enumerate(batches, 1):
                 log_entries.append({
                     "event": "batch_start",
@@ -363,7 +372,7 @@ def run_equipment_refresh_job(job_id: int) -> None:
                     "unit_ids": [c["unit"].id for c in batch],
                 })
                 try:
-                    records, batch_tokens = _extract_batch(client, batch, log_entries)
+                    records, batch_tokens = _extract_batch(client, batch, log_entries, equipment_model)
                     total_tokens += batch_tokens
 
                     # Inject source_image_url if Claude didn't find one
@@ -383,6 +392,7 @@ def run_equipment_refresh_job(job_id: int) -> None:
 
                     final_data.extend(records)
                 except Exception as exc:
+                    logger.exception("Equipment refresh batch %d failed for job %d", batch_num, job_id)
                     log_entries.append({"event": "batch_error", "batch": batch_num, "error": str(exc)})
 
             # ── 4. Download images locally ─────────────────────────────────
@@ -400,6 +410,19 @@ def run_equipment_refresh_job(job_id: int) -> None:
                 if local_path:
                     record["image_url"] = local_path
                     log_entries.append({"event": "image_downloaded", "unit_id": uid})
+                    continue
+
+                # Fallback: ask Firecrawl for the product page's og:image, which
+                # is far more reliable than the brittle regex og:image scrape.
+                fc_path = None
+                page_url = record.get("product_url") or raw_url
+                if page_url and firecrawl_client.is_enabled():
+                    og_img = firecrawl_client.scrape_og_image(page_url)
+                    if og_img:
+                        fc_path = _download_image(og_img, uid)
+                if fc_path:
+                    record["image_url"] = fc_path
+                    log_entries.append({"event": "image_downloaded_firecrawl", "unit_id": uid})
                 else:
                     record["image_url"] = None
                     log_entries.append({"event": "image_download_failed", "unit_id": uid, "url": raw_url[:100]})
@@ -426,6 +449,7 @@ def run_equipment_refresh_job(job_id: int) -> None:
             job.status = "done"
 
         except Exception as exc:
+            logger.exception("Equipment refresh job %d failed", job_id)
             job.status = "error"
             job.error_message = str(exc)
 
@@ -436,17 +460,9 @@ def run_equipment_refresh_job(job_id: int) -> None:
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _extract_json_data(text: str) -> list[dict[str, Any]]:
-    text = text.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    match = re.search(r"\[.*\]", text.strip(), re.DOTALL)
-    if not match:
-        return []
-    try:
-        data = json.loads(match.group())
-        return [d for d in data if isinstance(d, dict)]
-    except json.JSONDecodeError:
-        return []
+    from app.services.json_extract import extract_json_list
+
+    return extract_json_list(text, context="equipment refresh")
 
 
 def _download_image(url: str, unit_id: int) -> str | None:
@@ -476,6 +492,7 @@ def _download_image(url: str, unit_id: int) -> str | None:
             dest.write_bytes(resp.content)
             return f"/static/images/equipment/{unit_id}{ext}"
     except Exception:
+        logger.exception("Image download failed for unit %d from %s", unit_id, url[:80])
         return None
 
 

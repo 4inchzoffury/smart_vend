@@ -1,10 +1,14 @@
 import json
+import logging
 import shutil
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.agent import AgentJob
@@ -165,6 +169,15 @@ def equipment_refresh_start(
 ) -> RedirectResponse:
     """Actually start the refresh job — only called when user clicks 'Start Refresh'."""
     from app.services.equipment_agent import run_equipment_refresh_job
+
+    # Auto-reset stale jobs stuck for over 2 hours before checking for active job
+    stale_cutoff = datetime.now() - timedelta(hours=2)
+    db.query(AgentJob).filter(
+        AgentJob.job_type == "equipment_refresh",
+        AgentJob.status.in_(["running", "pending"]),
+        AgentJob.created_at < stale_cutoff,
+    ).update({"status": "error", "error_message": "Auto-reset: exceeded 2-hour limit"})
+    db.commit()
 
     # Don't double-start if one is already running
     existing = _active_refresh_job(db)

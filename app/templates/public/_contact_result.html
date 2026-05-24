@@ -1,0 +1,18 @@
+{# HTMX fragment returned by POST /contact #}
+{% if sent %}
+<div class="success-block mb-4" role="status">
+  <i class="bi bi-check-circle-fill text-success fs-3 mb-2 d-block"></i>
+  <h5 class="fw-bold text-success mb-1">Request Received!</h5>
+  <p class="text-success mb-0" style="font-size:.9rem;">
+    Thanks{% if first_name %}, {{ first_name }}{% endif %}! A member of our team will be in
+    touch within 24 business hours.
+  </p>
+</div>
+{% else %}
+<div class="alert alert-danger mb-4" role="alert">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  We couldn't submit your request just now. Please email us directly at
+  <a href="mailto:primemicromarkets@gmail.com" class="fw-semibold">primemicromarkets@gmail.com</a>
+  and we'll respond within 24 hours.
+</div>
+{% endif %}

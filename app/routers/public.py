@@ -1,8 +1,11 @@
+import logging
+
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
 
 from app.views import templates
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["public"])
 
 
@@ -23,11 +26,11 @@ async def contact(
     daily_traffic: str = Form(""),
     message: str = Form(""),
 ) -> HTMLResponse:
-    # Best-effort email notification (non-blocking if not configured)
-    try:
-        from app.config import settings
-        from app.services.email_sender import send_email
+    from app.config import settings
+    from app.services.email_sender import send_email
 
+    sent = False
+    try:
         if settings.gmail_user and settings.gmail_app_password:
             body = (
                 f"New location assessment request from {first_name} {last_name}\n\n"
@@ -43,11 +46,30 @@ async def contact(
                 subject=f"New Assessment Request – {company}",
                 body=body,
             )
+            sent = True
+        else:
+            # No mail transport configured — log the lead so it isn't lost.
+            logger.warning(
+                "Contact form received but email not configured: %s %s <%s> / %s",
+                first_name, last_name, email, company,
+            )
+            sent = True
     except Exception:
-        pass
+        logger.exception("Contact form email send failed for %s", company)
+        sent = False
 
+    ctx = {"sent": sent, "first_name": first_name}
+
+    # HTMX submit → return just the result banner fragment. Always 200 so
+    # htmx performs the swap; the fragment itself conveys success/error.
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(
+            request, "public/_contact_result.html", ctx
+        )
+
+    # Non-JS fallback → full page reload with success/error block
     return templates.TemplateResponse(
         request,
         "public/landing.html",
-        {"contact_success": True},
+        {"contact_success": sent, "contact_error": not sent},
     )

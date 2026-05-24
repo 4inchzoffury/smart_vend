@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+import logging
+from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import func as sql_func
 from sqlalchemy.orm import Session
 
@@ -87,8 +90,13 @@ def supplier_create(
         website=website or None,
         notes=notes or None,
     )
-    db.add(supplier)
-    db.commit()
+    try:
+        db.add(supplier)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create supplier %s", name)
+        raise HTTPException(status_code=500, detail="Database error saving supplier")
     return RedirectResponse(url="/inventory/suppliers", status_code=303)
 
 
@@ -275,7 +283,18 @@ def inventory_search_run(
     search_provider: str = Form("duckduckgo"),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
+    max_results = max(1, min(50, max_results))
     _set_setting(db, "inventory_search_provider", search_provider)
+
+    # Auto-reset stale jobs stuck for over 2 hours
+    stale_cutoff = datetime.now() - timedelta(hours=2)
+    db.query(AgentJob).filter(
+        AgentJob.job_type == "inventory_research",
+        AgentJob.status.in_(["running", "pending"]),
+        AgentJob.created_at < stale_cutoff,
+    ).update({"status": "error", "error_message": "Auto-reset: exceeded 2-hour limit"})
+    db.commit()
+
     location = f"{location_city.strip()}, {location_state.strip()}"
     params = {
         "product_categories": product_categories,
@@ -289,8 +308,13 @@ def inventory_search_run(
         status="pending",
         input_params=json.dumps(params),
     )
-    db.add(job)
-    db.commit()
+    try:
+        db.add(job)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create inventory search job")
+        raise HTTPException(status_code=500, detail="Database error creating job")
     background_tasks.add_task(inventory_agent.run_inventory_search_job, job.id)
     return RedirectResponse(url=f"/inventory/search/{job.id}", status_code=303)
 
@@ -415,20 +439,38 @@ def product_create(
     restock_notes: str = Form(""),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
+    try:
+        parsed_cost = float(unit_cost) if unit_cost else None
+        parsed_sell = float(sell_price) if sell_price else None
+        parsed_par = int(par_level) if par_level else None
+        parsed_supplier = int(primary_supplier_id) if primary_supplier_id else None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid numeric value: {exc}") from exc
+
+    if parsed_cost is not None and parsed_cost < 0:
+        raise HTTPException(status_code=422, detail="Unit cost cannot be negative")
+    if parsed_par is not None and parsed_par < 0:
+        raise HTTPException(status_code=422, detail="Par level cannot be negative")
+
     product = Product(
         sku=sku,
         name=name,
         brand=brand or None,
         category=category or None,
-        unit_cost=float(unit_cost) if unit_cost else None,
-        sell_price=float(sell_price) if sell_price else None,
+        unit_cost=parsed_cost,
+        sell_price=parsed_sell,
         unit_size=unit_size or None,
-        par_level=int(par_level) if par_level else None,
-        primary_supplier_id=int(primary_supplier_id) if primary_supplier_id else None,
+        par_level=parsed_par,
+        primary_supplier_id=parsed_supplier,
         restock_notes=restock_notes or None,
     )
-    db.add(product)
-    db.commit()
+    try:
+        db.add(product)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create product %s", sku)
+        raise HTTPException(status_code=500, detail="Database error saving product")
     return RedirectResponse(url="/inventory/", status_code=303)
 
 

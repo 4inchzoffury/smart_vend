@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime
 from typing import Any
@@ -14,6 +15,8 @@ from app.database import engine
 from app.models.agent import AgentJob
 from app.services import web_search
 from app.services.price_fetcher.models import VENDOR_META, FetchError, PriceResult
+
+logger = logging.getLogger(__name__)
 
 _AI_MODEL = "claude-haiku-4-5-20251001"
 _MAX_FALLBACK_SEARCHES = 4
@@ -223,6 +226,7 @@ def _ai_fallback(
         end = clean.rfind("]")
         parsed = json.loads(clean[idx : end + 1]) if idx != -1 and end > idx else []
     except Exception:
+        logger.exception("AI fallback JSON parse failed for vendor %s, query: %s", vendor_key, query[:80])
         return []
 
     fallback_results = []
@@ -315,6 +319,7 @@ def run_price_comparison_job(job_id: int) -> None:
             job.status = "done"
 
         except Exception as exc:
+            logger.exception("Price comparison job %d failed", job_id)
             job.status = "error"
             job.error_message = str(exc)
             job.agent_log = json.dumps(log)[:20_000]

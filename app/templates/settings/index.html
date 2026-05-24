@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Settings – Prime Micro Markets{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-gear me-2"></i>Settings</h1>
+  {% if saved %}
+  <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Settings saved</span>
+  {% endif %}
+</div>
+
+<form method="post" action="/settings/">
+  <div class="row g-4">
+
+    <!-- AI Models & Limits -->
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header fw-semibold"><i class="bi bi-robot me-1"></i>AI Models &amp; Limits</div>
+        <div class="card-body">
+          {% for key, label, kind, help in ai_fields %}
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1" for="{{ key }}">{{ label }}</label>
+            {% if kind == 'int' %}
+            <input type="number" class="form-control form-control-sm" id="{{ key }}"
+                   name="{{ key }}" value="{{ ai_values[key] }}" min="1" max="50">
+            {% else %}
+            <input type="text" class="form-control form-control-sm" id="{{ key }}"
+                   name="{{ key }}" value="{{ ai_values[key] }}"
+                   placeholder="{{ ai_defaults[key] }}">
+            {% endif %}
+            <div class="form-text small">{{ help }} · default <code>{{ ai_defaults[key] }}</code></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <!-- Search Provider -->
+      <div class="card mb-4">
+        <div class="card-header fw-semibold"><i class="bi bi-search me-1"></i>Web Search Provider</div>
+        <div class="card-body">
+          <select class="form-select form-select-sm" name="search_provider">
+            {% for p in search_providers %}
+            <option value="{{ p }}" {% if p == search_provider %}selected{% endif %}>
+              {{ p|capitalize }}{% if p == 'duckduckgo' %} (free){% elif p == 'tavily' %} (API key){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-text small">Tavily falls back to DuckDuckGo automatically if it fails.</div>
+        </div>
+      </div>
+
+      <!-- API Key Status -->
+      <div class="card">
+        <div class="card-header fw-semibold"><i class="bi bi-key me-1"></i>API Keys (from .env)</div>
+        <ul class="list-group list-group-flush small">
+          {% for name, configured in api_status.items() %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            {{ name }}
+            {% if configured %}
+            <span class="badge text-bg-success">Configured</span>
+            {% else %}
+            <span class="badge text-bg-secondary">Not set</span>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <!-- Vendor Config -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header fw-semibold"><i class="bi bi-shop me-1"></i>Price Comparison — Vendor Config</div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for vk, fields in vendor_layout.items() %}
+            <div class="col-md-4">
+              <div class="border rounded p-3 h-100">
+                <div class="fw-semibold small mb-2">{{ vk.replace('_', ' ')|title }}</div>
+                {% for field, setting_key in fields.items() %}
+                <div class="mb-2">
+                  <label class="form-label small mb-1" for="{{ setting_key }}">{{ field.replace('_', ' ')|title }}</label>
+                  <input type="text" class="form-control form-control-sm" id="{{ setting_key }}"
+                         name="{{ setting_key }}" value="{{ vendor_values[vk][field] }}">
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mt-4">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Save Settings</button>
+  </div>
+</form>
+{% endblock %}

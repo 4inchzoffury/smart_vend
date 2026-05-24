@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 _CATALOG_URL = "https://vendguys.com/collections/machines/products.json?limit=250"
 _CANTALOUPE_URL = "https://store.cantaloupe.com/collections/coolers-and-freezers/products.json?limit=250"
@@ -82,6 +85,7 @@ def scrape_url(url: str) -> tuple[str, str | None]:
             resp.raise_for_status()
             html = resp.text
     except Exception:
+        logger.exception("Failed to fetch URL for scraping: %s", url[:100])
         return "", None
 
     # og:image (most reliable cross-site image signal)

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+import logging
+from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import func as sql_func
 from sqlalchemy.orm import Session
 
@@ -90,8 +93,19 @@ def leads_research(
     search_provider: str = Form("duckduckgo"),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
+    max_leads = max(1, min(50, max_leads))
+
     # Persist provider choice as new default
     _set_setting(db, "search_provider", search_provider)
+
+    # Auto-reset stale research jobs stuck for over 2 hours
+    stale_cutoff = datetime.now() - timedelta(hours=2)
+    db.query(AgentJob).filter(
+        AgentJob.job_type == "research",
+        AgentJob.status.in_(["running", "pending"]),
+        AgentJob.created_at < stale_cutoff,
+    ).update({"status": "error", "error_message": "Auto-reset: exceeded 2-hour limit"})
+    db.commit()
 
     location = f"{location_city.strip()}, {location_state.strip()}"
     params = {
@@ -107,8 +121,13 @@ def leads_research(
         input_params=json.dumps(params),
         preview_mode=preview_mode,
     )
-    db.add(job)
-    db.commit()
+    try:
+        db.add(job)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create research job")
+        raise HTTPException(status_code=500, detail="Database error creating job")
     background_tasks.add_task(agent.run_research_job, job.id)
     return RedirectResponse(url=f"/leads/jobs/{job.id}", status_code=303)
 

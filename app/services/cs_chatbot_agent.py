@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime, timedelta
 
@@ -13,6 +14,8 @@ from app.models.chat import ChatMessage
 from app.models.cs_governance import CSGovernanceRule
 from app.models.settings import AppSetting
 from app.services import calendly as calendly_svc
+
+_log = logging.getLogger(__name__)
 
 _MAX_TOOL_CALLS = 5
 _MAX_HISTORY = 10
@@ -36,14 +39,20 @@ _CATEGORY_LABELS = {
 
 # ── Provider / model defaults ────────────────────────────────────────────────
 
-_DEFAULT_PROVIDER = "anthropic"
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+# Public chatbot runs on Groq's free tier by default: $0 for client traffic,
+# ~5-10x faster than Haiku, and Groq does not train on inputs/outputs. If Groq
+# fails (rate limit / missing key / outage), get_chatbot_reply falls back to
+# Claude Haiku so the widget never goes dark. Internal/admin AI is unaffected —
+# those services call anthropic.Anthropic directly, not get_active_provider.
+_DEFAULT_PROVIDER = "groq"
+_DEFAULT_MODEL = "llama-3.1-8b-instant"
+_FALLBACK_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
 PROVIDER_MODELS: dict[str, list[str]] = {
     "anthropic": ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"],
-    "groq": ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "llama-3.1-70b-versatile"],
+    "groq": ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"],
     "openai": ["gpt-4o-mini", "gpt-4o"],
-    "gemini": ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest"],
+    "gemini": ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     "ollama": ["llama3.2:3b", "phi4-mini", "mistral:7b"],
 }
 
@@ -571,8 +580,75 @@ def _extract_ollama_lead(reply: str, session_id: str, db: Session) -> str:
 # ── Main background task ─────────────────────────────────────────────────────
 
 
+def _error_message(exc: Exception) -> str:
+    return (
+        f"I'm sorry, I ran into an issue. Please contact us at "
+        f"primemicromarkets@gmail.com. (Error: {exc})"
+    )
+
+
+def _dispatch(
+    provider: str,
+    model: str,
+    messages: list[dict],
+    system: str,
+    session_id: str,
+    db: Session,
+) -> str:
+    """Route to the active provider. Raises on a missing key or unknown provider."""
+    if provider == "anthropic":
+        if not settings.anthropic_api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY not configured.")
+        return _run_anthropic(messages, system, model, session_id, db)
+
+    if provider == "groq":
+        if not settings.groq_api_key:
+            raise RuntimeError("GROQ_API_KEY not configured.")
+        return _run_openai_compat(
+            messages, system, model,
+            api_key=settings.groq_api_key,
+            base_url="https://api.groq.com/openai/v1",
+            session_id=session_id, db=db,
+        )
+
+    if provider == "openai":
+        if not settings.openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY not configured.")
+        return _run_openai_compat(
+            messages, system, model,
+            api_key=settings.openai_api_key,
+            base_url=None,
+            session_id=session_id, db=db,
+        )
+
+    if provider == "gemini":
+        if not settings.gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY not configured.")
+        return _run_gemini(messages, system, model, session_id, db)
+
+    if provider == "ollama":
+        reply = _run_openai_compat(
+            messages, system, model,
+            api_key="ollama",
+            base_url=settings.ollama_base_url,
+            session_id=session_id,
+            db=db,
+            max_tokens=1024,
+            use_tools=False,
+        )
+        return _extract_ollama_lead(reply, session_id, db)
+
+    raise RuntimeError(f"Unknown provider: {provider}")
+
+
 def get_chatbot_reply(session_id: str, user_message: str, db: Session, before_id: int = 0) -> str:
-    """Synchronous Claude call using the caller's DB session. Saves and returns the reply."""
+    """Synchronous LLM call using the caller's DB session. Saves and returns the reply.
+
+    The primary provider is Groq (free + fast). If it fails for any reason — rate
+    limit, missing key during cutover, or an outage — and an Anthropic key is set,
+    fall back to Claude Haiku so the public widget never goes dark. Only rare
+    overflow ever reaches the paid API.
+    """
     provider, model = get_active_provider(db)
 
     if _is_rate_limited(session_id, db, provider=provider):
@@ -599,56 +675,29 @@ def get_chatbot_reply(session_id: str, user_message: str, db: Session, before_id
     messages = history + [{"role": "user", "content": user_message}]
 
     try:
-        if provider == "anthropic":
-            if not settings.anthropic_api_key:
-                raise RuntimeError("ANTHROPIC_API_KEY not configured.")
-            reply = _run_anthropic(messages, system, model, session_id, db)
-
-        elif provider == "groq":
-            if not settings.groq_api_key:
-                raise RuntimeError("GROQ_API_KEY not configured.")
-            reply = _run_openai_compat(
-                messages, system, model,
-                api_key=settings.groq_api_key,
-                base_url="https://api.groq.com/openai/v1",
-                session_id=session_id, db=db,
+        reply = _dispatch(provider, model, messages, system, session_id, db)
+    except Exception as primary_exc:
+        # Reliability fallback: keep the widget answering on Claude Haiku.
+        # This is logged at WARNING so production (Render) logs reveal when the
+        # free Groq path is being bypassed for the paid fallback — i.e. whether
+        # the zero-cost goal is actually holding. Frequent warnings here mean
+        # Groq is failing (e.g. a 403 IP block) and traffic is silently costing money.
+        if provider != "anthropic" and settings.anthropic_api_key:
+            _log.warning(
+                "Chatbot primary provider %r failed (%s); falling back to Claude Haiku.",
+                provider, primary_exc,
             )
-
-        elif provider == "openai":
-            if not settings.openai_api_key:
-                raise RuntimeError("OPENAI_API_KEY not configured.")
-            reply = _run_openai_compat(
-                messages, system, model,
-                api_key=settings.openai_api_key,
-                base_url=None,
-                session_id=session_id, db=db,
-            )
-
-        elif provider == "gemini":
-            if not settings.gemini_api_key:
-                raise RuntimeError("GEMINI_API_KEY not configured.")
-            reply = _run_gemini(messages, system, model, session_id, db)
-
-        elif provider == "ollama":
-            reply = _run_openai_compat(
-                messages, system, model,
-                api_key="ollama",
-                base_url=settings.ollama_base_url,
-                session_id=session_id,
-                db=db,
-                max_tokens=1024,
-                use_tools=False,
-            )
-            reply = _extract_ollama_lead(reply, session_id, db)
-
+            try:
+                reply = _run_anthropic(
+                    messages, system, _FALLBACK_ANTHROPIC_MODEL, session_id, db
+                )
+            except Exception as fb_exc:
+                _log.error("Chatbot Anthropic fallback also failed: %s", fb_exc)
+                reply = _error_message(primary_exc)
         else:
-            raise RuntimeError(f"Unknown provider: {provider}")
-
-    except Exception as exc:
-        reply = (
-            f"I'm sorry, I ran into an issue. Please contact us at "
-            f"primemicromarkets@gmail.com. (Error: {exc})"
-        )
+            _log.error("Chatbot provider %r failed with no fallback available: %s",
+                       provider, primary_exc)
+            reply = _error_message(primary_exc)
 
     db.add(ChatMessage(session_id=session_id, role="assistant", content=reply))
     db.commit()

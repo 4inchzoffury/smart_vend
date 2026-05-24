@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ruff check *)",
+      "Bash(.venv\\Scripts\\ruff.exe check *)",
+      "Bash(ipconfig *)",
+      "PowerShell(& \".venv\\Scripts\\ruff.exe\" check *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Get-Item *)",
+      "PowerShell(dir *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(netstat *)",
+      "PowerShell(Select-Object *)",
+      "PowerShell(Sort-Object *)",
+      "PowerShell(Format-Table *)",
+      "PowerShell(Format-List *)"
+    ]
+  }
+}

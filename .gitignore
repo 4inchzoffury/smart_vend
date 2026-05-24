@@ -219,6 +219,9 @@ __marimo__/
 
 # Prime Micro Markets
 smart_vend.db
+smart_vend.db-wal
+smart_vend.db-shm
+backups/
 secrets/
 
 # Server / uvicorn logs and output captures
@@ -230,4 +233,12 @@ server*.txt
 # Windows
 desktop.ini
 Thumbs.db
+
+# Claude Code — track shared settings.json, ignore personal/local + backups
+.claude/settings.local.json
+.claude/settings.local.json.bak*
+
+# Ad-hoc temp/error log captures
+temperrorlog.txt
+temp*.log
 

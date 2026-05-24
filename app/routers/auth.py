@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import secrets
 from urllib.parse import urlencode
 
@@ -10,6 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from app.config import settings
 from app.views import templates
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["auth"])
 
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -82,6 +84,7 @@ async def google_callback(request: Request) -> RedirectResponse:
             resp.raise_for_status()
             token_data = resp.json()
     except Exception:
+        logger.exception("Google OAuth token exchange failed")
         return RedirectResponse("/login?error=oauth_failed", status_code=302)
 
     # Decode the ID token claims without JWKS signature verification.
@@ -95,6 +98,7 @@ async def google_callback(request: Request) -> RedirectResponse:
         payload_b64 += "=" * (-len(payload_b64) % 4)
         claims: dict = json.loads(base64.urlsafe_b64decode(payload_b64))
     except Exception:
+        logger.exception("Failed to decode Google ID token payload")
         return RedirectResponse("/login?error=no_userinfo", status_code=302)
 
     email = claims.get("email", "")

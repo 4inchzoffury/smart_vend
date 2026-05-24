@@ -1,4 +1,14 @@
-from collections.abc import AsyncGenerator
+# Verify outbound TLS against the OS trust store before any HTTPS happens.
+# Needed on dev machines behind an HTTPS-intercepting proxy/AV whose root CA
+# OpenSSL/certifi rejects; harmless in production (Render/Linux). Must run first.
+try:
+    import truststore
+
+    truststore.inject_into_ssl()
+except ImportError:
+    pass
+
+from collections.abc import AsyncGenerator  # noqa: I001 — keep truststore injection above all imports
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -13,7 +23,9 @@ from app.database import Base, engine
 from app.models import crm as _crm_models  # noqa: F401 — registers CRM models with Base
 from app.models import settings as _settings_models  # noqa: F401 — registers AppSetting with Base
 from app.routers import crm as crm_router
-from app.routers import financial, inventory, leads, locations, research, root, sales, sync
+from app.routers import financial, inventory, leads, locations, research, root, sales
+from app.routers import settings as settings_router
+from app.routers import sync
 from app.routers import auth as auth_router
 from app.routers import chatbot as chatbot_router
 from app.routers import customer_service as cs_router
@@ -82,6 +94,7 @@ app.include_router(sync.router, dependencies=_auth)
 app.include_router(leads.router, dependencies=_auth)
 app.include_router(cs_router.router, dependencies=_auth)
 app.include_router(crm_router.router, dependencies=_auth)
+app.include_router(settings_router.router, dependencies=_auth)
 
 # SessionMiddleware must be added last so it wraps everything (outermost = first to run)
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key, https_only=True)

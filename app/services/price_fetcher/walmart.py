@@ -132,6 +132,22 @@ def search_products(
     if store_id:
         params["store"] = store_id
 
+    # Firecrawl-first: resilient structured extraction. Falls through to the
+    # BeautifulSoup/__NEXT_DATA__ path below if it yields nothing.
+    from app.services.price_fetcher.firecrawl_extract import fetch_via_firecrawl
+
+    fc_url = f"{_SEARCH_URL}?q={query}" + (f"&store={store_id}" if store_id else "")
+    fc = fetch_via_firecrawl(
+        fc_url,
+        query,
+        "walmart",
+        base_url=_BASE_URL,
+        max_results=max_results,
+        notes=f"Store #{store_id}" if store_id else "walmart.com",
+    )
+    if fc:
+        return fc
+
     try:
         with httpx.Client(timeout=20, follow_redirects=True, verify=False) as client:
             r = client.get(_SEARCH_URL, params=params, headers=_HEADERS)

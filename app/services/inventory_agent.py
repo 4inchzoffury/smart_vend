@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import re
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -13,10 +13,12 @@ from app.config import settings
 from app.database import engine
 from app.models.agent import AgentJob
 from app.models.inventory import Supplier
-from app.services import web_search
+from app.services import app_settings, web_search
 
-_INVENTORY_MODEL = "claude-haiku-4-5-20251001"
-_MAX_TOOL_CALLS = 5
+logger = logging.getLogger(__name__)
+
+# Model and tool-call limits are runtime-configurable via the AppSetting
+# table (see app.services.app_settings.DEFAULTS for fallback values).
 _MAX_LOG_CHARS = 20_000
 
 PRODUCT_CATEGORY_OPTIONS = [
@@ -92,28 +94,12 @@ def _build_system_prompt(
 
 
 _NAME_FALLBACKS = ("supplier_name", "name", "company_name", "company", "supplier")
-_JSON_DECODER = json.JSONDecoder()
 
 
 def _extract_json_suppliers(text: str) -> list[dict[str, Any]]:
-    text = text.strip()
-    # Strip markdown code fences (both opening and closing)
-    text = re.sub(r"```(?:json)?\s*", "", text)
-    text = re.sub(r"```", "", text)
+    from app.services.json_extract import extract_json_list
 
-    # Use raw_decode so leading/trailing prose doesn't break the parse.
-    # Scan for each '[' and try to parse a JSON array starting there.
-    data: list[Any] = []
-    pos = text.find("[")
-    while pos != -1:
-        try:
-            parsed, _ = _JSON_DECODER.raw_decode(text, pos)
-            if isinstance(parsed, list):
-                data = parsed
-                break
-        except json.JSONDecodeError:
-            pass
-        pos = text.find("[", pos + 1)
+    data = extract_json_list(text, context="supplier sourcing")
 
     results = []
     for d in data:
@@ -154,6 +140,11 @@ def run_inventory_search_job(job_id: int) -> None:
             max_results: int = int(params.get("max_results", 15))
             provider: str = params.get("search_provider", "duckduckgo")
 
+            inventory_model = app_settings.get_str(db, "inventory_model")
+            max_tool_calls = app_settings.get_int(
+                db, "inventory_max_tool_calls", minimum=1, maximum=30
+            )
+
             system_prompt = _build_system_prompt(categories, location, search_focus, max_results)
 
             _COMPILE_INSTRUCTION = (
@@ -181,7 +172,7 @@ def run_inventory_search_job(job_id: int) -> None:
 
             while True:
                 raw = client.messages.with_raw_response.create(
-                    model=_INVENTORY_MODEL,
+                    model=inventory_model,
                     max_tokens=4096,
                     system=[
                         {
@@ -202,8 +193,8 @@ def run_inventory_search_job(job_id: int) -> None:
                         rl_reset = raw.headers.get("anthropic-ratelimit-tokens-reset")
                         job.ratelimit_tokens_remaining = int(rl_remaining) if rl_remaining else None
                         job.ratelimit_tokens_reset = rl_reset
-                    except Exception:  # noqa: S110
-                        pass
+                    except Exception:
+                        logger.debug("Failed to parse rate-limit headers for inventory job %d", job_id)
 
                 messages.append({"role": "assistant", "content": response.content})
 
@@ -242,7 +233,7 @@ def run_inventory_search_job(job_id: int) -> None:
                     log_entries.append({"event": "no_tool_results_break"})
                     break
 
-                if tool_call_count >= _MAX_TOOL_CALLS:
+                if tool_call_count >= max_tool_calls:
                     # Embed the compile instruction in the SAME user turn as the tool results
                     # so Claude receives search data + instruction in one message (no consecutive
                     # user turns, which causes the API to drop context).
@@ -262,7 +253,7 @@ def run_inventory_search_job(job_id: int) -> None:
                 # Compile call: no tools so Claude must output text.
                 # The last user message already contains the compile instruction.
                 compile_raw = client.messages.with_raw_response.create(
-                    model=_INVENTORY_MODEL,
+                    model=inventory_model,
                     max_tokens=4096,
                     system=[
                         {
@@ -336,6 +327,7 @@ def run_inventory_search_job(job_id: int) -> None:
             job.status = "done"
 
         except Exception as exc:
+            logger.exception("Inventory search job %d failed", job_id)
             job.status = "error"
             job.error_message = str(exc)
 

@@ -94,6 +94,9 @@
         <!-- Mobile-only extras -->
         <li class="nav-item d-lg-none"><hr class="border-secondary my-1 opacity-25"></li>
         <li class="nav-item d-lg-none">
+          <a class="nav-link {% if active_nav == 'settings' %}active{% endif %}" href="/settings/"><i class="bi bi-gear me-1"></i>Settings</a>
+        </li>
+        <li class="nav-item d-lg-none">
           <a class="nav-link" href="/"><i class="bi bi-globe me-1"></i>Client Portal</a>
         </li>
         {% if _user %}
@@ -105,6 +108,10 @@
 
       <!-- Desktop-only right controls -->
       <div class="d-none d-lg-flex align-items-center gap-1">
+        <a class="nav-link {% if active_nav == 'settings' %}text-white{% else %}text-white-50{% endif %} px-2 small" href="/settings/" title="Settings">
+          <i class="bi bi-gear me-1"></i>Settings
+        </a>
+        <div class="vr bg-secondary opacity-50 mx-1" style="height:18px;"></div>
         <a class="nav-link text-white-50 px-2 small" href="/" title="Open client-facing site">
           <i class="bi bi-globe me-1"></i>Client Portal
         </a>

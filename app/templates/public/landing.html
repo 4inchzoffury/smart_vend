@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Prime Micro Markets – Smart Vending for Modern Workplaces</title>
-  <meta name="description" content="Prime Micro Markets provides AI-powered smart cooler vending machines to offices, gyms, hotels, and more in the Panama City, FL area. Zero cost to you. Always stocked.">
+  <meta name="description" content="Prime Micro Markets provides full-service vending — AI-powered smart coolers and micro markets — to offices, gyms, hotels, and more in the Panama City, FL area. Zero cost to you. Always stocked.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
@@ -33,13 +33,15 @@
       border-bottom: 1px solid rgba(255,255,255,.06);
     }
     .nav-brand {
-      font-weight: 800; font-size: 1.86rem; color: #fff;
-      display: flex; align-items: center; gap: .3rem;
-      text-decoration: none; letter-spacing: -.01em; white-space: nowrap;
+      display: flex; align-items: center; text-decoration: none;
     }
+    .nav-logo {
+      display: block; height: 52px; width: auto;
+      transition: opacity .15s ease;
+    }
+    .nav-brand:hover .nav-logo { opacity: .85; }
     @media (max-width: 575px) {
-      .nav-brand { font-size: 1.3rem; flex: 1; }
-      .nav-brand-text { flex: 1; text-align: center; }
+      .nav-logo { height: 38px; }
     }
     .nav-link-pub {
       color: rgba(255,255,255,.65) !important; font-size: .875rem;
@@ -58,8 +60,8 @@
     /* ── Hero ─────────────────────────────────────── */
     .hero {
       background: linear-gradient(150deg, #0b1526 0%, #0c2d50 50%, #083d4f 100%);
-      padding: 5.5rem 0 4rem; position: relative; overflow: hidden;
-      min-height: 88vh; display: flex; align-items: center;
+      padding: .85rem 0 4rem; position: relative; overflow: hidden;
+      min-height: auto; display: flex; align-items: center;
     }
     .hero::before {
       content: '';
@@ -77,6 +79,12 @@
       font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
       margin-bottom: 1.3rem;
     }
+    .hero-brand {
+      font-size: 1.05rem; font-weight: 800; color: #fff;
+      letter-spacing: .16em; text-transform: uppercase;
+      margin-bottom: .85rem;
+    }
+    .hero-brand span { color: #fff; }
     .hero h1 {
       font-size: clamp(2.1rem, 5.5vw, 3.6rem);
       font-weight: 900; color: #fff; line-height: 1.1;
@@ -112,114 +120,6 @@
       transition: background .15s, border-color .15s; display: inline-flex; align-items: center; gap: .5rem;
     }
     .btn-hero-s:hover { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.5); }
-
-    /* ── Machine visual (hero right) ─────────────── */
-    .machines-visual { position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 1.25rem; padding: 1rem 0; }
-
-    .mach-wrap { position: relative; display: flex; flex-direction: column; align-items: center; }
-    .mach-label {
-      font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-      color: rgba(255,255,255,.35); margin-bottom: .5rem;
-    }
-
-    /* single-door cooler */
-    .mach-cooler {
-      width: 90px; height: 220px;
-      background: linear-gradient(180deg, #1e3a5f 0%, #0f2035 100%);
-      border-radius: 10px 10px 6px 6px;
-      border: 1.5px solid rgba(14,165,233,.35);
-      box-shadow: 0 0 28px rgba(14,165,233,.15), 0 20px 50px rgba(0,0,0,.5);
-      position: relative; overflow: hidden; padding: 6px 5px 5px;
-    }
-    .mach-screen {
-      height: 38%; background: linear-gradient(180deg, #075985, #0c4a6e);
-      border-radius: 5px 5px 2px 2px; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 2px; margin-bottom: 5px;
-    }
-    .mach-screen i { font-size: .85rem; color: #7dd3fc; }
-    .mach-screen span { font-size: .38rem; color: rgba(255,255,255,.5); letter-spacing: .05em; }
-    .mach-shelves { display: flex; flex-direction: column; gap: 3px; }
-    .mach-shelf { display: grid; gap: 2px; }
-    .mach-shelf.cols4 { grid-template-columns: repeat(4,1fr); }
-    .mach-shelf.cols3 { grid-template-columns: repeat(3,1fr); }
-    .mach-item {
-      height: 14px; border-radius: 2px;
-      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1);
-    }
-    .mach-item.b { background: rgba(14,165,233,.3); border-color: rgba(14,165,233,.4); }
-    .mach-item.g { background: rgba(13,148,136,.3); border-color: rgba(13,148,136,.4); }
-    .mach-item.o { background: rgba(234,88,12,.25); border-color: rgba(234,88,12,.35); }
-    .mach-base {
-      position: absolute; bottom: 0; left: 0; right: 0; height: 18px;
-      background: rgba(255,255,255,.04);
-      border-top: 1px solid rgba(255,255,255,.08);
-      display: flex; align-items: center; justify-content: center; gap: 3px;
-    }
-    .pay-dot { width: 6px; height: 6px; border-radius: 50%; }
-
-    /* combo machine (wider) */
-    .mach-combo {
-      width: 120px; height: 240px;
-      background: linear-gradient(180deg, #1e2d3d 0%, #0f1a27 100%);
-      border-radius: 10px 10px 6px 6px;
-      border: 1.5px solid rgba(100,116,139,.3);
-      box-shadow: 0 0 20px rgba(0,0,0,.3), 0 20px 50px rgba(0,0,0,.4);
-      position: relative; overflow: hidden; padding: 6px 7px 5px;
-    }
-    .combo-top {
-      height: 55%; border-bottom: 1px solid rgba(255,255,255,.08);
-      margin-bottom: 4px; padding-bottom: 4px;
-    }
-    .combo-header {
-      height: 18px; background: rgba(255,255,255,.05);
-      border-radius: 3px; margin-bottom: 4px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .combo-header span { font-size: .35rem; color: rgba(255,255,255,.3); letter-spacing: .06em; }
-    .combo-coils { display: grid; grid-template-columns: repeat(5,1fr); gap: 2px; }
-    .combo-coil {
-      height: 10px; border-radius: 2px;
-      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
-    }
-    .combo-coil.s { background: rgba(251,191,36,.2); border-color: rgba(251,191,36,.3); }
-    .combo-drinks { display: grid; grid-template-columns: repeat(4,1fr); gap: 2px; }
-    .combo-drink {
-      height: 28px; border-radius: 2px;
-      background: rgba(14,165,233,.15); border: 1px solid rgba(14,165,233,.25);
-    }
-
-    /* micro kiosk (tall narrow) */
-    .mach-kiosk {
-      width: 58px; height: 195px;
-      background: linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%);
-      border-radius: 8px 8px 4px 4px;
-      border: 1.5px solid rgba(139,92,246,.35);
-      box-shadow: 0 0 20px rgba(139,92,246,.12), 0 20px 50px rgba(0,0,0,.4);
-      position: relative; overflow: hidden; padding: 6px 5px;
-    }
-    .kiosk-screen {
-      height: 42%; background: linear-gradient(180deg, #3b0764, #1e1b4b);
-      border-radius: 4px; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 3px; margin-bottom: 5px;
-    }
-    .kiosk-screen i { font-size: .9rem; color: #c4b5fd; }
-    .kiosk-screen span { font-size: .35rem; color: rgba(255,255,255,.4); letter-spacing: .04em; }
-    .kiosk-items { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
-    .kiosk-item {
-      height: 12px; border-radius: 2px;
-      background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.25);
-    }
-
-    /* glow tags floating above machines */
-    .float-tag {
-      position: absolute; background: #fff; border-radius: 6px;
-      padding: .3rem .55rem; box-shadow: 0 4px 16px rgba(0,0,0,.25);
-      font-size: .62rem; font-weight: 700; white-space: nowrap;
-      display: flex; align-items: center; gap: .25rem; z-index: 2;
-    }
-    .float-tag.tl { top: -.5rem; left: -.5rem; color: var(--pm-teal); }
-    .float-tag.tr { top: -.5rem; right: -.5rem; color: var(--pm-blue); }
-    .float-tag.br { bottom: 2rem; right: -4rem; color: var(--pm-orange); }
 
     /* ── Stats bar ──────────────────────────────── */
     .stats-bar {
@@ -314,77 +214,58 @@
     .equip-card {
       background: #fff; border: 1px solid var(--pm-border);
       border-radius: 1.1rem; overflow: hidden; height: 100%;
-      transition: transform .2s, box-shadow .2s;
+      transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
       display: flex; flex-direction: column;
     }
-    .equip-card:hover { transform: translateY(-6px); box-shadow: 0 24px 64px rgba(0,0,0,.14); }
+    .equip-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 30px 70px -12px rgba(8,61,79,.28);
+      border-color: rgba(56,189,248,.45);
+    }
 
-    /* machine illustration panel */
+    /* equipment showroom panel */
     .equip-visual {
       height: 235px; display: flex; align-items: center; justify-content: center;
       position: relative; overflow: hidden;
+      background: linear-gradient(160deg, #0b1526, #0c2d50);
+    }
+    .equip-visual img {
+      transition: transform .55s cubic-bezier(.22,.61,.36,1);
+      will-change: transform;
+    }
+    .equip-card:hover .equip-visual img { transform: scale(1.07); }
+    /* showroom depth: soft vignette + bottom fade for badge legibility */
+    .equip-visual::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+      box-shadow: inset 0 0 60px rgba(3,18,32,.45);
     }
     .equip-visual::after {
       content: ''; position: absolute; bottom: 0; left: 0; right: 0;
-      height: 52px; background: linear-gradient(transparent, rgba(0,0,0,.38));
+      height: 64px; background: linear-gradient(transparent, rgba(3,18,32,.5));
       pointer-events: none; z-index: 1;
     }
-    /* per-type gradient themes */
+    /* per-type gradient themes (image-load fallback only) */
     .ev-cooler   { background: linear-gradient(160deg, #0c3262, #0e5278); }
     .ev-combo    { background: linear-gradient(160deg, #1a2535, #0d1c2e); }
     .ev-market   { background: linear-gradient(160deg, #1c1250, #100c34); }
     .ev-fresh    { background: linear-gradient(160deg, #0a3220, #0c4232); }
     .ev-volume   { background: linear-gradient(160deg, #201e08, #302808); }
     .ev-outdoor  { background: linear-gradient(160deg, #1c1408, #102010); }
+    .ev-frozen   { background: linear-gradient(160deg, #102234, #06101c); }
 
-    /* machine silhouette art */
-    .ms-body {
-      border-radius: 8px 8px 4px 4px;
-      border: 1.5px solid;
-      position: relative; overflow: hidden;
+    /* high-contrast corner badge — readable on light or dark cards */
+    .equip-badge {
+      position: absolute; top: .7rem; right: .7rem; z-index: 3;
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .3rem .65rem; border-radius: .5rem;
+      font-size: .68rem; font-weight: 800; letter-spacing: .06em;
+      text-transform: uppercase; color: #fff;
+      background: rgba(6,14,26,.8);
+      border: 1px solid rgba(255,255,255,.24);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      box-shadow: 0 4px 16px rgba(0,0,0,.45);
     }
-    .ms-cooler { width: 72px; height: 145px; background: linear-gradient(180deg,#1e3a5f,#0c1f35); border-color: rgba(56,189,248,.55); box-shadow: 0 0 24px rgba(56,189,248,.2),inset 0 0 20px rgba(56,189,248,.05); animation: ai-glow 3s ease-in-out infinite; }
-    .ms-combo  { width: 105px; height: 155px; background: linear-gradient(180deg,#1e2d3d,#0c1625); border-color: rgba(148,163,184,.4); }
-    .ms-market-k { width: 46px; height: 140px; background: linear-gradient(180deg,#1e1040,#100828); border-color: rgba(167,139,250,.55); box-shadow: 0 0 28px rgba(167,139,250,.28); }
-    .ms-market-s { width: 90px; height: 110px; background: linear-gradient(180deg,#120c30,#08061a); border-color: rgba(139,92,246,.35); margin-left: 5px; align-self: flex-end; }
-    .ms-fresh  { width: 78px; height: 148px; background: linear-gradient(180deg,#0a2e1a,#051408); border-color: rgba(52,211,153,.55); box-shadow: 0 0 28px rgba(52,211,153,.25); }
-    .ms-volume { width: 130px; height: 155px; background: linear-gradient(180deg,#1a1608,#0c0e04); border-color: rgba(251,191,36,.45); box-shadow: 0 0 20px rgba(251,191,36,.1); animation: ai-glow-v 3.5s ease-in-out infinite; }
-    .ms-outdoor{ width: 90px; height: 150px; background: linear-gradient(180deg,#1a1008,#0c0d04); border-color: rgba(134,239,172,.4); box-shadow: 0 0 18px rgba(134,239,172,.12); }
-
-    .ms-screen {
-      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-      border-radius: 4px; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 2px;
-    }
-    .ms-screen i { font-size: .9rem; }
-    .ms-screen .ms-st { font-size: .3rem; letter-spacing: .06em; opacity: .55; }
-
-    .ms-grid { position: absolute; left: 4px; right: 4px; bottom: 20px; display: flex; flex-direction: column; gap: 2px; }
-    .ms-row  { display: grid; gap: 2px; }
-    .ms-dot  { height: 10px; border-radius: 2px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); }
-    .ms-dot.c { background: rgba(56,189,248,.42); border-color: rgba(56,189,248,.62); }
-    .ms-dot.g { background: rgba(52,211,153,.42); border-color: rgba(52,211,153,.62); }
-    .ms-dot.y { background: rgba(251,191,36,.35); border-color: rgba(251,191,36,.55); }
-    .ms-dot.o { background: rgba(234,88,12,.35);  border-color: rgba(234,88,12,.55); }
-    .ms-dot.p { background: rgba(167,139,250,.42);border-color: rgba(167,139,250,.62); }
-
-    .ms-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 16px; background: rgba(0,0,0,.2); border-top: 1px solid rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center; gap: 3px; }
-    .ms-pdot { width: 5px; height: 5px; border-radius: 50%; }
-
-    /* outdoor canopy */
-    .ms-canopy { position: absolute; top: -8px; left: -8px; right: -8px; height: 12px; background: rgba(134,239,172,.2); border: 1px solid rgba(134,239,172,.3); border-radius: 3px 3px 0 0; }
-    /* volume dual door divider */
-    .ms-divider { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: rgba(0,0,0,.3); }
-
-    /* AI glow pulse animations */
-    @keyframes ai-glow {
-      0%, 100% { box-shadow: 0 0 24px rgba(56,189,248,.2), inset 0 0 20px rgba(56,189,248,.05); }
-      50%       { box-shadow: 0 0 44px rgba(56,189,248,.48), inset 0 0 32px rgba(56,189,248,.14); }
-    }
-    @keyframes ai-glow-v {
-      0%, 100% { box-shadow: 0 0 20px rgba(251,191,36,.12); }
-      50%       { box-shadow: 0 0 40px rgba(251,191,36,.32); }
-    }
+    .equip-badge i { font-size: .82rem; line-height: 1; }
 
     /* equip card body */
     .equip-body { padding: 1.4rem 1.4rem 1rem; flex: 1; display: flex; flex-direction: column; }
@@ -398,6 +279,7 @@
     .badge-fresh   { background: rgba(52,211,153,.12);  color: #065f46; }
     .badge-volume  { background: rgba(251,191,36,.12);  color: #92400e; }
     .badge-outdoor { background: rgba(134,239,172,.12); color: #14532d; }
+    .badge-frozen  { background: rgba(56,189,248,.14);  color: #075985; }
 
     .equip-name { font-size: 1.05rem; font-weight: 800; margin-bottom: .3rem; letter-spacing: -.01em; }
     .equip-tagline { color: var(--pm-muted); font-size: .82rem; line-height: 1.5; margin-bottom: 1rem; }
@@ -501,8 +383,6 @@
 
     @media (max-width: 767px) {
       .hero { padding: 3.5rem 0 2rem; min-height: auto; }
-      .machines-visual { margin-top: 2.5rem; transform: scale(.85); transform-origin: center top; }
-      .float-tag { display: none; }
       .step-arr { display: none; }
       .pros-cons { grid-template-columns: 1fr; }
     }
@@ -514,9 +394,8 @@
 <nav class="site-nav">
   <div class="container">
     <div class="d-flex align-items-center justify-content-between">
-      <a href="/" class="nav-brand">
-        <img src="/static/images/primeMM_Logo.png?v=2" alt="Prime Micro Markets" height="48" style="display:block;flex-shrink:0;">
-        <span class="nav-brand-text">Prime Micro Markets</span>
+      <a href="/" class="nav-brand" aria-label="Prime Micro Markets — home">
+        <img src="/static/images/primeMM_Logo.png?v=2" alt="Prime Micro Markets" class="nav-logo">
       </a>
       <div class="d-none d-md-flex align-items-center gap-1">
         <a href="#features"   class="nav-link-pub">Features</a>
@@ -559,12 +438,13 @@
   <div class="container">
 <div class="row align-items-center gy-5">
       <div class="col-lg-6">
+        <div class="hero-brand">Prime Micro <span>Markets</span></div>
         <div class="hero-eyebrow"><i class="bi bi-cpu-fill"></i> AI-Powered Smart Vending</div>
-        <h1>Smart Coolers for<br><em>Modern Workplaces</em></h1>
+        <h1>Smart Vending for<br><em>Modern Workplaces</em></h1>
         <p class="hero-sub">
-          Premium AI smart coolers and micro markets placed at your location — completely free.
-          Your team gets 24/7 access to fresh snacks and beverages. You get a better workplace benefit
-          with zero effort.
+          Premium vending services — AI-powered smart coolers and micro markets — placed at your location,
+          completely free. Your team gets 24/7 access to fresh snacks and beverages. You get a better
+          workplace benefit with zero effort.
         </p>
         <div class="d-flex flex-wrap gap-3">
           <a href="#contact" class="btn-hero-p">
@@ -586,6 +466,7 @@
       <div class="col-lg-6 d-flex align-items-center justify-content-center">
         <div style="position:relative;border-radius:1.25rem;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.65);max-width:520px;width:100%;">
           <img src="/static/images/fresh_market_multiple_units.png"
+               fetchpriority="high" decoding="async"
                alt="Prime Micro Markets Fresh Market Setup"
                style="width:100%;height:auto;display:block;">
           <div style="position:absolute;top:.875rem;left:.875rem;background:rgba(56,189,248,.18);border:1px solid rgba(56,189,248,.4);border-radius:.5rem;padding:.3rem .8rem;font-size:.72rem;font-weight:700;color:#7dd3fc;letter-spacing:.05em;display:flex;align-items:center;gap:.35rem;backdrop-filter:blur(4px);"><i class="bi bi-cpu-fill"></i> AI Vision Stocked</div>
@@ -684,6 +565,7 @@
       <button class="filter-btn" data-filter="compact">Compact Spaces</button>
       <button class="filter-btn" data-filter="highvolume">High Volume</button>
       <button class="filter-btn" data-filter="freshfood">Fresh Food</button>
+      <button class="filter-btn" data-filter="frozen">Frozen</button>
       <button class="filter-btn" data-filter="outdoor">Outdoor</button>
     </div>
 
@@ -693,24 +575,25 @@
       <div class="col-md-6 col-xl-4 equip-item" data-tags="all compact">
         <div class="equip-card">
           <div class="equip-visual ev-cooler" style="padding:0;">
-            <img src="/static/images/single_unit.png"
+            <img src="/static/images/smart_cooler_single.jpg"
+                 loading="lazy" decoding="async"
                  alt="Single-Door AI Smart Cooler"
-                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;">
-            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(56,189,248,.18);border:1px solid rgba(56,189,248,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#7dd3fc;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-eye-fill"></i>AI VISION</div>
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center;">
+            <div class="equip-badge"><i class="bi bi-eye-fill" style="color:#38bdf8"></i>AI Vision</div>
           </div>
           <div class="equip-body">
             <span class="equip-type-badge badge-cooler">Smart AI Cooler</span>
             <div class="equip-name">Single-Door AI Smart Cooler</div>
             <div class="equip-tagline">The most popular choice — space-efficient, AI-stocked, and always chilled.</div>
             <div class="specs-row">
-              <div class="spec-cell"><div class="spec-val">23″ × 26″</div><div class="spec-key">W × D</div></div>
-              <div class="spec-cell"><div class="spec-val">71″</div><div class="spec-key">Height</div></div>
+              <div class="spec-cell"><div class="spec-val">23″ × 30″</div><div class="spec-key">W × D</div></div>
+              <div class="spec-cell"><div class="spec-val">76″</div><div class="spec-key">Height</div></div>
               <div class="spec-cell"><div class="spec-val">~250</div><div class="spec-key">Items</div></div>
             </div>
             <div class="specs-row">
-              <div class="spec-cell"><div class="spec-val">34–50°F</div><div class="spec-key">Temp Range</div></div>
-              <div class="spec-cell"><div class="spec-val">21.5″</div><div class="spec-key">Touchscreen</div></div>
-              <div class="spec-cell"><div class="spec-val">120V</div><div class="spec-key">Power</div></div>
+              <div class="spec-cell"><div class="spec-val">33–50°F</div><div class="spec-key">Temp Range</div></div>
+              <div class="spec-cell"><div class="spec-val">15.5 ft³</div><div class="spec-key">Capacity</div></div>
+              <div class="spec-cell"><div class="spec-val">110V</div><div class="spec-key">Power</div></div>
             </div>
             <div class="best-for">
               <div class="best-for-label">Best For</div>
@@ -725,18 +608,18 @@
               <div class="pc-col pc-pro">
                 <h6>Strengths</h6>
                 <ul class="pc-list">
-                  <li><i class="bi bi-plus-circle-fill"></i>Minimal floor footprint</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>AI video recognition stocking</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Quiet, energy-efficient operation</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Premium, modern appearance</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Footprint under 23″ × 30″</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Dual-camera AI checkout (~99%)</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Pure-air cooling, no coils</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Standard 110V outlet — no rewiring</li>
                 </ul>
               </div>
               <div class="pc-col pc-con">
                 <h6>Considerations</h6>
                 <ul class="pc-list">
                   <li><i class="bi bi-dash-circle-fill"></i>Best for beverages &amp; small snacks</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>Requires Wi-Fi connectivity</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>Lower capacity than wide units</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Lower capacity than multi-door units</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>~220 lb — needs solid flooring</li>
                 </ul>
               </div>
             </div>
@@ -751,46 +634,12 @@
       <!-- ── CARD 2: Combo Snack & Drink ── -->
       <div class="col-md-6 col-xl-4 equip-item" data-tags="all highvolume">
         <div class="equip-card">
-          <div class="equip-visual ev-combo">
-            <div class="ms-body ms-combo" style="position:relative;">
-              <div style="position:absolute;top:8px;left:6px;right:6px;height:16px;background:rgba(255,255,255,.04);border-radius:3px;display:flex;align-items:center;justify-content:center;">
-                <span style="font-size:.32rem;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;">Snack Selections</span>
-              </div>
-              <div style="position:absolute;top:28px;left:5px;right:5px;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;">
-                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.35);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(251,191,36,.25);"></div>
-                <div style="height:9px;border-radius:2px;background:rgba(255,255,255,.07);"></div>
-              </div>
-              <div style="position:absolute;top:89px;left:4px;right:4px;height:1px;background:rgba(255,255,255,.08);"></div>
-              <div style="position:absolute;top:95px;left:5px;font-size:.3rem;color:rgba(255,255,255,.25);letter-spacing:.07em;text-transform:uppercase;">Beverages</div>
-              <div style="position:absolute;top:105px;left:5px;right:5px;display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
-                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.25);"></div>
-                <div style="height:26px;border-radius:3px;background:rgba(13,148,136,.2);border:1px solid rgba(13,148,136,.3);"></div>
-                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                <div style="height:26px;border-radius:3px;background:rgba(13,148,136,.15);border:1px solid rgba(13,148,136,.25);"></div>
-                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                <div style="height:26px;border-radius:3px;background:rgba(56,189,248,.15);"></div>
-                <div style="height:26px;border-radius:3px;background:rgba(13,148,136,.2);border:1px solid rgba(13,148,136,.3);"></div>
-              </div>
-              <div class="ms-bottom" style="bottom:0;left:0;right:0;height:16px;position:absolute;">
-                <div class="ms-pdot" style="background:#60a5fa;width:5px;height:5px;border-radius:50%;"></div>
-                <div class="ms-pdot" style="background:#34d399;width:5px;height:5px;border-radius:50%;"></div>
-              </div>
-            </div>
-            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(148,163,184,.14);border:1px solid rgba(148,163,184,.35);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-grid-3x3-gap"></i>50 SELECTIONS</div>
+          <div class="equip-visual ev-combo" style="padding:0;">
+            <img src="/static/images/combo_vending.jpg"
+                 loading="lazy" decoding="async"
+                 alt="Combination Snack &amp; Drink Vending Machine"
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center;">
+            <div class="equip-badge"><i class="bi bi-grid-3x3-gap" style="color:#cbd5e1"></i>~45 Selections</div>
           </div>
           <div class="equip-body">
             <span class="equip-type-badge badge-combo">Combo Machine</span>
@@ -799,11 +648,11 @@
             <div class="specs-row">
               <div class="spec-cell"><div class="spec-val">39″ × 35″</div><div class="spec-key">W × D</div></div>
               <div class="spec-cell"><div class="spec-val">72″</div><div class="spec-key">Height</div></div>
-              <div class="spec-cell"><div class="spec-val">~450</div><div class="spec-key">Items</div></div>
+              <div class="spec-cell"><div class="spec-val">~500</div><div class="spec-key">Items</div></div>
             </div>
             <div class="specs-row">
-              <div class="spec-cell"><div class="spec-val">Ambient</div><div class="spec-key">Temp</div></div>
-              <div class="spec-cell"><div class="spec-val">50 slots</div><div class="spec-key">Selections</div></div>
+              <div class="spec-cell"><div class="spec-val">Ambient + Cold</div><div class="spec-key">Temp</div></div>
+              <div class="spec-cell"><div class="spec-val">~45</div><div class="spec-key">Selections</div></div>
               <div class="spec-cell"><div class="spec-val">120V</div><div class="spec-key">Power</div></div>
             </div>
             <div class="best-for">
@@ -819,18 +668,18 @@
               <div class="pc-col pc-pro">
                 <h6>Strengths</h6>
                 <ul class="pc-list">
-                  <li><i class="bi bi-plus-circle-fill"></i>Maximum product variety</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Proven, reliable mechanics</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Handles heavy daily use</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>~45 selections, snacks + cold drinks</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Guaranteed-delivery sensor (auto-refund)</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Proven mechanics, handles heavy use</li>
                   <li><i class="bi bi-plus-circle-fill"></i>Single machine, full service</li>
                 </ul>
               </div>
               <div class="pc-col pc-con">
                 <h6>Considerations</h6>
                 <ul class="pc-list">
-                  <li><i class="bi bi-dash-circle-fill"></i>Larger floor footprint</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>Traditional coil dispensing</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>Less premium aesthetic</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>~39″ wide footprint, ~700 lb</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Coil/helix dispensing (not grab-&-go)</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Less premium than smart coolers</li>
                 </ul>
               </div>
             </div>
@@ -847,23 +696,24 @@
         <div class="equip-card">
           <div class="equip-visual ev-market" style="padding:0;">
             <img src="/static/images/fresh_market_multiple_units.png"
+                 loading="lazy" decoding="async"
                  alt="Micro Market Setup"
                  style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;">
-            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#c4b5fd;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-shop"></i>OPEN MARKET</div>
+            <div class="equip-badge"><i class="bi bi-shop" style="color:#a78bfa"></i>Open Market</div>
           </div>
           <div class="equip-body">
             <span class="equip-type-badge badge-market">Micro Market</span>
             <div class="equip-name">Micro Market Kiosk Setup</div>
             <div class="equip-tagline">A café-like open-shelf experience with self-checkout — the ultimate breakroom upgrade.</div>
             <div class="specs-row">
-              <div class="spec-cell"><div class="spec-val">10–20 ft²</div><div class="spec-key">Floor Space</div></div>
-              <div class="spec-cell"><div class="spec-val">Kiosk 54″</div><div class="spec-key">Kiosk Height</div></div>
+              <div class="spec-cell"><div class="spec-val">10–25 ft²</div><div class="spec-key">Floor Space</div></div>
+              <div class="spec-cell"><div class="spec-val">22″ Kiosk</div><div class="spec-key">Self-Checkout</div></div>
               <div class="spec-cell"><div class="spec-val">500+</div><div class="spec-key">Items</div></div>
             </div>
             <div class="specs-row">
-              <div class="spec-cell"><div class="spec-val">Mixed</div><div class="spec-key">Temp Zones</div></div>
+              <div class="spec-cell"><div class="spec-val">Amb/Cold/Frozen</div><div class="spec-key">Temp Zones</div></div>
               <div class="spec-cell"><div class="spec-val">Unlimited</div><div class="spec-key">Selections</div></div>
-              <div class="spec-cell"><div class="spec-val">Camera</div><div class="spec-key">Checkout</div></div>
+              <div class="spec-cell"><div class="spec-val">Video</div><div class="spec-key">Security</div></div>
             </div>
             <div class="best-for">
               <div class="best-for-label">Best For</div>
@@ -878,8 +728,8 @@
                 <h6>Strengths</h6>
                 <ul class="pc-list">
                   <li><i class="bi bi-plus-circle-fill"></i>Widest product variety possible</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Fresh food &amp; hot items capable</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Premium café-like experience</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Fresh, frozen &amp; ambient zones</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Self-checkout kiosk + video security</li>
                   <li><i class="bi bi-plus-circle-fill"></i>Highest revenue potential</li>
                 </ul>
               </div>
@@ -903,48 +753,25 @@
       <!-- ── CARD 4: Fresh Food Cooler ── -->
       <div class="col-md-6 col-xl-4 equip-item" data-tags="all freshfood">
         <div class="equip-card">
-          <div class="equip-visual ev-fresh">
-            <div class="ms-body ms-fresh" style="position:relative;">
-              <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);width:60px;height:42px;background:linear-gradient(180deg,#052e16,#031a0d);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(52,211,153,.2);">
-                <i class="bi bi-egg-fried" style="font-size:.9rem;color:#6ee7b7;"></i>
-                <span style="font-size:.28rem;color:rgba(255,255,255,.4);letter-spacing:.05em;">FRESH FOOD</span>
-              </div>
-              <div style="position:absolute;top:58px;left:5px;right:5px;display:flex;flex-direction:column;gap:2px;">
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;">
-                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.2);border:1px solid rgba(52,211,153,.3);"></div>
-                  <div style="height:14px;border-radius:2px;background:rgba(134,239,172,.15);border:1px solid rgba(134,239,172,.25);"></div>
-                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.2);border:1px solid rgba(52,211,153,.3);"></div>
-                </div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;">
-                  <div style="height:14px;border-radius:2px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.25);"></div>
-                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.15);"></div>
-                  <div style="height:14px;border-radius:2px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.25);"></div>
-                </div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;">
-                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.1);"></div>
-                  <div style="height:14px;border-radius:2px;background:rgba(134,239,172,.2);border:1px solid rgba(134,239,172,.3);"></div>
-                  <div style="height:14px;border-radius:2px;background:rgba(52,211,153,.1);"></div>
-                </div>
-              </div>
-              <div class="ms-bottom" style="position:absolute;bottom:0;left:0;right:0;height:16px;background:rgba(0,0,0,.3);border-top:1px solid rgba(52,211,153,.1);display:flex;align-items:center;justify-content:center;gap:3px;">
-                <div style="width:5px;height:5px;border-radius:50%;background:#34d399;"></div>
-                <div style="width:5px;height:5px;border-radius:50%;background:#6ee7b7;"></div>
-              </div>
-            </div>
-            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(52,211,153,.18);border:1px solid rgba(52,211,153,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#6ee7b7;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-thermometer-low"></i>34–38°F</div>
+          <div class="equip-visual ev-fresh" style="padding:0;">
+            <img src="/static/images/fresh_food_market.jpg"
+                 loading="lazy" decoding="async"
+                 alt="Refrigerated Fresh Food Cooler"
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center;">
+            <div class="equip-badge"><i class="bi bi-thermometer-low" style="color:#34d399"></i>34–41°F</div>
           </div>
           <div class="equip-body">
             <span class="equip-type-badge badge-fresh">Fresh Food</span>
             <div class="equip-name">Refrigerated Fresh Food Cooler</div>
             <div class="equip-tagline">Sandwiches, salads, and meals at full refrigeration — a real lunch alternative.</div>
             <div class="specs-row">
-              <div class="spec-cell"><div class="spec-val">29″ × 29″</div><div class="spec-key">W × D</div></div>
+              <div class="spec-cell"><div class="spec-val">39″ × 35″</div><div class="spec-key">W × D</div></div>
               <div class="spec-cell"><div class="spec-val">72″</div><div class="spec-key">Height</div></div>
-              <div class="spec-cell"><div class="spec-val">~180</div><div class="spec-key">Items</div></div>
+              <div class="spec-cell"><div class="spec-val">~200</div><div class="spec-key">Items</div></div>
             </div>
             <div class="specs-row">
-              <div class="spec-cell"><div class="spec-val">34–38°F</div><div class="spec-key">Temp</div></div>
-              <div class="spec-cell"><div class="spec-val">30 slots</div><div class="spec-key">Selections</div></div>
+              <div class="spec-cell"><div class="spec-val">34–41°F</div><div class="spec-key">Temp</div></div>
+              <div class="spec-cell"><div class="spec-val">~35</div><div class="spec-key">Selections</div></div>
               <div class="spec-cell"><div class="spec-val">120V</div><div class="spec-key">Power</div></div>
             </div>
             <div class="best-for">
@@ -961,7 +788,7 @@
                 <h6>Strengths</h6>
                 <ul class="pc-list">
                   <li><i class="bi bi-plus-circle-fill"></i>Real lunch &amp; meal option</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Healthier fresh selections</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Health-safety temp lockout (NAMA)</li>
                   <li><i class="bi bi-plus-circle-fill"></i>Higher per-sale value</li>
                   <li><i class="bi bi-plus-circle-fill"></i>Strong 24/7 demand in hospitals</li>
                 </ul>
@@ -969,9 +796,9 @@
               <div class="pc-col pc-con">
                 <h6>Considerations</h6>
                 <ul class="pc-list">
-                  <li><i class="bi bi-dash-circle-fill"></i>3–5 day product shelf life</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>More frequent restocking</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>Higher product cost per item</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Best where there's real lunch/meal demand</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Needs an uninterrupted power circuit</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Menu rotates to keep items fresh</li>
                 </ul>
               </div>
             </div>
@@ -986,93 +813,26 @@
       <!-- ── CARD 5: High-Volume Dual-Door ── -->
       <div class="col-md-6 col-xl-4 equip-item" data-tags="all highvolume">
         <div class="equip-card">
-          <div class="equip-visual ev-volume">
-            <div class="ms-body ms-volume" style="position:relative;">
-              <div class="ms-divider"></div>
-              <!-- Left door -->
-              <div style="position:absolute;top:8px;left:5px;width:54px;">
-                <div style="height:36px;background:linear-gradient(180deg,#1a1600,#0c0f00);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(251,191,36,.15);">
-                  <i class="bi bi-display" style="font-size:.7rem;color:#fbbf24;"></i>
-                  <span style="font-size:.26rem;color:rgba(255,255,255,.3);letter-spacing:.04em;">TOUCH TO PAY</span>
-                </div>
-                <div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;">
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.25);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);"></div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
-                  </div>
-                </div>
-              </div>
-              <!-- Right door mirror -->
-              <div style="position:absolute;top:8px;right:5px;width:54px;">
-                <div style="height:36px;background:linear-gradient(180deg,#1a1600,#0c0f00);border-radius:4px;border:1px solid rgba(251,191,36,.1);"></div>
-                <div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;">
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);"></div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;">
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.15);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);"></div>
-                    <div style="height:9px;border-radius:1px;background:rgba(56,189,248,.15);"></div>
-                  </div>
-                </div>
-              </div>
-              <div class="ms-bottom" style="position:absolute;bottom:0;left:0;right:0;height:16px;background:rgba(0,0,0,.35);border-top:1px solid rgba(251,191,36,.1);display:flex;align-items:center;justify-content:center;gap:3px;">
-                <div style="width:5px;height:5px;border-radius:50%;background:#fbbf24;"></div>
-                <div style="width:5px;height:5px;border-radius:50%;background:#60a5fa;"></div>
-                <div style="width:5px;height:5px;border-radius:50%;background:#34d399;"></div>
-              </div>
-            </div>
-            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#fbbf24;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-layers-fill"></i>DUAL DOOR</div>
+          <div class="equip-visual ev-volume" style="padding:0;">
+            <img src="/static/images/dual_door_cooler.jpg"
+                 loading="lazy" decoding="async"
+                 alt="High-Volume Dual-Door AI Smart Tower"
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center;">
+            <div class="equip-badge"><i class="bi bi-layers-fill" style="color:#fbbf24"></i>Dual Door</div>
           </div>
           <div class="equip-body">
             <span class="equip-type-badge badge-volume">High-Volume</span>
             <div class="equip-name">High-Volume Dual-Door AI Tower</div>
             <div class="equip-tagline">Built for peak demand — massive capacity with AI intelligence across two full doors.</div>
             <div class="specs-row">
-              <div class="spec-cell"><div class="spec-val">55″ × 33″</div><div class="spec-key">W × D</div></div>
-              <div class="spec-cell"><div class="spec-val">72″</div><div class="spec-key">Height</div></div>
-              <div class="spec-cell"><div class="spec-val">~750</div><div class="spec-key">Items</div></div>
+              <div class="spec-cell"><div class="spec-val">54″ × 28″</div><div class="spec-key">W × D</div></div>
+              <div class="spec-cell"><div class="spec-val">79″</div><div class="spec-key">Height</div></div>
+              <div class="spec-cell"><div class="spec-val">~864</div><div class="spec-key">Items</div></div>
             </div>
             <div class="specs-row">
-              <div class="spec-cell"><div class="spec-val">34–50°F</div><div class="spec-key">Temp</div></div>
-              <div class="spec-cell"><div class="spec-val">96+ slots</div><div class="spec-key">Selections</div></div>
-              <div class="spec-cell"><div class="spec-val">220V</div><div class="spec-key">Power</div></div>
+              <div class="spec-cell"><div class="spec-val">33–50°F</div><div class="spec-key">Dual-Zone</div></div>
+              <div class="spec-cell"><div class="spec-val">12 shelves</div><div class="spec-key">Adjustable</div></div>
+              <div class="spec-cell"><div class="spec-val">110V</div><div class="spec-key">Power</div></div>
             </div>
             <div class="best-for">
               <div class="best-for-label">Best For</div>
@@ -1087,18 +847,18 @@
               <div class="pc-col pc-pro">
                 <h6>Strengths</h6>
                 <ul class="pc-list">
-                  <li><i class="bi bi-plus-circle-fill"></i>Highest capacity available</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Fewer restocking visits needed</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Handles peak rush demand</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Commanding visual presence</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>~864-bottle capacity, 12 shelves</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Dual-zone temperature control</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>AI grab-&-go across two doors</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Standard 110V outlet — no rewiring</li>
                 </ul>
               </div>
               <div class="pc-col pc-con">
                 <h6>Considerations</h6>
                 <ul class="pc-list">
-                  <li><i class="bi bi-dash-circle-fill"></i>Needs 55″+ wall clearance</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>220V outlet may be required</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>Best where traffic justifies it</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Needs ~54″ clear width</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>~410 lb — needs solid flooring</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Best where daily traffic justifies size</li>
                 </ul>
               </div>
             </div>
@@ -1113,44 +873,12 @@
       <!-- ── CARD 6: Outdoor ── -->
       <div class="col-md-6 col-xl-4 equip-item" data-tags="all outdoor">
         <div class="equip-card">
-          <div class="equip-visual ev-outdoor">
-            <div style="position:relative;">
-              <div class="ms-body ms-outdoor" style="position:relative;">
-                <!-- Canopy -->
-                <div class="ms-canopy"></div>
-                <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);width:66px;height:40px;background:linear-gradient(180deg,#0a1f06,#051208);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(134,239,172,.2);">
-                  <i class="bi bi-sun-fill" style="font-size:.75rem;color:#86efac;"></i>
-                  <span style="font-size:.27rem;color:rgba(255,255,255,.35);letter-spacing:.05em;">OUTDOOR READY</span>
-                </div>
-                <div style="position:absolute;top:62px;left:5px;right:5px;display:flex;flex-direction:column;gap:2px;">
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;">
-                    <div style="height:11px;border-radius:2px;background:rgba(134,239,172,.2);border:1px solid rgba(134,239,172,.3);"></div>
-                    <div style="height:11px;border-radius:2px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                    <div style="height:11px;border-radius:2px;background:rgba(134,239,172,.15);"></div>
-                    <div style="height:11px;border-radius:2px;background:rgba(56,189,248,.15);"></div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;">
-                    <div style="height:11px;border-radius:2px;background:rgba(56,189,248,.15);"></div>
-                    <div style="height:11px;border-radius:2px;background:rgba(134,239,172,.2);border:1px solid rgba(134,239,172,.3);"></div>
-                    <div style="height:11px;border-radius:2px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                    <div style="height:11px;border-radius:2px;background:rgba(134,239,172,.15);"></div>
-                  </div>
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;">
-                    <div style="height:22px;border-radius:2px;background:rgba(134,239,172,.15);border:1px solid rgba(134,239,172,.2);"></div>
-                    <div style="height:22px;border-radius:2px;background:rgba(56,189,248,.2);border:1px solid rgba(56,189,248,.3);"></div>
-                    <div style="height:22px;border-radius:2px;background:rgba(134,239,172,.15);"></div>
-                  </div>
-                </div>
-                <!-- Anti-vandal corner indicators -->
-                <div style="position:absolute;top:4px;left:3px;width:5px;height:5px;border-left:2px solid rgba(134,239,172,.4);border-top:2px solid rgba(134,239,172,.4);"></div>
-                <div style="position:absolute;top:4px;right:3px;width:5px;height:5px;border-right:2px solid rgba(134,239,172,.4);border-top:2px solid rgba(134,239,172,.4);"></div>
-                <div class="ms-bottom" style="position:absolute;bottom:0;left:0;right:0;height:16px;background:rgba(0,0,0,.4);border-top:1px solid rgba(134,239,172,.1);display:flex;align-items:center;justify-content:center;gap:3px;">
-                  <div style="width:5px;height:5px;border-radius:50%;background:#86efac;"></div>
-                  <div style="width:5px;height:5px;border-radius:50%;background:#60a5fa;"></div>
-                </div>
-              </div>
-            </div>
-            <div style="position:absolute;top:.75rem;right:.75rem;background:rgba(134,239,172,.15);border:1px solid rgba(134,239,172,.4);border-radius:.4rem;padding:.25rem .6rem;font-size:.67rem;font-weight:700;color:#86efac;letter-spacing:.05em;display:flex;align-items:center;gap:.3rem;z-index:2;"><i class="bi bi-shield-check"></i>WEATHERPROOF</div>
+          <div class="equip-visual ev-outdoor" style="padding:0;">
+            <img src="/static/images/outdoor_combo.jpg"
+                 loading="lazy" decoding="async"
+                 alt="Outdoor Weatherproof Vending Machine"
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center;">
+            <div class="equip-badge"><i class="bi bi-shield-check" style="color:#86efac"></i>Weatherproof</div>
           </div>
           <div class="equip-body">
             <span class="equip-type-badge badge-outdoor">Outdoor</span>
@@ -1159,11 +887,11 @@
             <div class="specs-row">
               <div class="spec-cell"><div class="spec-val">39″ × 35″</div><div class="spec-key">W × D</div></div>
               <div class="spec-cell"><div class="spec-val">72″</div><div class="spec-key">Height</div></div>
-              <div class="spec-cell"><div class="spec-val">~350</div><div class="spec-key">Items</div></div>
+              <div class="spec-cell"><div class="spec-val">~376</div><div class="spec-key">Items</div></div>
             </div>
             <div class="specs-row">
               <div class="spec-cell"><div class="spec-val">All-weather</div><div class="spec-key">Rating</div></div>
-              <div class="spec-cell"><div class="spec-val">45 slots</div><div class="spec-key">Selections</div></div>
+              <div class="spec-cell"><div class="spec-val">~40</div><div class="spec-key">Selections</div></div>
               <div class="spec-cell"><div class="spec-val">120V GFCI</div><div class="spec-key">Power</div></div>
             </div>
             <div class="best-for">
@@ -1179,24 +907,84 @@
               <div class="pc-col pc-pro">
                 <h6>Strengths</h6>
                 <ul class="pc-list">
-                  <li><i class="bi bi-plus-circle-fill"></i>Operates in all weather</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Anti-vandal steel construction</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>Serves spaces with no indoor option</li>
-                  <li><i class="bi bi-plus-circle-fill"></i>UV-resistant display panel</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Outdoor-rated — no enclosure required</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Impact-resistant Lexan window</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Rain guards, anti-pry &amp; upgraded locks</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Health-safety temp sensor</li>
                 </ul>
               </div>
               <div class="pc-col pc-con">
                 <h6>Considerations</h6>
                 <ul class="pc-list">
-                  <li><i class="bi bi-dash-circle-fill"></i>Needs covered/shaded placement</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>Requires GFCI outdoor outlet</li>
-                  <li><i class="bi bi-dash-circle-fill"></i>No fresh/refrigerated items</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Requires GFCI outdoor circuit</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>~750+ lb — needs a level pad</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Shade extends compressor life in heat</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="equip-foot">
             <div class="equip-ideal"><strong>Ideal traffic:</strong> 100–400 daily</div>
+            <a href="#contact" class="btn-equip-cta">Request This</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CARD 7: Frozen Smart Freezer ── -->
+      <div class="col-md-6 col-xl-4 equip-item" data-tags="all frozen">
+        <div class="equip-card">
+          <div class="equip-visual ev-frozen" style="padding:0;">
+            <img src="/static/images/frozen_smart_freezer.jpg"
+                 loading="lazy" decoding="async"
+                 alt="AI Smart Freezer for Frozen Food &amp; Ice Cream"
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center;">
+            <div class="equip-badge"><i class="bi bi-snow2" style="color:#7dd3fc"></i>−8°F Frozen</div>
+          </div>
+          <div class="equip-body">
+            <span class="equip-type-badge badge-frozen">Smart Freezer</span>
+            <div class="equip-name">AI Smart Freezer</div>
+            <div class="equip-tagline">Ice cream, frozen meals, and novelties — true-freeze temps with AI grab-&-go checkout.</div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">28″ × 36″</div><div class="spec-key">W × D</div></div>
+              <div class="spec-cell"><div class="spec-val">80″</div><div class="spec-key">Height</div></div>
+              <div class="spec-cell"><div class="spec-val">~360</div><div class="spec-key">Items</div></div>
+            </div>
+            <div class="specs-row">
+              <div class="spec-cell"><div class="spec-val">−8 to 14°F</div><div class="spec-key">Temp Range</div></div>
+              <div class="spec-cell"><div class="spec-val">6 shelves</div><div class="spec-key">Adjustable</div></div>
+              <div class="spec-cell"><div class="spec-val">110V</div><div class="spec-key">Power</div></div>
+            </div>
+            <div class="best-for">
+              <div class="best-for-label">Best For</div>
+              <div class="venue-tags">
+                <span class="vtag">Late-Shift Facilities</span>
+                <span class="vtag">Dormitories</span>
+                <span class="vtag">Gyms &amp; Rec Centers</span>
+                <span class="vtag">Ice-Cream Demand</span>
+              </div>
+            </div>
+            <div class="pros-cons">
+              <div class="pc-col pc-pro">
+                <h6>Strengths</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-plus-circle-fill"></i>Ice cream, novelties &amp; frozen meals</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>True-freeze down to −8°F</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>AI grab-&-go checkout (~99%)</li>
+                  <li><i class="bi bi-plus-circle-fill"></i>Standard 110V outlet — no rewiring</li>
+                </ul>
+              </div>
+              <div class="pc-col pc-con">
+                <h6>Considerations</h6>
+                <ul class="pc-list">
+                  <li><i class="bi bi-dash-circle-fill"></i>Needs an uninterrupted power circuit</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>Best where frozen/ice-cream demand exists</li>
+                  <li><i class="bi bi-dash-circle-fill"></i>~280 lb — needs solid flooring</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="equip-foot">
+            <div class="equip-ideal"><strong>Ideal traffic:</strong> 75–350 daily</div>
             <a href="#contact" class="btn-equip-cta">Request This</a>
           </div>
         </div>
@@ -1258,6 +1046,7 @@
     </div>
     <div class="text-center">
       <img src="/static/images/grab_pay_goV2.png"
+           loading="lazy" decoding="async"
            alt="Smart Cooler experience: Tap to Pay, Open and Grab, Close Door, All Set"
            style="max-width:100%;height:auto;border-radius:1rem;box-shadow:0 12px 48px rgba(0,0,0,.1);">
     </div>
@@ -1277,7 +1066,7 @@
     <div class="text-center mb-5">
       <div class="sec-eyebrow">Ideal Locations</div>
       <h2 class="sec-title">Perfect for any<br>high-traffic venue</h2>
-      <p class="sec-sub">If your location sees steady foot traffic, a smart cooler is a natural — and free — upgrade.</p>
+      <p class="sec-sub">If your location sees steady foot traffic, it's ready for premium vending service — an AI-powered smart cooler or micro market, fully installed, stocked, and serviced at zero cost to you.</p>
     </div>
     <div class="row g-3">
       <div class="col-6 col-md-4 col-lg-2">
@@ -1391,18 +1180,30 @@
           <p class="sec-sub">Tell us about your location. We'll follow up within 24 hours to talk through the best fit.</p>
         </div>
 
+        <div id="contact-form-result">
         {% if contact_success %}
-        <div class="success-block mb-4">
-          <i class="bi bi-check-circle-fill text-success fs-3 mb-2 d-block"></i>
-          <h5 class="fw-bold text-success mb-1">Request Received!</h5>
-          <p class="text-success mb-0" style="font-size:.9rem;">
-            Thank you! A member of our team will be in touch within 24 business hours.
-          </p>
-        </div>
+          <div class="success-block mb-4" role="status">
+            <i class="bi bi-check-circle-fill text-success fs-3 mb-2 d-block"></i>
+            <h5 class="fw-bold text-success mb-1">Request Received!</h5>
+            <p class="text-success mb-0" style="font-size:.9rem;">
+              Thank you! A member of our team will be in touch within 24 business hours.
+            </p>
+          </div>
+        {% elif contact_error %}
+          <div class="alert alert-danger mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            We couldn't submit your request just now. Please email us directly at
+            <a href="mailto:primemicromarkets@gmail.com" class="fw-semibold">primemicromarkets@gmail.com</a>.
+          </div>
         {% endif %}
+        </div>
 
         <div class="contact-card">
-          <form method="POST" action="/contact">
+          <form method="POST" action="/contact"
+                hx-post="/contact"
+                hx-target="#contact-form-result"
+                hx-swap="innerHTML scroll:#contact-form-result:top"
+                hx-disabled-elt="this">
             <div class="row g-3">
               <div class="col-sm-6">
                 <label class="form-label" for="first_name">First Name <span class="text-danger">*</span></label>
@@ -1509,7 +1310,7 @@
     </div>
     <hr class="footer-divider">
     <div class="d-flex justify-content-between align-items-center">
-      <span style="font-size:.7rem;color:rgba(255,255,255,.2);">SDVOB · Panama City, FL · AI-Powered Micro Markets</span>
+      <span style="font-size:.7rem;color:rgba(255,255,255,.2);">SDVOB · Panama City, FL · Vending & AI-Powered Micro Markets</span>
       <a href="/login" class="nav-staff" style="display:flex;align-items:center;gap:.25rem;font-size:.68rem;">
         <i class="bi bi-lock-fill" style="font-size:.6rem;"></i>Staff
       </a>

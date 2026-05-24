@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 from collections import defaultdict
 from datetime import date as date_type, datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -56,6 +59,7 @@ def _pending_escalations_count(db: Session) -> int:
     try:
         return len(json.loads(row.value))
     except Exception:
+        logger.warning("Failed to parse chatbot_escalation_pending JSON")
         return 0
 
 
@@ -66,6 +70,7 @@ def _get_escalations(db: Session) -> list:
     try:
         return json.loads(row.value)
     except Exception:
+        logger.warning("Failed to parse chatbot_escalation_pending JSON")
         return []
 
 

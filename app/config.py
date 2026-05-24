@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # AI / Lead generation
     anthropic_api_key: str = ""
     tavily_api_key: str = ""
+    # Firecrawl — structured web scraping for price comparison & equipment images.
+    # When unset, scrapers fall back to BeautifulSoup HTML parsing.
+    firecrawl_api_key: str = ""
     gmail_user: str = ""
     gmail_app_password: str = ""
     calendly_url: str = ""

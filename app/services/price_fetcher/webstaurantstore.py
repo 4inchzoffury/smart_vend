@@ -128,6 +128,21 @@ def search_products(
     account_email: str | None = None,
     max_results: int = 6,
 ) -> list[PriceResult]:
+    # Firecrawl-first: resilient structured extraction. Falls through to the
+    # BeautifulSoup path below if it yields nothing.
+    from app.services.price_fetcher.firecrawl_extract import fetch_via_firecrawl
+
+    fc = fetch_via_firecrawl(
+        f"{_SEARCH_URL}?term={query}&type=product",
+        query,
+        "webstaurantstore",
+        base_url=_BASE_URL,
+        max_results=max_results,
+        notes="B2B food service pricing",
+    )
+    if fc:
+        return fc
+
     try:
         with httpx.Client(timeout=20, follow_redirects=True, verify=False) as client:
             r = client.get(
