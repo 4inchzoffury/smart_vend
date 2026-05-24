@@ -79,7 +79,7 @@ def build_chatbot_system_prompt(db: Session, include_tools: bool = True) -> str:
 
     base = (
         f"You are a helpful customer service assistant for Prime Micro Markets, "
-        f"a Service-Disabled Veteran-Owned smart cooler vending company serving "
+        f"a veteran-owned smart cooler vending company serving "
         f"Bay County, FL (Panama City area).\n\n"
         f"{settings.company_blurb}\n\n"
         f"You help answer questions from potential and existing host location partners.\n\n"
