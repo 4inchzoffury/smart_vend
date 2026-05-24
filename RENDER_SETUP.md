@@ -62,8 +62,9 @@ The deployable blueprint (`render.yaml`) is already on `main`.
 
 1. Render provisions Postgres, then builds the web service:
    - **build:** `pip install -r requirements.txt`
-   - **preDeploy:** `alembic upgrade head` — builds the schema on the empty Postgres and stamps
-     `alembic_version` (so this stays a no-op on later deploys).
+   - **preDeploy:** `python scripts/init_db.py` — on an empty DB it builds the full schema via
+     `create_all` and stamps Alembic at head; on later deploys it runs `alembic upgrade head`.
+     (Plain `alembic upgrade head` can't build from scratch — the initial migration is empty.)
    - **start:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 2. Open the service **Logs** and confirm it boots and the health check on `/` passes.
 3. Note the public URL: **`https://smart-vend.onrender.com`** (your exact subdomain may differ).

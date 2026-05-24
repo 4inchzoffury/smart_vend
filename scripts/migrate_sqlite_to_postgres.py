@@ -1,9 +1,9 @@
 """One-time data migration: copy all rows from the local SQLite DB into Postgres.
 
 Phase 2 of RENDER_DEPLOYMENT_PLAN.md. This copies DATA ONLY — the target schema
-must already exist. Build it first with `alembic upgrade head` against the target
-(which also stamps alembic_version, so Render's pre-deploy migration becomes a
-no-op). Tables are copied parent-first (FK-safe), Postgres identity sequences are
+must already exist, which it does after the first successful deploy (the preDeploy
+step `scripts/init_db.py` builds it). Tables are copied parent-first (FK-safe),
+Postgres identity sequences are
 then reset to MAX(pk) so the app's next INSERT can't collide with copied keys, and
 finally per-table row counts are verified source-vs-target.
 
@@ -14,13 +14,11 @@ Usage (PowerShell) — pass BOTH URLs explicitly to avoid any ambiguity:
     # 0. Make sure the Postgres driver is installed locally:
     pip install -r requirements.txt
 
-    # 1. Build the schema on the new Postgres (one time):
-    $env:DATABASE_URL = "<render EXTERNAL postgres url>"
-    alembic upgrade head
-
-    # 2. Copy the data (run in the SAME shell or a new one). Use --replace: the
-    #    deployed app auto-seeds a governance rule on first start, so the target
-    #    won't be empty, and --replace truncates-then-copies for a clean result:
+    # 1. The schema is created by the first successful deploy (preDeploy runs
+    #    scripts/init_db.py) — no manual schema step. Just confirm the deploy is
+    #    green, then copy. Use --replace: the deployed app auto-seeds a governance
+    #    rule on first start, so the target isn't empty and --replace gives a
+    #    clean truncate-then-copy:
     python scripts/migrate_sqlite_to_postgres.py `
         --source "sqlite:///C:/Users/steve/smart_vend_data/smart_vend.db" `
         --target "<render EXTERNAL postgres url>" `
