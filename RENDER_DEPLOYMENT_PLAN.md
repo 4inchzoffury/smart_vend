@@ -223,7 +223,7 @@ with a Claude Haiku fallback; see §4a. Self-hosting a model on Render was rejec
 | Item | Plan | Monthly |
 |---|---|---|
 | Web service | Starter (always-on) | ~$7 |
-| Managed Postgres | Basic/Starter (1 GB) | ~$7 |
+| Managed Postgres | Basic (256 MB) | ~$7 |
 | Public chatbot LLM | Groq free tier | $0 |
 | Persistent disk (if chosen) | per GB | +$0.25/GB |
 | Custom domain + TLS | included | $0 |

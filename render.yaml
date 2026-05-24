@@ -9,9 +9,10 @@
 
 databases:
   - name: smart-vend-db
-    # ~1 GB managed Postgres with daily backups (see plan §8). Drop to
-    # `basic-256mb` to cut cost, or raise to `basic-4gb`+ later — data migrates.
-    plan: basic-1gb
+    # Cheapest paid managed Postgres (256 MB RAM, daily backups) — ~$7/mo and
+    # ample for this tiny dataset. Raise to basic-1gb (~$20) / basic-4gb later
+    # if needed; the instance type changes in place and data is preserved.
+    plan: basic-256mb
     databaseName: smart_vend
     user: smart_vend
     region: virginia

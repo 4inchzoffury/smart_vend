@@ -28,7 +28,7 @@ The deployable blueprint (`render.yaml`) is already on `main`.
 
 1. Select the **`smart_vend`** repo. Render reads `render.yaml` and shows two resources to create:
    - **`smart-vend`** — the web service (Starter, always-on)
-   - **`smart-vend-db`** — managed Postgres (`basic-1gb`, region `virginia`)
+   - **`smart-vend-db`** — managed Postgres (`basic-256mb`, region `virginia`)
 2. Render will prompt for the env vars marked `sync: false`. Fill them per §3, then **Apply**.
 
 ---
