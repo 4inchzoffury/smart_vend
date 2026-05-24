@@ -50,8 +50,11 @@ def _mock_worksheet() -> MagicMock:
 
 
 def test_push_research_tasks_skipped_when_not_configured(db: Session) -> None:
-    # Default settings have SPREADSHEET_ID="", so push should return skipped
-    result = sheets.push_research_tasks(db)
+    # When Sheets isn't configured, push should skip. Force the unconfigured
+    # state explicitly so the test doesn't depend on ambient .env values
+    # (a local .env may set SPREADSHEET_ID, which would otherwise attempt a real call).
+    with patch.object(sheets, "_not_configured", return_value=True):
+        result = sheets.push_research_tasks(db)
     assert result["status"] == "skipped"
 
 

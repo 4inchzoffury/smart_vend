@@ -88,7 +88,7 @@ def test_research_update(client: TestClient, db: Session) -> None:
     task = _make_task(db)
     resp = client.post(
         f"/research/{task.id}",
-        data={"what": "Updated task", "priority": "low", "status": "in_progress"},
+        data={"what": "Updated task", "section": "1", "priority": "low", "status": "in_progress"},
         follow_redirects=False,
     )
     assert resp.status_code == 303

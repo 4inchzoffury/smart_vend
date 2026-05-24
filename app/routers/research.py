@@ -24,18 +24,16 @@ _DEFAULT_SECTIONS: dict[int, str] = {
     9: "Industry Knowledge to Build",
 }
 
-_sections_seeded = False
-
 
 def _ensure_sections_seeded(db: Session) -> None:
-    global _sections_seeded
-    if _sections_seeded:
-        return
+    # Seed the default sections on first run. Idempotent and checked per call:
+    # a module-level "already seeded" cache would leak across test databases and
+    # would also suppress re-seeding after a restart if the table were emptied.
+    # The COUNT is trivial against this tiny table.
     if db.query(ResearchSection).count() == 0:
         for num, name in _DEFAULT_SECTIONS.items():
             db.add(ResearchSection(id=num, name=name, sort_order=num * 10))
         db.commit()
-    _sections_seeded = True
 
 
 def _load_sections(db: Session) -> list[ResearchSection]:
@@ -73,8 +71,7 @@ _PRIORITY_LEVELS = ["high", "medium", "low"]
 
 def _status_counts(db: Session) -> dict[str, int]:
     return {
-        s: db.query(ResearchTask).filter(ResearchTask.status == s).count()
-        for s in _STATUS_CYCLE
+        s: db.query(ResearchTask).filter(ResearchTask.status == s).count() for s in _STATUS_CYCLE
     }
 
 
@@ -150,7 +147,12 @@ def research_new_form(request: Request, db: Session = Depends(get_db)) -> HTMLRe
     return templates.TemplateResponse(
         request,
         "research/_task_form.html",
-        {"task": None, "section_names": section_names, "all_tasks": all_tasks, "current_dep_ids": set()},
+        {
+            "task": None,
+            "section_names": section_names,
+            "all_tasks": all_tasks,
+            "current_dep_ids": set(),
+        },
     )
 
 
@@ -215,7 +217,12 @@ def research_edit_form(
     return templates.TemplateResponse(
         request,
         "research/_task_form.html",
-        {"task": task, "section_names": section_names, "all_tasks": all_tasks, "current_dep_ids": current_dep_ids},
+        {
+            "task": task,
+            "section_names": section_names,
+            "all_tasks": all_tasks,
+            "current_dep_ids": current_dep_ids,
+        },
     )
 
 
@@ -320,6 +327,7 @@ def research_delete(task_id: int, db: Session = Depends(get_db)) -> HTMLResponse
 
 # ── Task reordering ───────────────────────────────────────────────────────────
 
+
 class _ReorderBody(BaseModel):
     ids: list[int]
 
@@ -339,6 +347,7 @@ def research_section_reorder(
 
 
 # ── Section management ────────────────────────────────────────────────────────
+
 
 @router.post("/sections/new", response_class=HTMLResponse)
 def research_section_create(
@@ -366,9 +375,12 @@ def research_section_delete(
     task_count = db.query(ResearchTask).filter(ResearchTask.section == section_id).count()
     if task_count:
         return HTMLResponse(
-            content=f'<div class="alert alert-warning alert-dismissible m-2 py-2" role="alert">'
-                    f'Move or delete the {task_count} task(s) in this section first.'
-                    f'<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>',
+            content=(
+                f'<div class="alert alert-warning alert-dismissible m-2 py-2" role="alert">'
+                f"Move or delete the {task_count} task(s) in this section first."
+                f'<button type="button" class="btn-close" data-bs-dismiss="alert">'
+                f"</button></div>"
+            ),
             status_code=409,
         )
     db.delete(section)
