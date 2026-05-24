@@ -8,11 +8,12 @@ try:
 except ImportError:
     pass
 
-from collections.abc import AsyncGenerator  # noqa: I001 — keep truststore injection above all imports
+from collections.abc import AsyncGenerator, Awaitable, Callable  # noqa: I001 — keep truststore injection above all imports
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request, Response
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session as DBSession
 from starlette.middleware.sessions import SessionMiddleware
@@ -25,7 +26,6 @@ from app.models import settings as _settings_models  # noqa: F401 — registers 
 from app.routers import crm as crm_router
 from app.routers import financial, inventory, leads, locations, research, root, sales
 from app.routers import settings as settings_router
-from app.routers import sync
 from app.routers import auth as auth_router
 from app.routers import chatbot as chatbot_router
 from app.routers import customer_service as cs_router
@@ -51,15 +51,18 @@ _LEAD_CAPTURE_RULE_TEXT = (
 
 def _seed_governance_rules(db: DBSession) -> None:
     from app.models.cs_governance import CSGovernanceRule
+
     exists = db.query(CSGovernanceRule).filter_by(title=_LEAD_CAPTURE_RULE_TITLE).first()
     if not exists:
-        db.add(CSGovernanceRule(
-            category="escalation",
-            title=_LEAD_CAPTURE_RULE_TITLE,
-            rule_text=_LEAD_CAPTURE_RULE_TEXT,
-            is_active=True,
-            display_order=50,
-        ))
+        db.add(
+            CSGovernanceRule(
+                category="escalation",
+                title=_LEAD_CAPTURE_RULE_TITLE,
+                rule_text=_LEAD_CAPTURE_RULE_TEXT,
+                is_active=True,
+                display_order=50,
+            )
+        )
         db.commit()
 
 
@@ -90,7 +93,6 @@ app.include_router(financial.router, dependencies=_auth)
 app.include_router(locations.router, dependencies=_auth)
 app.include_router(sales.router, dependencies=_auth)
 app.include_router(inventory.router, dependencies=_auth)
-app.include_router(sync.router, dependencies=_auth)
 app.include_router(leads.router, dependencies=_auth)
 app.include_router(cs_router.router, dependencies=_auth)
 app.include_router(crm_router.router, dependencies=_auth)
@@ -100,3 +102,15 @@ app.include_router(settings_router.router, dependencies=_auth)
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key, https_only=True)
 # Trust X-Forwarded-Proto/For headers from Cloudflare Tunnel
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
+
+@app.middleware("http")
+async def redirect_www_to_apex(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """301-redirect the www subdomain to the bare apex so one canonical host is indexed."""
+    host = request.headers.get("host", "")
+    if host.startswith("www."):
+        target = request.url.replace(scheme="https", netloc=host[4:])
+        return RedirectResponse(str(target), status_code=301)
+    return await call_next(request)

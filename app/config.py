@@ -2,11 +2,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # extra="ignore" so stray/retired env vars (e.g. the removed Sheets keys) on a
+    # host or in .env don't crash startup with "extra inputs not permitted".
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     database_url: str = "sqlite:///./smart_vend.db"
-    google_sheets_creds_file: str = "./secrets/service_account.json"
-    spreadsheet_id: str = ""
     debug: bool = False
     app_title: str = "Prime Vending"
 
@@ -37,7 +39,7 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
-    session_secret_key: str = "change-me-in-production"
+    session_secret_key: str = "change-me-in-production"  # noqa: S105 — placeholder; real value from env
     # Comma-separated Gmail addresses allowed to access internal app.
     # Leave empty to allow any Google-authenticated user (not recommended for production).
     allowed_emails: str = ""

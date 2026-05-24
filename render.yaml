@@ -64,13 +64,6 @@ services:
       - key: GMAIL_APP_PASSWORD
         sync: false
 
-      # --- Google Sheets sync (Phase 3 step 3) ---
-      # Upload service_account.json as a Render Secret File mounted at this path.
-      - key: GOOGLE_SHEETS_CREDS_FILE
-        value: /etc/secrets/service_account.json
-      - key: SPREADSHEET_ID
-        sync: false
-
       # --- Optional (leave blank at creation if unused) ---
       - key: FIRECRAWL_API_KEY     # structured scraping; falls back to BeautifulSoup
         sync: false
