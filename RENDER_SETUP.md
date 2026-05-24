@@ -67,7 +67,7 @@ The deployable blueprint (`render.yaml`) is already on `main`.
      (Plain `alembic upgrade head` can't build from scratch — the initial migration is empty.)
    - **start:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 2. Open the service **Logs** and confirm it boots and the health check on `/` passes.
-3. Note the public URL: **`https://smart-vend.onrender.com`** (your exact subdomain may differ).
+3. Note the public URL: **`https://smart-vend-kj32.onrender.com`** (your exact subdomain may differ).
 
 ## 5. 🖱️ Upload the Google service-account secret file
 
@@ -86,11 +86,11 @@ its own authorized URI** (callback path is `/auth/callback`).
 
 1. Google Cloud Console → **APIs & Services** → **Credentials** → your OAuth 2.0 Client.
 2. Under **Authorized redirect URIs**, add the Render URL first:
-   - `https://smart-vend.onrender.com/auth/callback`
+   - `https://smart-vend-kj32.onrender.com/auth/callback`
 3. (After the custom domain is live, §9) also add:
    - `https://primemicromarkets.com/auth/callback`
    - `https://www.primemicromarkets.com/auth/callback`
-4. Save. Then test sign-in at `https://smart-vend.onrender.com/login`.
+4. Save. Then test sign-in at `https://smart-vend-kj32.onrender.com/login`.
 
 ---
 
@@ -120,7 +120,7 @@ the target isn't empty — use **`--replace`** for a clean one-time copy.
 
 ## 8. Verify
 
-- Public: `https://smart-vend.onrender.com/` (landing) and the chatbot widget respond.
+- Public: `https://smart-vend-kj32.onrender.com/` (landing) and the chatbot widget respond.
 - Internal: sign in at `/login`; spot-check `/dashboard`, `/leads`, `/crm` — your migrated rows appear.
 - A second deploy (push any commit to `main`) re-runs `alembic upgrade head` as a no-op and keeps data.
 
