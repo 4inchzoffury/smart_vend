@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.equipment import EquipmentUnit
     from app.models.location import Location
 
 
@@ -34,8 +35,14 @@ class MachineProForma(Base):
     supplies_monthly: Mapped[float] = mapped_column(Float, default=0.0)
     insurance_monthly: Mapped[float] = mapped_column(Float, default=0.0)
     connectivity_monthly: Mapped[float] = mapped_column(Float, default=0.0)
-    software_monthly: Mapped[float] = mapped_column(Float, default=0.0)
+    software_monthly: Mapped[float] = mapped_column(Float, default=0.0)  # flat platform / SaaS fee
     other_opex_monthly: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Per-transaction SaaS / payment-processing cost. Cantaloupe/365 et al. bill a revenue
+    # share PLUS a flat fee per swipe, so both are modeled: processing_fee_pct is a fraction
+    # of revenue (0.0595 = 5.95%), processing_fee_per_txn is a flat dollar amount per sale.
+    processing_fee_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    processing_fee_per_txn: Mapped[float] = mapped_column(Float, default=0.0)
 
     # JSON list of 12 monthly multipliers, e.g. [0.7, 0.8, ..., 1.2]; NULL = flat (all 1.0)
     seasonality_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -46,3 +53,11 @@ class MachineProForma(Base):
 
     location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id"), nullable=True)
     location: Mapped[Location | None] = relationship(back_populates="proformas")
+
+    # The catalog unit this scenario was seeded from. Costs are snapshotted into the columns
+    # above (editable, frozen), so this is a soft reference for a "Based on …" link and an
+    # optional manual re-pull — never a live binding that would retro-edit saved scenarios.
+    equipment_unit_id: Mapped[int | None] = mapped_column(
+        ForeignKey("equipment_units.id"), nullable=True
+    )
+    equipment_unit: Mapped[EquipmentUnit | None] = relationship()

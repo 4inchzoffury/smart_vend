@@ -16,10 +16,45 @@
           method="post"
           action="/financial/calculator"
           hx-get="/financial/calculate"
-          hx-trigger="input delay:500ms from:#calc-form"
+          hx-trigger="input delay:500ms from:#calc-form, load"
           hx-include="#calc-form"
           hx-target="#results-panel"
           hx-swap="innerHTML">
+
+      <!-- Start From Equipment -->
+      <div class="card mb-3">
+        <div class="card-header py-2 fw-semibold small">
+          <i class="bi bi-box-seam me-1"></i>Start From Equipment
+          <span class="badge bg-secondary ms-2 fw-normal" style="font-size:.7rem">Optional</span>
+        </div>
+        <div class="card-body pb-3">
+          <label class="form-label small d-flex align-items-center gap-1">
+            Catalog Unit
+            <i class="bi bi-info-circle text-muted"
+               data-bs-toggle="tooltip" data-bs-placement="top"
+               title="Pick a unit to prefill machine cost (best supplier price), platform fee, and processing %. Values stay editable and are saved with this scenario."></i>
+          </label>
+          <select name="equipment_unit_id" id="equipment-picker" class="form-select form-select-sm">
+            <option value="">— None (enter costs manually) —</option>
+            {% for o in equipment_options %}
+            <option value="{{ o.id }}"
+                    data-price="{{ o.price }}"
+                    data-monthly="{{ o.monthly_fee }}"
+                    data-processing="{{ o.processing_pct }}"
+                    {% if scenario and scenario.equipment_unit_id == o.id %}selected{% endif %}>
+              {{ o.label }}{% if o.price %} — ${{ "{:,}".format(o.price) }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-text" id="equip-picker-note">
+            {% if scenario and scenario.equipment_unit %}
+            Based on <a href="/equipment/{{ scenario.equipment_unit_id }}" target="_blank">{{ scenario.equipment_unit.manufacturer }} {{ scenario.equipment_unit.product_name }}</a>. Costs below are editable.
+            {% else %}
+            Selecting a unit fills in machine cost, platform fee, and processing % below.
+            {% endif %}
+          </div>
+        </div>
+      </div>
 
       <!-- Capital Costs -->
       <div class="card mb-3">
@@ -34,7 +69,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label small">Machine Cost ($)</label>
-              <input type="number" name="machine_cost" class="form-control form-control-sm" min="0" step="100"
+              <input type="number" name="machine_cost" id="machine_cost" class="form-control form-control-sm" min="0" step="100"
                      value="{{ scenario.machine_cost if scenario else 8000 }}" required>
             </div>
             <div class="col-md-4">
@@ -142,13 +177,49 @@
             </div>
             <div class="col-md-6">
               <label class="form-label small d-flex align-items-center gap-1">
-                Software / Platform ($)
+                Platform / SaaS ($)
                 <i class="bi bi-info-circle text-muted"
                    data-bs-toggle="tooltip" data-bs-placement="top"
-                   title="Monthly subscription for vending management software, remote monitoring platform, or cashless payment processing fees. Typically $20–$80/mo."></i>
+                   title="Flat monthly subscription for the vending-management / micro-market platform (e.g. Cantaloupe, 365). Per-transaction processing is entered separately below. Typically $20–$80/mo."></i>
               </label>
-              <input type="number" name="software_monthly" class="form-control form-control-sm" min="0" step="5"
+              <input type="number" name="software_monthly" id="software_monthly" class="form-control form-control-sm" min="0" step="5"
                      value="{{ scenario.software_monthly if scenario else 0 }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-Transaction SaaS / Processing -->
+      <div class="card mb-3">
+        <div class="card-header py-2 fw-semibold small">
+          Per-Transaction Processing
+          <span class="badge bg-secondary ms-2 fw-normal" style="font-size:.7rem">SaaS</span>
+        </div>
+        <div class="card-body pb-2">
+          <p class="text-muted small mb-2">
+            Payment processors and smart-market platforms bill a percentage of revenue
+            <em>plus</em> a flat fee per sale. Both scale with transaction volume.
+          </p>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small d-flex align-items-center gap-1">
+                Processing % (0–100)
+                <i class="bi bi-info-circle text-muted"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Revenue share taken per transaction by the payment processor / platform. Cantaloupe and 365 run around 5–6%. Prefilled from the selected unit's processing fee."></i>
+              </label>
+              <input type="number" name="processing_fee_pct" id="processing_fee_pct" class="form-control form-control-sm" min="0" max="100" step="0.05"
+                     value="{{ (scenario.processing_fee_pct * 100) | round(2) if scenario else 0 }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small d-flex align-items-center gap-1">
+                Flat Fee / Txn ($)
+                <i class="bi bi-info-circle text-muted"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="Fixed dollar amount charged on every transaction regardless of ticket size (e.g. $0.05–$0.15). This is what erodes margin on low-priced items."></i>
+              </label>
+              <input type="number" name="processing_fee_per_txn" class="form-control form-control-sm" min="0" step="0.01"
+                     value="{{ '%.2f' | format(scenario.processing_fee_per_txn) if scenario else 0 }}">
             </div>
           </div>
         </div>
@@ -229,6 +300,26 @@
       return el ? (parseFloat(el.value) || 1.0) : 1.0;
     });
     document.getElementById('seasonality-json-input').value = JSON.stringify(vals);
+  });
+
+  // Prefill cost inputs from the selected catalog unit (snapshot — stays editable).
+  const picker = document.getElementById('equipment-picker');
+  const note = document.getElementById('equip-picker-note');
+  picker.addEventListener('change', function () {
+    const opt = picker.options[picker.selectedIndex];
+    if (!picker.value) {
+      note.textContent = 'Selecting a unit fills in machine cost, platform fee, and processing % below.';
+      return;
+    }
+    const price = parseFloat(opt.dataset.price) || 0;
+    const monthly = parseFloat(opt.dataset.monthly) || 0;
+    const processing = parseFloat(opt.dataset.processing) || 0;
+    if (price > 0) document.getElementById('machine_cost').value = price;
+    document.getElementById('software_monthly').value = monthly;
+    document.getElementById('processing_fee_pct').value = processing;
+    note.innerHTML = 'Based on <a href="/equipment/' + picker.value +
+      '" target="_blank">' + opt.textContent.trim() + '</a>. Costs are editable.';
+    htmx.trigger(document.getElementById('calc-form'), 'input');
   });
 </script>
 {% endblock %}

@@ -50,6 +50,123 @@
   </div>
 </div>
 
+<div class="row g-3 mb-3">
+  <!-- Per-unit economics -->
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header py-2 small fw-semibold">
+        <i class="bi bi-cash-stack me-1"></i>Per-Unit Economics
+      </div>
+      <div class="card-body py-2">
+        {% set monthly_revenue = breakdown.revenue / 12 %}
+        {% set monthly_cost = (breakdown.cogs + breakdown.commission + breakdown.processing + breakdown.operating) / 12 %}
+        <table class="table table-sm mb-0 small">
+          <tbody>
+            <tr>
+              <td class="text-muted">Revenue / month</td>
+              <td class="text-end fw-semibold">${{ "%.0f" | format(monthly_revenue) }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted">All-in cost / month</td>
+              <td class="text-end">${{ "%.0f" | format(monthly_cost) }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted">Net / month</td>
+              <td class="text-end fw-semibold {% if summary.avg_monthly_net >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ "%.0f" | format(summary.avg_monthly_net) }}
+              </td>
+            </tr>
+            <tr>
+              <td class="text-muted d-flex align-items-center gap-1">
+                Contribution / transaction
+                <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
+                   title="Ticket left after the variable costs of one sale: product, commission, and payment processing. This is what each sale contributes toward fixed costs and profit."></i>
+              </td>
+              <td class="text-end {% if unit_econ.contribution_per_txn >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ "%.2f" | format(unit_econ.contribution_per_txn) }}
+                <span class="text-muted">({{ "%.0f" | format(unit_econ.contribution_margin_pct) }}%)</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="text-muted d-flex align-items-center gap-1">
+                Break-even
+                <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
+                   title="Daily transactions needed for contribution to cover fixed monthly costs (labor, supplies, insurance, connectivity, platform). Above this, the unit profits."></i>
+              </td>
+              <td class="text-end">
+                {% if unit_econ.breakeven_txns_day is not none %}
+                  <span class="fw-semibold">{{ "%.1f" | format(unit_econ.breakeven_txns_day) }}</span> txns/day
+                {% else %}
+                  <span class="text-danger">never (margin ≤ 0)</span>
+                {% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cost breakdown -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header py-2 small fw-semibold">
+        <i class="bi bi-pie-chart me-1"></i>Where Each Revenue Dollar Goes
+      </div>
+      <div class="card-body py-3">
+        <div class="cost-bar mb-2">
+          {% for seg in breakdown.segments %}
+          <div class="cost-bar__seg {{ seg.css }}" style="width: {{ '%.2f' | format(seg.width) }}%"
+               data-bs-toggle="tooltip"
+               title="{{ seg.label }}: ${{ '%.0f' | format(seg.amount) }} ({{ '%.0f' | format(seg.pct_of_revenue) }}% of revenue)"></div>
+          {% endfor %}
+        </div>
+        <div class="cost-legend">
+          {% for seg in breakdown.segments %}
+          <span><span class="cost-legend__swatch {{ seg.css }}"></span>{{ seg.label }} · {{ "%.0f" | format(seg.pct_of_revenue) }}%</span>
+          {% endfor %}
+        </div>
+        {% if not breakdown.profitable %}
+        <div class="text-danger small mt-2">
+          <i class="bi bi-exclamation-triangle me-1"></i>Annual net loss of ${{ "%.0f" | format(-breakdown.net) }} — costs exceed revenue.
+        </div>
+        {% endif %}
+        <div class="text-muted small mt-2">Annual revenue ${{ "%.0f" | format(breakdown.revenue) }}.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cumulative cash flow -->
+<div class="card mb-3">
+  <div class="card-header py-2 small fw-semibold d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-graph-up-arrow me-1"></i>Cumulative Cash Flow</span>
+    <span class="text-muted fw-normal" style="font-size:.72rem">
+      {% if cashflow.payback_month %}Investment recovered in month {{ cashflow.payback_month }}{% else %}Not recovered in year 1{% endif %}
+    </span>
+  </div>
+  <div class="card-body py-3">
+    <svg class="cashflow-chart" viewBox="0 0 {{ cashflow.width | int }} {{ cashflow.height | int }}"
+         role="img" aria-label="Cumulative cash flow over 12 months">
+      <line class="cf-zero" x1="0" y1="{{ '%.1f' | format(cashflow.zero_y) }}"
+            x2="{{ cashflow.width | int }}" y2="{{ '%.1f' | format(cashflow.zero_y) }}"></line>
+      {% if cashflow.payback_x %}
+      <line class="cf-pay" x1="{{ '%.1f' | format(cashflow.payback_x) }}" y1="0"
+            x2="{{ '%.1f' | format(cashflow.payback_x) }}" y2="{{ cashflow.height | int }}"></line>
+      {% endif %}
+      <polyline class="cf-line" points="{{ cashflow.points }}"></polyline>
+    </svg>
+    <div class="d-flex justify-content-between text-muted mt-1" style="font-size:.7rem">
+      <span>Start −${{ "%.0f" | format(summary.total_investment) }}</span>
+      <span>Month 12:
+        <span class="{% if cashflow.final_value >= 0 %}text-success{% else %}text-danger{% endif %}">
+          ${{ "%.0f" | format(cashflow.final_value) }}
+        </span>
+      </span>
+    </div>
+  </div>
+</div>
+
 <div class="table-responsive">
   <table class="table table-sm table-bordered small">
     <thead class="table-dark">
@@ -58,6 +175,7 @@
         <th class="text-end">Revenue</th>
         <th class="text-end">COGS</th>
         <th class="text-end">Gross Profit</th>
+        <th class="text-end d-none d-md-table-cell">Processing</th>
         <th class="text-end">OpEx</th>
         <th class="text-end">Net</th>
         <th class="text-end">Cumulative</th>
@@ -75,6 +193,7 @@
         <td class="text-end">${{ "%.0f" | format(row.revenue) }}</td>
         <td class="text-end">${{ "%.0f" | format(row.cogs) }}</td>
         <td class="text-end">${{ "%.0f" | format(row.gross_profit) }}</td>
+        <td class="text-end d-none d-md-table-cell text-muted">${{ "%.0f" | format(row.processing) }}</td>
         <td class="text-end">${{ "%.0f" | format(row.total_opex) }}</td>
         <td class="text-end {% if row.net >= 0 %}text-success{% else %}text-danger{% endif %}">
           ${{ "%.0f" | format(row.net) }}
@@ -91,6 +210,7 @@
         <td class="text-end">${{ "%.0f" | format(table | sum(attribute='revenue')) }}</td>
         <td class="text-end">${{ "%.0f" | format(table | sum(attribute='cogs')) }}</td>
         <td class="text-end">${{ "%.0f" | format(table | sum(attribute='gross_profit')) }}</td>
+        <td class="text-end d-none d-md-table-cell">${{ "%.0f" | format(table | sum(attribute='processing')) }}</td>
         <td class="text-end">${{ "%.0f" | format(table | sum(attribute='total_opex')) }}</td>
         <td class="text-end {% if summary.annual_net >= 0 %}text-success{% else %}text-danger{% endif %}">
           ${{ "%.0f" | format(summary.annual_net) }}
@@ -100,6 +220,13 @@
     </tfoot>
   </table>
 </div>
+
+<script>
+  // Re-init tooltips for the partial's freshly-swapped content (HTMX swap drops handlers).
+  document.querySelectorAll('#results-panel [data-bs-toggle="tooltip"], .cost-bar [data-bs-toggle="tooltip"]').forEach(function (el) {
+    if (window.bootstrap && !bootstrap.Tooltip.getInstance(el)) new bootstrap.Tooltip(el);
+  });
+</script>
 {% else %}
 <div class="text-center text-muted py-5">
   <i class="bi bi-bar-chart-line fs-1 d-block mb-2"></i>

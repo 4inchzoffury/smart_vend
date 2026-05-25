@@ -9,6 +9,12 @@
             data-bs-toggle="collapse" data-bs-target="#page-help" title="Help &amp; instructions">
       <i class="bi bi-question-circle"></i>
     </button>
+    {% if scenarios %}
+    <button id="compare-btn" class="btn btn-sm btn-outline-primary" type="button" disabled
+            onclick="compareSelected()">
+      <i class="bi bi-bar-chart-steps me-1"></i>Compare<span id="compare-count"></span>
+    </button>
+    {% endif %}
     <a href="/financial/calculator" class="btn btn-primary btn-sm">
       <i class="bi bi-plus-lg me-1"></i>New Model
     </a>
@@ -17,12 +23,12 @@
 <div class="collapse mb-3" id="page-help">
   <div class="card border-info border-opacity-25">
     <div class="card-body bg-info-subtle rounded small">
-      <strong>Financial Models</strong> — Build and compare pro-forma P&amp;L scenarios for vending locations.
+      <strong>Financial Models</strong> — Build and compare pro-forma P&amp;L scenarios for a single smart-cooler / micro-market unit.
       <ul class="mb-0 mt-1">
-        <li>Click <strong>New Model</strong> to create a scenario with machine count, revenue per machine, and cost assumptions.</li>
-        <li>Models calculate monthly/annual profit, break-even, and ROI automatically.</li>
-        <li>Save multiple scenarios to compare conservative, base, and optimistic projections side-by-side.</li>
-        <li>Click a model name to view the full pro-forma detail or edit its assumptions.</li>
+        <li>Click <strong>New Model</strong>, then optionally pick a <strong>catalog unit</strong> to prefill machine cost, platform fee, and processing % from real equipment pricing.</li>
+        <li>Enter per-transaction processing (% + flat fee per swipe) so SaaS / payment costs are modeled accurately.</li>
+        <li>Each model shows monthly/annual net, gross margin, ROI, payback, contribution per transaction, and break-even transactions per day.</li>
+        <li>Tick two or more rows and click <strong>Compare</strong> to view scenarios side by side.</li>
       </ul>
     </div>
   </div>
@@ -33,11 +39,13 @@
   <table class="table table-hover">
     <thead class="table-light">
       <tr>
+        <th style="width:1%"><input type="checkbox" class="form-check-input" id="compare-all" onclick="toggleAll(this)" title="Select all"></th>
         <th>Name</th>
         <th class="d-none d-sm-table-cell">Machine Cost</th>
         <th class="d-none d-md-table-cell">Daily Trans.</th>
         <th class="d-none d-md-table-cell">Avg Ticket</th>
         <th class="d-none d-md-table-cell">COGS%</th>
+        <th class="text-end">Net/mo</th>
         <th class="d-none d-lg-table-cell">Notes</th>
         <th class="d-none d-sm-table-cell">Updated</th>
         <th></th>
@@ -46,11 +54,14 @@
     <tbody>
       {% for s in scenarios %}
       <tr>
+        <td><input type="checkbox" class="form-check-input compare-cb" value="{{ s.id }}" onclick="updateCompareBtn()"></td>
         <td><a href="/financial/{{ s.id }}" class="fw-medium text-decoration-none">{{ s.name }}</a></td>
         <td class="d-none d-sm-table-cell">${{ "%.0f" | format(s.machine_cost) }}</td>
         <td class="d-none d-md-table-cell">{{ s.daily_transactions }}</td>
         <td class="d-none d-md-table-cell">${{ "%.2f" | format(s.avg_ticket_usd) }}</td>
         <td class="d-none d-md-table-cell">{{ "%.0f" | format(s.cogs_pct * 100) }}%</td>
+        {% set net = nets.get(s.id, 0) %}
+        <td class="text-end fw-medium {% if net >= 0 %}text-success{% else %}text-danger{% endif %}">${{ "%.0f" | format(net) }}</td>
         <td class="d-none d-lg-table-cell text-muted small">{{ s.notes or "-" }}</td>
         <td class="d-none d-sm-table-cell text-muted small">{{ s.updated_at.strftime("%b %d") if s.updated_at else "-" }}</td>
         <td class="text-end">
@@ -81,4 +92,27 @@
   No scenarios yet. <a href="/financial/calculator">Create your first model.</a>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function selectedIds() {
+    return Array.from(document.querySelectorAll('.compare-cb:checked')).map(cb => cb.value);
+  }
+  function updateCompareBtn() {
+    const ids = selectedIds();
+    const btn = document.getElementById('compare-btn');
+    if (!btn) return;
+    btn.disabled = ids.length < 2;
+    document.getElementById('compare-count').textContent = ids.length ? ' (' + ids.length + ')' : '';
+  }
+  function toggleAll(master) {
+    document.querySelectorAll('.compare-cb').forEach(cb => { cb.checked = master.checked; });
+    updateCompareBtn();
+  }
+  function compareSelected() {
+    const ids = selectedIds();
+    if (ids.length >= 2) window.location.href = '/financial/compare?ids=' + ids.join(',');
+  }
+</script>
 {% endblock %}

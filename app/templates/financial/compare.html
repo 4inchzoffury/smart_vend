@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Compare Scenarios — Prime Vending{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">Compare Scenarios</h1>
+  <a href="/financial/" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+</div>
+
+{% if columns | length < 2 %}
+<div class="alert alert-info">Select at least two scenarios on the Financial Models page to compare.</div>
+{% else %}
+{% set best_net = columns | map(attribute='summary.annual_net') | max %}
+{% set best_roi = columns | map(attribute='summary.roi_pct') | max %}
+<div class="table-responsive">
+  <table class="table table-bordered align-middle small">
+    <thead class="table-dark">
+      <tr>
+        <th style="min-width:190px">Metric</th>
+        {% for c in columns %}
+        <th class="text-end" style="min-width:130px">
+          <a href="/financial/{{ c.scenario.id }}" class="text-white text-decoration-none">{{ c.scenario.name }}</a>
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="text-muted">Based on equipment</td>
+        {% for c in columns %}
+        <td class="text-end">
+          {% if c.scenario.equipment_unit %}
+          <a href="/equipment/{{ c.scenario.equipment_unit_id }}" target="_blank" class="text-decoration-none">{{ c.scenario.equipment_unit.product_name }}</a>
+          {% else %}—{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Machine cost</td>
+        {% for c in columns %}<td class="text-end">${{ "%.0f" | format(c.scenario.machine_cost) }}</td>{% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Total investment</td>
+        {% for c in columns %}<td class="text-end">${{ "%.0f" | format(c.summary.total_investment) }}</td>{% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Daily transactions</td>
+        {% for c in columns %}<td class="text-end">{{ "%.0f" | format(c.scenario.daily_transactions) }}</td>{% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Avg ticket</td>
+        {% for c in columns %}<td class="text-end">${{ "%.2f" | format(c.scenario.avg_ticket_usd) }}</td>{% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">COGS %</td>
+        {% for c in columns %}<td class="text-end">{{ "%.0f" | format(c.scenario.cogs_pct * 100) }}%</td>{% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Commission %</td>
+        {% for c in columns %}<td class="text-end">{{ "%.0f" | format(c.scenario.commission_pct * 100) }}%</td>{% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Processing</td>
+        {% for c in columns %}
+        <td class="text-end">{{ "%.2f" | format(c.scenario.processing_fee_pct * 100) }}% + ${{ "%.2f" | format(c.scenario.processing_fee_per_txn) }}</td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Platform / SaaS / mo</td>
+        {% for c in columns %}<td class="text-end">${{ "%.0f" | format(c.scenario.software_monthly) }}</td>{% endfor %}
+      </tr>
+      <tr class="border-top border-2">
+        <td class="fw-semibold">Avg monthly net</td>
+        {% for c in columns %}
+        <td class="text-end fw-semibold {% if c.summary.avg_monthly_net >= 0 %}text-success{% else %}text-danger{% endif %}">
+          ${{ "%.0f" | format(c.summary.avg_monthly_net) }}
+        </td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td class="fw-semibold">Annual net</td>
+        {% for c in columns %}
+        <td class="text-end fw-semibold {% if c.summary.annual_net == best_net %}table-success{% endif %}">
+          ${{ "%.0f" | format(c.summary.annual_net) }}
+        </td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Gross margin</td>
+        {% for c in columns %}<td class="text-end">{{ "%.1f" | format(c.summary.gross_margin_pct) }}%</td>{% endfor %}
+      </tr>
+      <tr>
+        <td class="fw-semibold">ROI (Yr 1)</td>
+        {% for c in columns %}
+        <td class="text-end fw-semibold {% if c.summary.roi_pct == best_roi %}table-success{% endif %}">
+          {{ "%.1f" | format(c.summary.roi_pct) }}%
+        </td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Payback</td>
+        {% for c in columns %}
+        <td class="text-end">{% if c.summary.payback_months %}{{ c.summary.payback_months }} mo{% else %}N/A{% endif %}</td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Contribution / txn</td>
+        {% for c in columns %}
+        <td class="text-end">${{ "%.2f" | format(c.unit_econ.contribution_per_txn) }}</td>
+        {% endfor %}
+      </tr>
+      <tr>
+        <td class="text-muted">Break-even txns/day</td>
+        {% for c in columns %}
+        <td class="text-end">
+          {% if c.unit_econ.breakeven_txns_day is not none %}{{ "%.1f" | format(c.unit_econ.breakeven_txns_day) }}{% else %}—{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

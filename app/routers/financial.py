@@ -1,22 +1,152 @@
 import json
+from typing import Any
 
 from fastapi import APIRouter, Depends, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.equipment import EquipmentUnit
 from app.models.financial import MachineProForma
-from app.services.financial_calc import build_12month_table, calc_summary
+from app.services.financial_calc import (
+    build_12month_table,
+    calc_summary,
+    calc_unit_economics,
+    cashflow_points,
+    cost_breakdown,
+)
 from app.views import templates
 
 router = APIRouter(prefix="/financial", tags=["financial"])
 
 
+def _pct_to_fraction(value: float) -> float:
+    """Form fields take 0–100; the engine wants a fraction. >1 means a percent."""
+    return value / 100 if value > 1 else value
+
+
+def _equipment_options(db: Session) -> list[dict[str, Any]]:
+    """Active catalog units with the costs the calculator can prefill from.
+
+    price is the cheapest sourced offer (best_source) when available, else the
+    unit's denormalized price_low. processing_pct/monthly_fee feed the SaaS inputs.
+    """
+    units = (
+        db.query(EquipmentUnit)
+        .filter(EquipmentUnit.status == "active")
+        .order_by(EquipmentUnit.manufacturer, EquipmentUnit.product_name)
+        .all()
+    )
+    opts: list[dict[str, Any]] = []
+    for u in units:
+        best = u.best_source
+        price = (best.price_low if best and best.price_low else u.price_low) or 0
+        opts.append(
+            {
+                "id": u.id,
+                "label": f"{u.manufacturer} {u.product_name}",
+                "type": u.equipment_type,
+                "price": price,
+                "monthly_fee": u.monthly_fee or 0,
+                "processing_pct": u.processing_fee_pct or 0,
+            }
+        )
+    return opts
+
+
+def _build_projection(
+    *,
+    daily_transactions: float,
+    avg_ticket_usd: float,
+    cogs_pct: float,
+    commission_pct: float,
+    restock_labor_monthly: float,
+    supplies_monthly: float,
+    insurance_monthly: float,
+    other_opex_monthly: float,
+    connectivity_monthly: float,
+    software_monthly: float,
+    processing_fee_pct: float,
+    processing_fee_per_txn: float,
+    seasonality_json: str | None,
+    machine_cost: float,
+    installation_cost: float,
+    initial_inventory_cost: float,
+) -> dict[str, Any]:
+    """Build the full result context (table + every summary view) from fractional rates."""
+    table = build_12month_table(
+        daily_transactions=daily_transactions,
+        avg_ticket_usd=avg_ticket_usd,
+        cogs_pct=cogs_pct,
+        commission_pct=commission_pct,
+        restock_labor_monthly=restock_labor_monthly,
+        supplies_monthly=supplies_monthly,
+        insurance_monthly=insurance_monthly,
+        other_opex_monthly=other_opex_monthly,
+        connectivity_monthly=connectivity_monthly,
+        software_monthly=software_monthly,
+        processing_fee_pct=processing_fee_pct,
+        processing_fee_per_txn=processing_fee_per_txn,
+        seasonality_json=seasonality_json,
+    )
+    summary = calc_summary(
+        table=table,
+        machine_cost=machine_cost,
+        installation_cost=installation_cost,
+        initial_inventory_cost=initial_inventory_cost,
+    )
+    fixed_monthly_opex = (
+        restock_labor_monthly + supplies_monthly + insurance_monthly
+        + other_opex_monthly + connectivity_monthly + software_monthly
+    )
+    unit_econ = calc_unit_economics(
+        avg_ticket_usd=avg_ticket_usd,
+        cogs_pct=cogs_pct,
+        commission_pct=commission_pct,
+        processing_fee_pct=processing_fee_pct,
+        processing_fee_per_txn=processing_fee_per_txn,
+        fixed_monthly_opex=fixed_monthly_opex,
+    )
+    return {
+        "table": table,
+        "summary": summary,
+        "unit_econ": unit_econ,
+        "breakdown": cost_breakdown(table),
+        "cashflow": cashflow_points(table, summary["total_investment"]),
+    }
+
+
+def _projection_for_scenario(s: MachineProForma) -> dict[str, Any]:
+    """Build a projection from a stored scenario (rates already fractional)."""
+    return _build_projection(
+        daily_transactions=s.daily_transactions,
+        avg_ticket_usd=s.avg_ticket_usd,
+        cogs_pct=s.cogs_pct,
+        commission_pct=s.commission_pct,
+        restock_labor_monthly=s.restock_labor_monthly,
+        supplies_monthly=s.supplies_monthly,
+        insurance_monthly=s.insurance_monthly,
+        other_opex_monthly=s.other_opex_monthly,
+        connectivity_monthly=s.connectivity_monthly,
+        software_monthly=s.software_monthly,
+        processing_fee_pct=s.processing_fee_pct,
+        processing_fee_per_txn=s.processing_fee_per_txn,
+        seasonality_json=s.seasonality_json,
+        machine_cost=s.machine_cost,
+        installation_cost=s.installation_cost,
+        initial_inventory_cost=s.initial_inventory_cost,
+    )
+
+
 @router.get("/", response_class=HTMLResponse)
 def financial_index(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     scenarios = db.query(MachineProForma).order_by(MachineProForma.updated_at.desc()).all()
+    # Net/mo column on the list view — cheap to compute, saves opening each scenario.
+    nets = {s.id: _projection_for_scenario(s)["summary"]["avg_monthly_net"] for s in scenarios}
     return templates.TemplateResponse(
-        request, "financial/index.html", {"active_nav": "financial", "scenarios": scenarios}
+        request,
+        "financial/index.html",
+        {"active_nav": "financial", "scenarios": scenarios, "nets": nets},
     )
 
 
@@ -35,7 +165,12 @@ def financial_calculator(
     return templates.TemplateResponse(
         request,
         "financial/calculator.html",
-        {"active_nav": "financial", "scenario": scenario, "season_vals": season_vals},
+        {
+            "active_nav": "financial",
+            "scenario": scenario,
+            "season_vals": season_vals,
+            "equipment_options": _equipment_options(db),
+        },
     )
 
 
@@ -55,35 +190,31 @@ def financial_calculate(
     other_opex_monthly: float = 0,
     connectivity_monthly: float = 0,
     software_monthly: float = 0,
+    processing_fee_pct: float = 0,
+    processing_fee_per_txn: float = 0,
 ) -> HTMLResponse:
-    cogs = cogs_pct / 100 if cogs_pct > 1 else cogs_pct
-    comm = commission_pct / 100 if commission_pct > 1 else commission_pct
-
     season = [float(request.query_params.get(f"season_{i}", 1.0)) for i in range(12)]
     seasonality_json = json.dumps(season) if any(s != 1.0 for s in season) else None
 
-    table = build_12month_table(
+    ctx = _build_projection(
         daily_transactions=daily_transactions,
         avg_ticket_usd=avg_ticket_usd,
-        cogs_pct=cogs,
-        commission_pct=comm,
+        cogs_pct=_pct_to_fraction(cogs_pct),
+        commission_pct=_pct_to_fraction(commission_pct),
         restock_labor_monthly=restock_labor_monthly,
         supplies_monthly=supplies_monthly,
         insurance_monthly=insurance_monthly,
         other_opex_monthly=other_opex_monthly,
         connectivity_monthly=connectivity_monthly,
         software_monthly=software_monthly,
+        processing_fee_pct=_pct_to_fraction(processing_fee_pct),
+        processing_fee_per_txn=processing_fee_per_txn,
         seasonality_json=seasonality_json,
-    )
-    summary = calc_summary(
-        table=table,
         machine_cost=machine_cost,
         installation_cost=installation_cost,
         initial_inventory_cost=initial_inventory_cost,
     )
-    return templates.TemplateResponse(
-        request, "financial/_proforma_result.html", {"table": table, "summary": summary}
-    )
+    return templates.TemplateResponse(request, "financial/_proforma_result.html", ctx)
 
 
 @router.post("/calculator", response_class=HTMLResponse)
@@ -103,6 +234,9 @@ def financial_save(
     other_opex_monthly: float = Form(0),
     connectivity_monthly: float = Form(0),
     software_monthly: float = Form(0),
+    processing_fee_pct: float = Form(0),
+    processing_fee_per_txn: float = Form(0),
+    equipment_unit_id: int | None = Form(None),
     seasonality_json: str = Form(""),
     notes: str = Form(""),
     db: Session = Depends(get_db),
@@ -120,20 +254,40 @@ def financial_save(
         initial_inventory_cost=initial_inventory_cost,
         daily_transactions=daily_transactions,
         avg_ticket_usd=avg_ticket_usd,
-        cogs_pct=cogs_pct / 100 if cogs_pct > 1 else cogs_pct,
-        commission_pct=commission_pct / 100 if commission_pct > 1 else commission_pct,
+        cogs_pct=_pct_to_fraction(cogs_pct),
+        commission_pct=_pct_to_fraction(commission_pct),
         restock_labor_monthly=restock_labor_monthly,
         supplies_monthly=supplies_monthly,
         insurance_monthly=insurance_monthly,
         other_opex_monthly=other_opex_monthly,
         connectivity_monthly=connectivity_monthly,
         software_monthly=software_monthly,
+        processing_fee_pct=_pct_to_fraction(processing_fee_pct),
+        processing_fee_per_txn=processing_fee_per_txn,
+        equipment_unit_id=equipment_unit_id or None,
         seasonality_json=stored_season,
         notes=notes or None,
     )
     db.add(scenario)
     db.commit()
     return RedirectResponse(url="/financial/", status_code=303)
+
+
+@router.get("/compare", response_class=HTMLResponse)
+def financial_compare(
+    request: Request, ids: str = "", db: Session = Depends(get_db)
+) -> HTMLResponse:
+    id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+    columns: list[dict[str, Any]] = []
+    for sid in id_list:
+        s = db.get(MachineProForma, sid)
+        if s:
+            columns.append({"scenario": s, **_projection_for_scenario(s)})
+    return templates.TemplateResponse(
+        request,
+        "financial/compare.html",
+        {"active_nav": "financial", "columns": columns},
+    )
 
 
 @router.get("/{scenario_id}", response_class=HTMLResponse)
@@ -143,30 +297,9 @@ def financial_detail(
     scenario = db.get(MachineProForma, scenario_id)
     if not scenario:
         return Response(status_code=404)
-    table = build_12month_table(
-        daily_transactions=scenario.daily_transactions,
-        avg_ticket_usd=scenario.avg_ticket_usd,
-        cogs_pct=scenario.cogs_pct,
-        commission_pct=scenario.commission_pct,
-        restock_labor_monthly=scenario.restock_labor_monthly,
-        supplies_monthly=scenario.supplies_monthly,
-        insurance_monthly=scenario.insurance_monthly,
-        other_opex_monthly=scenario.other_opex_monthly,
-        connectivity_monthly=scenario.connectivity_monthly,
-        software_monthly=scenario.software_monthly,
-        seasonality_json=scenario.seasonality_json,
-    )
-    summary = calc_summary(
-        table=table,
-        machine_cost=scenario.machine_cost,
-        installation_cost=scenario.installation_cost,
-        initial_inventory_cost=scenario.initial_inventory_cost,
-    )
-    return templates.TemplateResponse(
-        request,
-        "financial/detail.html",
-        {"active_nav": "financial", "scenario": scenario, "table": table, "summary": summary},
-    )
+    ctx = _projection_for_scenario(scenario)
+    ctx.update({"active_nav": "financial", "scenario": scenario})
+    return templates.TemplateResponse(request, "financial/detail.html", ctx)
 
 
 @router.post("/{scenario_id}/copy", response_class=HTMLResponse)
@@ -189,6 +322,9 @@ def financial_copy(scenario_id: int, db: Session = Depends(get_db)) -> HTMLRespo
         other_opex_monthly=original.other_opex_monthly,
         connectivity_monthly=original.connectivity_monthly,
         software_monthly=original.software_monthly,
+        processing_fee_pct=original.processing_fee_pct,
+        processing_fee_per_txn=original.processing_fee_per_txn,
+        equipment_unit_id=original.equipment_unit_id,
         seasonality_json=original.seasonality_json,
         notes=original.notes,
     )

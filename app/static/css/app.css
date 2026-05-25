@@ -405,6 +405,51 @@ code, pre, kbd, .font-monospace {
   background: #1e2d3d !important;
 }
 
+/* ============================================================
+   FINANCIAL MODELS — cost-breakdown bar + cash-flow chart
+   ============================================================ */
+
+/* Purple segment for the processing slice (Bootstrap has no bg-purple) */
+.bg-purple { background-color: #6f42c1 !important; }
+[data-bs-theme="dark"] .bg-purple { background-color: #8b5cf6 !important; }
+
+/* Stacked cost-breakdown bar */
+.cost-bar {
+  display: flex;
+  height: 26px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bs-tertiary-bg);
+}
+.cost-bar__seg {
+  height: 100%;
+  min-width: 2px;
+  transition: none;
+}
+.cost-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: .72rem;
+}
+.cost-legend__swatch {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+/* Inline-SVG cash-flow chart: stroke/fill follow the theme via currentColor */
+.cashflow-chart { width: 100%; height: auto; display: block; }
+.cashflow-chart .cf-line,
+.cashflow-chart .cf-zero,
+.cashflow-chart .cf-pay { vector-effect: non-scaling-stroke; }
+.cashflow-chart .cf-line  { fill: none; stroke: var(--bs-primary); stroke-width: 2; stroke-linejoin: round; }
+.cashflow-chart .cf-zero  { stroke: var(--bs-border-color); stroke-width: 1; stroke-dasharray: 3 3; }
+.cashflow-chart .cf-pay   { stroke: var(--bs-success); stroke-width: 1.5; stroke-dasharray: 2 2; }
+.cashflow-chart .cf-dot   { fill: var(--bs-primary); }
+
 /* ---- Chat bubbles (public widget + CS manager chat) ------ */
 .chat-msg {
   display: flex;
