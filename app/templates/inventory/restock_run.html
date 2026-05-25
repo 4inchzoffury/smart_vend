@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Restock Run – Product Inventory{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/inventory/">Product Inventory</a></li>
+    <li class="breadcrumb-item active">Restock Run</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 mb-1"><i class="bi bi-cart-plus me-2 text-success"></i>Restock Run</h1>
+    <p class="text-muted mb-0 small">
+      Everything below par level, grouped by the supplier that offers it cheapest.
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    {% if groups %}
+    <button class="btn btn-sm btn-outline-secondary" onclick="exportRestockCsv()">
+      <i class="bi bi-download me-1"></i>Export CSV
+    </button>
+    {% endif %}
+    <a href="/inventory/?low_stock=1" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-funnel me-1"></i>View low-stock list
+    </a>
+  </div>
+</div>
+
+{% if groups %}
+<div class="card border-0 bg-light mb-4">
+  <div class="card-body py-2 px-3 d-flex align-items-center gap-4 flex-wrap small">
+    <div><i class="bi bi-box-seam me-1 text-muted"></i><span class="text-muted">SKUs to restock:</span> <strong>{{ total_skus }}</strong></div>
+    <div><i class="bi bi-shop me-1 text-muted"></i><span class="text-muted">Suppliers:</span> <strong>{{ groups | length }}</strong></div>
+    <div><i class="bi bi-cash-stack me-1 text-muted"></i><span class="text-muted">Estimated total:</span> <strong class="text-success">${{ "%.2f"|format(grand_total) }}</strong></div>
+    <div class="text-muted"><i class="bi bi-info-circle me-1"></i>Estimates use case pricing where available; verify before ordering.</div>
+  </div>
+</div>
+
+{% for g in groups %}
+<div class="card mb-3">
+  <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+    <h6 class="mb-0"><i class="bi bi-shop me-1 text-primary"></i>{{ g.supplier_name }}</h6>
+    <span class="small">
+      {{ g.lines | length }} item{{ 's' if g.lines | length != 1 }} ·
+      <span class="text-muted">est.</span> <strong class="text-success">${{ "%.2f"|format(g.subtotal) }}</strong>
+      {% if g.has_unknown %}<span class="badge bg-warning text-dark ms-1" title="Some items have no known cost">+ unpriced</span>{% endif %}
+    </span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0 restock-table">
+        <thead class="table-light small text-muted">
+          <tr>
+            <th>Product</th>
+            <th class="d-none d-md-table-cell">Category</th>
+            <th class="text-center">On hand / par</th>
+            <th class="text-end">Need</th>
+            <th class="text-end d-none d-sm-table-cell">Buy</th>
+            <th class="text-end">Unit cost</th>
+            <th class="text-end">Est. cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ln in g.lines %}
+          {% set p = ln.product %}
+          <tr data-sku="{{ p.sku }}" data-name="{{ p.name }}" data-supplier="{{ g.supplier_name }}"
+              data-need="{{ ln.qty_needed }}"
+              data-unitcost="{{ '%.4f'|format(ln.unit_cost) if ln.unit_cost is not none else '' }}"
+              data-linecost="{{ '%.2f'|format(ln.line_cost) if ln.line_cost is not none else '' }}">
+            <td class="small">
+              <a href="/inventory/{{ p.id }}" class="fw-medium text-decoration-none">{{ p.name }}</a>
+              {% if ln.in_stock %}<span class="badge bg-success-subtle text-success-emphasis ms-1" style="font-size:.65rem">in stock</span>{% endif %}
+              <div class="text-muted font-monospace" style="font-size:.7rem">{{ p.sku }}</div>
+            </td>
+            <td class="small text-muted d-none d-md-table-cell">
+              {{ category_labels.get(p.category, p.category | replace('_',' ') | title) if p.category else '–' }}
+            </td>
+            <td class="text-center small {% if p.is_low_stock %}text-danger{% endif %}">
+              {{ p.on_hand_qty }} / {{ p.par_level }}
+            </td>
+            <td class="text-end small fw-semibold">{{ ln.qty_needed }}</td>
+            <td class="text-end small d-none d-sm-table-cell">
+              {% if ln.cases %}{{ ln.cases }} case{{ 's' if ln.cases != 1 }}{% if ln.pack %} <span class="text-muted">×{{ ln.pack }}</span>{% endif %}
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-end small">
+              {% if ln.unit_cost is not none %}${{ "%.3f"|format(ln.unit_cost) }}{% else %}<span class="text-muted">?</span>{% endif %}
+            </td>
+            <td class="text-end small fw-semibold">
+              {% if ln.line_cost is not none %}${{ "%.2f"|format(ln.line_cost) }}{% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-check2-circle fs-1 d-block mb-2 text-success"></i>
+  <h5>Everything's stocked</h5>
+  <p class="small">No active products are below their par level. Set par levels on products to see restock needs here.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function exportRestockCsv() {
+  const headers = ['Supplier', 'SKU', 'Product', 'Qty Needed', 'Unit Cost', 'Est Cost'];
+  const rows = [];
+  document.querySelectorAll('.restock-table tbody tr').forEach(function (tr) {
+    rows.push([
+      tr.dataset.supplier, tr.dataset.sku, tr.dataset.name,
+      tr.dataset.need, tr.dataset.unitcost, tr.dataset.linecost,
+    ].map(v => '"' + String(v || '').replace(/"/g, '""') + '"').join(','));
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'restock_run.csv';
+  a.click();
+}
+</script>
+{% endblock %}

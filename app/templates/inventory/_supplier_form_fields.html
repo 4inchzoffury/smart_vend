@@ -13,6 +13,13 @@
     {% endfor %}
   </select>
 </div>
+<div class="mb-2">
+  <label class="form-label small fw-semibold">Account / Member Number
+    <span class="text-muted fw-normal">(optional)</span>
+  </label>
+  <input type="text" name="account_number" class="form-control form-control-sm"
+         value="{{ s.account_number or '' if s else '' }}" placeholder="e.g. membership #, vendor account">
+</div>
 <div class="row g-2 mb-2">
   <div class="col-sm-6">
     <label class="form-label small fw-semibold">Contact Name</label>

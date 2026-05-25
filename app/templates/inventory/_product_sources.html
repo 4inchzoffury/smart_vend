@@ -1,0 +1,145 @@
+<div id="product-sources-section">
+  {% set best_id = product.best_source.id if product.best_source else 0 %}
+  {% set sell = product.sell_price %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-2">
+      <thead class="table-light">
+        <tr>
+          <th>Supplier</th>
+          <th class="text-end">Unit cost</th>
+          <th class="text-end d-none d-md-table-cell">Case</th>
+          <th class="text-end d-none d-lg-table-cell">Margin</th>
+          <th class="d-none d-sm-table-cell">Stock</th>
+          <th class="text-end"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in product.sources_for_display %}
+        {% set euc = s.effective_unit_cost %}
+        <tr class="{% if s.id == best_id %}table-success{% endif %}">
+          <td>
+            <div class="fw-semibold">
+              {% if s.supplier_url %}
+              <a href="{{ s.supplier_url }}" target="_blank" rel="noopener">{{ s.supplier.name }}<i class="bi bi-box-arrow-up-right ms-1 small"></i></a>
+              {% else %}{{ s.supplier.name }}{% endif %}
+              {% if s.id == best_id %}<span class="badge bg-success ms-1">Best cost</span>{% endif %}
+              {% if s.is_preferred %}<span class="badge bg-warning text-dark ms-1"><i class="bi bi-star-fill"></i> Preferred</span>{% endif %}
+            </div>
+            <div class="small text-muted">
+              {% if s.origin == 'comparator' %}<i class="bi bi-bar-chart-line me-1"></i>from comparator{% elif s.origin == 'ai_sourcing' %}<i class="bi bi-robot me-1"></i>AI sourced{% else %}manual entry{% endif %}
+              {% if s.unit_size %} · {{ s.unit_size }}{% endif %}
+              {% if s.min_order %} · min {{ s.min_order }}{% endif %}
+              {% if s.last_verified %} · checked {{ s.last_verified.strftime('%b %d') }}{% endif %}
+            </div>
+            {% if s.price_notes %}<div class="small text-muted fst-italic">{{ s.price_notes }}</div>{% endif %}
+          </td>
+          <td class="text-end fw-semibold">
+            {% if euc is not none %}${{ "%.3f"|format(euc) }}{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-end small d-none d-md-table-cell">
+            {% if s.case_price is not none %}
+            ${{ "%.2f"|format(s.case_price) }}{% if s.case_pack_qty %}<span class="text-muted"> / {{ s.case_pack_qty }}</span>{% endif %}
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-end small d-none d-lg-table-cell">
+            {% if euc is not none and sell %}
+            {% set m = (sell - euc) / sell * 100 %}
+            <span class="badge {% if m < 30 %}bg-danger{% elif m < 45 %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ "%.0f"|format(m) }}%</span>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="d-none d-sm-table-cell">
+            {% if s.in_stock %}<span class="badge bg-success-subtle text-success-emphasis">In stock</span>
+            {% else %}<span class="text-muted small">{{ s.stock_notes or "—" }}</span>{% endif %}
+          </td>
+          <td class="text-end text-nowrap">
+            <form method="post" action="/inventory/{{ product.id }}/sources/{{ s.id }}/preferred"
+                  hx-post="/inventory/{{ product.id }}/sources/{{ s.id }}/preferred"
+                  hx-target="#product-sources-section" hx-swap="outerHTML" class="d-inline">
+              <button class="btn btn-sm btn-link text-warning p-0 me-2" title="Toggle preferred">
+                <i class="bi {% if s.is_preferred %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+              </button>
+            </form>
+            <form method="post" action="/inventory/{{ product.id }}/sources/{{ s.id }}/delete"
+                  hx-post="/inventory/{{ product.id }}/sources/{{ s.id }}/delete"
+                  hx-target="#product-sources-section" hx-swap="outerHTML" class="d-inline"
+                  hx-confirm="Remove this supplier source?">
+              <button class="btn btn-sm btn-link text-danger p-0" title="Remove source">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted small py-3">No supplier prices yet — add one below or use the price comparator.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Add-source form #}
+  <div>
+    <button class="btn btn-sm btn-outline-primary" type="button"
+            data-bs-toggle="collapse" data-bs-target="#add-product-source">
+      <i class="bi bi-plus-lg me-1"></i>Add a supplier price
+    </button>
+    <div class="collapse mt-2" id="add-product-source">
+      <form hx-post="/inventory/{{ product.id }}/sources" hx-target="#product-sources-section" hx-swap="outerHTML"
+            class="card card-body bg-body-secondary">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small mb-0">Supplier</label>
+            <select name="supplier_id" class="form-select form-select-sm">
+              <option value="">— choose existing —</option>
+              {% for sup in suppliers %}
+              <option value="{{ sup.id }}">{{ sup.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-0">…or add new supplier</label>
+            <input type="text" name="new_supplier_name" class="form-control form-control-sm" placeholder="New supplier name">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Case price ($)</label>
+            <input type="text" name="case_price" class="form-control form-control-sm" placeholder="18.99">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Case pack qty</label>
+            <input type="text" name="case_pack_qty" class="form-control form-control-sm"
+                   placeholder="{{ product.case_pack_qty or '24' }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">…or unit cost ($)</label>
+            <input type="text" name="unit_cost" class="form-control form-control-sm" placeholder="if sold singly">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Unit size</label>
+            <input type="text" name="unit_size" class="form-control form-control-sm" placeholder="12 oz">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-0">Product page URL</label>
+            <input type="text" name="supplier_url" class="form-control form-control-sm" placeholder="https://…">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Min order</label>
+            <input type="text" name="min_order" class="form-control form-control-sm" placeholder="e.g. 4 cases">
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="in_stock" value="true" id="ps-instock-{{ product.id }}">
+              <label class="form-check-label small" for="ps-instock-{{ product.id }}">In stock</label>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label small mb-0">Price notes</label>
+            <input type="text" name="price_notes" class="form-control form-control-sm" placeholder="e.g. membership price, sale thru June">
+          </div>
+        </div>
+        <div class="mt-2">
+          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-check-lg me-1"></i>Save price</button>
+          <span class="text-muted small ms-2">Enter a case price + pack qty, or a direct unit cost. Cheapest per-unit cost becomes the product's cost.</span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

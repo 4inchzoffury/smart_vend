@@ -4,7 +4,16 @@ import json
 import logging
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Request, Response
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 logger = logging.getLogger(__name__)
@@ -13,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.agent import AgentJob
-from app.models.inventory import InventoryLog, Product, Supplier
+from app.models.inventory import InventoryLog, Product, ProductSource, Supplier
 from app.services import inventory_agent, price_comparator
 from app.services.inventory_agent import PRODUCT_CATEGORY_OPTIONS
 from app.services.price_comparator import VENDOR_KEYS, load_vendor_settings, save_vendor_setting
@@ -62,6 +71,25 @@ def _set_setting(db: Session, key: str, value: str) -> None:
     db.commit()
 
 
+def _to_int(value: str | None) -> int | None:
+    if value is None:
+        return None
+    value = value.strip().replace(",", "").replace("$", "")
+    return int(value) if value.lstrip("-").isdigit() else None
+
+
+def _to_float(value: str | None) -> float | None:
+    if value is None:
+        return None
+    value = value.strip().replace(",", "").replace("$", "")
+    if not value:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
 @router.get("/suppliers", response_class=HTMLResponse)
 def suppliers_index(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     suppliers = db.query(Supplier).order_by(Supplier.name).all()
@@ -74,6 +102,7 @@ def suppliers_index(request: Request, db: Session = Depends(get_db)) -> HTMLResp
 def supplier_create(
     name: str = Form(...),
     supplier_type: str = Form(""),
+    account_number: str = Form(""),
     contact_name: str = Form(""),
     contact_email: str = Form(""),
     contact_phone: str = Form(""),
@@ -84,6 +113,7 @@ def supplier_create(
     supplier = Supplier(
         name=name,
         supplier_type=supplier_type or None,
+        account_number=account_number or None,
         contact_name=contact_name or None,
         contact_email=contact_email or None,
         contact_phone=contact_phone or None,
@@ -118,6 +148,7 @@ def supplier_update(
     supplier_id: int,
     name: str = Form(...),
     supplier_type: str = Form(""),
+    account_number: str = Form(""),
     contact_name: str = Form(""),
     contact_email: str = Form(""),
     contact_phone: str = Form(""),
@@ -130,6 +161,7 @@ def supplier_update(
         return Response(status_code=404)
     supplier.name = name
     supplier.supplier_type = supplier_type or None
+    supplier.account_number = account_number or None
     supplier.contact_name = contact_name or None
     supplier.contact_email = contact_email or None
     supplier.contact_phone = contact_phone or None
@@ -154,6 +186,7 @@ def inventory_index(
     category: str | None = None,
     supplier_id: str | None = None,
     low_stock: bool = False,
+    seasonal: bool = False,
     init_supplier: str | None = None,
     tab: str = "products",
     db: Session = Depends(get_db),
@@ -167,7 +200,18 @@ def inventory_index(
         q = q.filter(Product.primary_supplier_id == sid)
     if low_stock:
         q = q.filter(Product.par_level.is_not(None), Product.on_hand_qty < Product.par_level)
+    if seasonal:
+        q = q.filter(Product.is_seasonal.is_(True))
     products = q.order_by(Product.category, Product.name).all()
+
+    margins = [p.margin_pct for p in products if p.margin_pct is not None]
+    summary = {
+        "total": len(products),
+        "low_stock": sum(1 for p in products if p.is_low_stock),
+        "avg_margin": (sum(margins) / len(margins)) if margins else None,
+        "missing_cost": sum(1 for p in products if not p.unit_cost),
+        "sourced": sum(1 for p in products if p.source_count),
+    }
     suppliers = db.query(Supplier).order_by(Supplier.name).all()
     db_cats = {r[0] for r in db.query(Product.category).distinct() if r[0]}
     categories = PRODUCT_CATEGORIES + [c for c in sorted(db_cats) if c not in PRODUCT_CATEGORIES]
@@ -201,6 +245,8 @@ def inventory_index(
             "category_filter": category,
             "supplier_filter": sid,
             "low_stock": low_stock,
+            "seasonal_filter": seasonal,
+            "summary": summary,
             "init_supplier_id": init_sid,
             "active_tab": tab,
             # comparator
@@ -434,7 +480,9 @@ def product_create(
     unit_cost: str = Form(""),
     sell_price: str = Form(""),
     unit_size: str = Form(""),
+    case_pack_qty: str = Form(""),
     par_level: str = Form(""),
+    is_seasonal: bool = Form(False),
     primary_supplier_id: str = Form(""),
     restock_notes: str = Form(""),
     db: Session = Depends(get_db),
@@ -442,6 +490,7 @@ def product_create(
     try:
         parsed_cost = float(unit_cost) if unit_cost else None
         parsed_sell = float(sell_price) if sell_price else None
+        parsed_pack = int(case_pack_qty) if case_pack_qty else None
         parsed_par = int(par_level) if par_level else None
         parsed_supplier = int(primary_supplier_id) if primary_supplier_id else None
     except ValueError as exc:
@@ -460,7 +509,9 @@ def product_create(
         unit_cost=parsed_cost,
         sell_price=parsed_sell,
         unit_size=unit_size or None,
+        case_pack_qty=parsed_pack,
         par_level=parsed_par,
+        is_seasonal=is_seasonal,
         primary_supplier_id=parsed_supplier,
         restock_notes=restock_notes or None,
     )
@@ -565,6 +616,7 @@ def compare_run(
     product_query: str = Form(...),
     vendors: list[str] = Form(default=[]),
     search_provider: str = Form("duckduckgo"),
+    product_id: str = Form(""),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     vendor_cfg = load_vendor_settings(db)
@@ -573,6 +625,9 @@ def compare_run(
         "vendors": vendors or VENDOR_KEYS,
         "search_provider": search_provider,
         "vendor_config": vendor_cfg,
+        # When launched from a product detail page, results can be saved back as
+        # ProductSource rows for that SKU (see /sources/from-comparison).
+        "product_id": _to_int(product_id),
     }
     job = AgentJob(
         job_type="price_comparison",
@@ -617,10 +672,19 @@ def compare_poll(job_id: int, request: Request, db: Session = Depends(get_db)) -
             input_params = json.loads(job.input_params)
         except Exception:
             pass
+    target_product = None
+    if input_params.get("product_id"):
+        target_product = db.get(Product, input_params["product_id"])
     return templates.TemplateResponse(
         request,
         "inventory/_comparator_poll.html",
-        {"job": job, "results": results, "input_params": input_params, "vendor_meta": VENDOR_META},
+        {
+            "job": job,
+            "results": results,
+            "input_params": input_params,
+            "vendor_meta": VENDOR_META,
+            "target_product": target_product,
+        },
     )
 
 
@@ -644,6 +708,9 @@ def compare_results(
             input_params = json.loads(job.input_params)
         except Exception:
             pass
+    target_product = None
+    if input_params.get("product_id"):
+        target_product = db.get(Product, input_params["product_id"])
     return templates.TemplateResponse(
         request,
         "inventory/compare_results.html",
@@ -653,6 +720,7 @@ def compare_results(
             "results": results,
             "input_params": input_params,
             "vendor_meta": VENDOR_META,
+            "target_product": target_product,
         },
     )
 
@@ -664,6 +732,87 @@ def compare_delete(job_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         db.delete(job)
         db.commit()
     return HTMLResponse(content="", status_code=200)
+
+
+# ---------------------------------------------------------------------------
+# Restock Run — shopping list of below-par SKUs grouped by cheapest supplier
+# (fixed path — must be declared before the /{product_id} wildcard below)
+# ---------------------------------------------------------------------------
+
+@router.get("/restock-run", response_class=HTMLResponse)
+def restock_run(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    import math
+
+    products = (
+        db.query(Product)
+        .filter(
+            Product.is_active.is_(True),
+            Product.par_level.is_not(None),
+            Product.on_hand_qty < Product.par_level,
+        )
+        .order_by(Product.category, Product.name)
+        .all()
+    )
+
+    groups: dict[str, dict] = {}
+    grand_total = 0.0
+    for p in products:
+        src = p.buying_source
+        supplier_name = (
+            src.supplier.name if src else (p.primary_supplier.name if p.primary_supplier else "Unassigned")
+        )
+        qty = p.qty_needed
+        unit_cost = src.effective_unit_cost if src else p.unit_cost
+        case_price = src.case_price if src else None
+        pack = (src.case_pack_qty if src else None) or p.case_pack_qty
+        cases = None
+        line_cost = None
+        if case_price and pack:
+            cases = math.ceil(qty / pack)
+            line_cost = cases * case_price
+        elif unit_cost is not None:
+            line_cost = qty * unit_cost
+
+        grp = groups.setdefault(
+            supplier_name,
+            {"supplier_name": supplier_name, "lines": [], "subtotal": 0.0, "has_unknown": False},
+        )
+        grp["lines"].append(
+            {
+                "product": p,
+                "qty_needed": qty,
+                "source": src,
+                "unit_cost": unit_cost,
+                "case_price": case_price,
+                "pack": pack,
+                "cases": cases,
+                "line_cost": line_cost,
+                "in_stock": src.in_stock if src else False,
+                "supplier_url": src.supplier_url if src else None,
+            }
+        )
+        if line_cost is not None:
+            grp["subtotal"] += line_cost
+            grand_total += line_cost
+        else:
+            grp["has_unknown"] = True
+
+    # Cheapest-to-stock suppliers first; Unassigned last.
+    ordered = sorted(
+        groups.values(),
+        key=lambda g: (g["supplier_name"] == "Unassigned", -g["subtotal"]),
+    )
+    return templates.TemplateResponse(
+        request,
+        "inventory/restock_run.html",
+        {
+            "active_nav": "inventory",
+            "groups": ordered,
+            "grand_total": grand_total,
+            "total_skus": len(products),
+            "category_labels": CATEGORY_LABELS,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -692,7 +841,9 @@ def product_update(
     unit_cost: str = Form(""),
     sell_price: str = Form(""),
     unit_size: str = Form(""),
+    case_pack_qty: str = Form(""),
     par_level: str = Form(""),
+    is_seasonal: bool = Form(False),
     primary_supplier_id: str = Form(""),
     restock_notes: str = Form(""),
     db: Session = Depends(get_db),
@@ -706,7 +857,9 @@ def product_update(
     product.unit_cost = float(unit_cost) if unit_cost else None
     product.sell_price = float(sell_price) if sell_price else None
     product.unit_size = unit_size or None
+    product.case_pack_qty = int(case_pack_qty) if case_pack_qty else None
     product.par_level = int(par_level) if par_level else None
+    product.is_seasonal = is_seasonal
     product.primary_supplier_id = int(primary_supplier_id) if primary_supplier_id else None
     product.restock_notes = restock_notes or None
     db.commit()
@@ -715,25 +868,31 @@ def product_update(
 
 @router.post("/{product_id}/restock", response_class=HTMLResponse)
 def product_restock(
+    request: Request,
     product_id: int,
     qty: int = Form(...),
     notes: str = Form(""),
+    next: str = Form(""),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     product = db.get(Product, product_id)
     if not product:
         return Response(status_code=404)
     product.on_hand_qty += qty
+    user = request.session.get("user") or {}
     log = InventoryLog(
         product_id=product_id,
         log_type="restock",
         qty_change=qty,
         qty_after=product.on_hand_qty,
+        unit_cost_at_log=product.unit_cost,
         notes=notes or None,
+        logged_by=user.get("email") or user.get("name"),
     )
     db.add(log)
     db.commit()
-    return RedirectResponse(url="/inventory/", status_code=303)
+    dest = next if next.startswith("/inventory/") else "/inventory/"
+    return RedirectResponse(url=dest, status_code=303)
 
 
 @router.delete("/{product_id}", response_class=HTMLResponse)
@@ -743,3 +902,192 @@ def product_deactivate(product_id: int, db: Session = Depends(get_db)) -> HTMLRe
         product.is_active = False
         db.commit()
     return HTMLResponse(content="", status_code=200)
+
+
+# ---------------------------------------------------------------------------
+# Product detail page + per-supplier sourcing  (wildcard — keep after the above)
+# ---------------------------------------------------------------------------
+
+def _get_product_or_404(db: Session, product_id: int) -> Product:
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
+
+
+def _sources_partial(request: Request, product: Product, db: Session) -> HTMLResponse:
+    suppliers = db.query(Supplier).order_by(Supplier.name).all()
+    return templates.TemplateResponse(
+        request,
+        "inventory/_product_sources.html",
+        {"product": product, "suppliers": suppliers},
+    )
+
+
+@router.get("/{product_id}", response_class=HTMLResponse)
+def product_detail(
+    product_id: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    product = _get_product_or_404(db, product_id)
+    suppliers = db.query(Supplier).order_by(Supplier.name).all()
+    logs = (
+        db.query(InventoryLog)
+        .filter(InventoryLog.product_id == product_id)
+        .order_by(InventoryLog.logged_at.desc())
+        .limit(50)
+        .all()
+    )
+    return templates.TemplateResponse(
+        request,
+        "inventory/detail.html",
+        {
+            "active_nav": "inventory",
+            "product": product,
+            "suppliers": suppliers,
+            "logs": logs,
+            "category_labels": CATEGORY_LABELS,
+        },
+    )
+
+
+@router.post("/{product_id}/sources", response_class=HTMLResponse)
+def add_product_source(
+    request: Request,
+    product_id: int,
+    supplier_id: str = Form(""),
+    new_supplier_name: str = Form(""),
+    supplier_url: str = Form(""),
+    case_price: str = Form(""),
+    case_pack_qty: str = Form(""),
+    unit_cost: str = Form(""),
+    unit_size: str = Form(""),
+    min_order: str = Form(""),
+    price_notes: str = Form(""),
+    in_stock: bool = Form(False),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    product = _get_product_or_404(db, product_id)
+
+    sup_id = _to_int(supplier_id)
+    if not sup_id and new_supplier_name.strip():
+        # Let the team add a supplier on the fly without leaving the form.
+        existing = (
+            db.query(Supplier).filter(Supplier.name == new_supplier_name.strip()).first()
+        )
+        if existing:
+            sup_id = existing.id
+        else:
+            supplier = Supplier(name=new_supplier_name.strip())
+            db.add(supplier)
+            db.flush()
+            sup_id = supplier.id
+    if not sup_id:
+        raise HTTPException(status_code=400, detail="A supplier is required")
+
+    source = ProductSource(
+        product_id=product.id,
+        supplier_id=sup_id,
+        supplier_url=supplier_url.strip() or None,
+        case_price=_to_float(case_price),
+        case_pack_qty=_to_int(case_pack_qty) or product.case_pack_qty,
+        unit_cost=_to_float(unit_cost),
+        unit_size=unit_size.strip() or None,
+        min_order=min_order.strip() or None,
+        price_notes=price_notes.strip() or None,
+        in_stock=in_stock,
+        origin="manual",
+        last_verified=datetime.now(),
+    )
+    db.add(source)
+    db.flush()
+    db.refresh(product)
+    product.recompute_best_cost()
+    db.commit()
+    db.refresh(product)
+    return _sources_partial(request, product, db)
+
+
+@router.post("/{product_id}/sources/{source_id}/delete", response_class=HTMLResponse)
+def delete_product_source(
+    request: Request, product_id: int, source_id: int, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    product = _get_product_or_404(db, product_id)
+    source = db.get(ProductSource, source_id)
+    if source and source.product_id == product.id:
+        db.delete(source)
+        db.flush()
+        db.refresh(product)
+        product.recompute_best_cost()
+        db.commit()
+        db.refresh(product)
+    return _sources_partial(request, product, db)
+
+
+@router.post("/{product_id}/sources/{source_id}/preferred", response_class=HTMLResponse)
+def toggle_preferred_product_source(
+    request: Request, product_id: int, source_id: int, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    product = _get_product_or_404(db, product_id)
+    source = db.get(ProductSource, source_id)
+    if source and source.product_id == product.id:
+        # Only one preferred source per product.
+        for s in product.sources:
+            s.is_preferred = s.id == source_id and not source.is_preferred
+        db.commit()
+        db.refresh(product)
+    return _sources_partial(request, product, db)
+
+
+@router.post("/{product_id}/sources/from-comparison", response_class=HTMLResponse)
+def save_source_from_comparison(
+    product_id: int,
+    vendor_name: str = Form(...),
+    vendor_key: str = Form(""),
+    unit_price: str = Form(""),
+    case_price: str = Form(""),
+    case_qty: str = Form(""),
+    unit_size: str = Form(""),
+    url: str = Form(""),
+    notes: str = Form(""),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Persist one price-comparator result as a ProductSource for this SKU.
+
+    Maps the comparator vendor to a Supplier (found by name, else created), so an
+    ephemeral search becomes a durable, comparable supplier price.
+    """
+    product = _get_product_or_404(db, product_id)
+    name = vendor_name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Vendor name required")
+
+    supplier = (
+        db.query(Supplier).filter(sql_func.lower(Supplier.name) == name.lower()).first()
+    )
+    if not supplier:
+        meta = VENDOR_META.get(vendor_key, {})
+        supplier = Supplier(name=name, supplier_type=meta.get("type") or "online")
+        db.add(supplier)
+        db.flush()
+
+    source = ProductSource(
+        product_id=product.id,
+        supplier_id=supplier.id,
+        supplier_url=url.strip() or None,
+        case_price=_to_float(case_price),
+        case_pack_qty=_to_int(case_qty) or product.case_pack_qty,
+        unit_cost=_to_float(unit_price),
+        unit_size=unit_size.strip() or None,
+        price_notes=notes.strip() or None,
+        origin="comparator",
+        last_verified=datetime.now(),
+    )
+    db.add(source)
+    db.flush()
+    db.refresh(product)
+    product.recompute_best_cost()
+    db.commit()
+    return HTMLResponse(
+        '<span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Saved to '
+        f'<a href="/inventory/{product.id}" class="text-white text-decoration-underline">product</a></span>'
+    )
