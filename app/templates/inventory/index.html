@@ -56,12 +56,28 @@
           <ul class="mb-0 mt-1">
             <li>Use <strong>Add Product</strong> to create a new SKU with cost, price, and par level.</li>
             <li>Yellow rows are below par level — restock with the <i class="bi bi-plus-circle"></i> button.</li>
-            <li>Filter by category or supplier; toggle <em>Low Stock</em> to focus on restocking priorities.</li>
+            <li>Click a product name to open its detail page: compare supplier prices, see restock history, and run an online price check.</li>
+            <li>The <strong>Best Source</strong> column shows the cheapest supplier on file (and how many are compared); <strong>Cost</strong> and <strong>Margin</strong> follow the cheapest per-unit cost.</li>
+            <li>Filter by category or supplier; toggle <em>Low Stock</em> or <em>Seasonal</em>. Use <strong>Restock Run</strong> for a supplier-grouped shopping list of everything below par.</li>
             <li>Margin badges: <span class="badge bg-success">green</span> ≥ 45%, <span class="badge bg-warning text-dark">yellow</span> 30–44%, <span class="badge bg-danger">red</span> &lt; 30%.</li>
           </ul>
         </div>
       </div>
     </div>
+
+    {% if summary and summary.total %}
+    <div class="card border-0 bg-light mb-3">
+      <div class="card-body py-2 px-3 d-flex align-items-center gap-4 flex-wrap small">
+        <div><i class="bi bi-box-seam me-1 text-muted"></i><span class="text-muted">Active SKUs:</span> <strong>{{ summary.total }}</strong></div>
+        <div><i class="bi bi-exclamation-triangle me-1 {% if summary.low_stock %}text-danger{% else %}text-muted{% endif %}"></i><span class="text-muted">Below par:</span> <strong class="{% if summary.low_stock %}text-danger{% endif %}">{{ summary.low_stock }}</strong></div>
+        <div><i class="bi bi-graph-up-arrow me-1 text-muted"></i><span class="text-muted">Avg margin:</span> <strong>{% if summary.avg_margin is not none %}{{ "%.0f"|format(summary.avg_margin) }}%{% else %}—{% endif %}</strong></div>
+        <div><i class="bi bi-cart-check me-1 text-muted"></i><span class="text-muted">With supplier prices:</span> <strong>{{ summary.sourced }}</strong></div>
+        {% if summary.missing_cost %}
+        <div class="text-muted"><i class="bi bi-question-circle me-1"></i>{{ summary.missing_cost }} missing cost</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
       <div class="d-flex gap-2 flex-wrap">
@@ -90,15 +106,27 @@
                  onchange="applyProductFilter(this, 'low_stock', this.checked ? '1' : '')">
           <label class="form-check-label small" for="lowStockToggle">Low Stock</label>
         </div>
+        <!-- Seasonal toggle -->
+        <div class="form-check form-switch mt-1 ms-1">
+          <input class="form-check-input" type="checkbox" id="seasonalToggle"
+                 {% if seasonal_filter %}checked{% endif %}
+                 onchange="applyProductFilter(this, 'seasonal', this.checked ? '1' : '')">
+          <label class="form-check-label small" for="seasonalToggle">Seasonal</label>
+        </div>
       </div>
-      <button class="btn btn-primary btn-sm"
-              hx-get="/inventory/new{% if init_supplier_id %}?supplier_id={{ init_supplier_id }}{% endif %}"
-              hx-target="#product-modal-body"
-              hx-swap="innerHTML"
-              data-bs-toggle="modal"
-              data-bs-target="#productModal">
-        <i class="bi bi-plus-lg me-1"></i>Add Product
-      </button>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-success btn-sm" href="/inventory/restock-run">
+          <i class="bi bi-cart-plus me-1"></i>Restock Run
+        </a>
+        <button class="btn btn-primary btn-sm"
+                hx-get="/inventory/new{% if init_supplier_id %}?supplier_id={{ init_supplier_id }}{% endif %}"
+                hx-target="#product-modal-body"
+                hx-swap="innerHTML"
+                data-bs-toggle="modal"
+                data-bs-target="#productModal">
+          <i class="bi bi-plus-lg me-1"></i>Add Product
+        </button>
+      </div>
     </div>
 
     {% if products %}
@@ -109,7 +137,7 @@
             <th class="d-none d-sm-table-cell">SKU</th>
             <th>Name / Brand</th>
             <th class="d-none d-md-table-cell">Category</th>
-            <th class="d-none d-lg-table-cell">Supplier</th>
+            <th class="d-none d-lg-table-cell">Best Source</th>
             <th class="text-end d-none d-sm-table-cell">Cost</th>
             <th class="text-end">Price</th>
             <th class="text-end">Margin</th>
@@ -120,22 +148,31 @@
         </thead>
         <tbody>
           {% for p in products %}
-          {% set margin = ((p.sell_price - p.unit_cost) / p.sell_price * 100) if p.sell_price and p.unit_cost else none %}
+          {% set cost = p.effective_cost %}
+          {% set margin = p.margin_pct %}
           {% set low = p.par_level and p.on_hand_qty < p.par_level %}
           <tr {% if low %}class="table-warning"{% endif %}>
             <td class="text-muted small d-none d-sm-table-cell font-monospace">{{ p.sku }}</td>
             <td class="small">
-              <span class="fw-medium">{{ p.name }}</span>
+              <a href="/inventory/{{ p.id }}" class="fw-medium text-decoration-none">{{ p.name }}</a>
+              {% if p.is_seasonal %}<i class="bi bi-snow text-info ms-1" title="Seasonal item"></i>{% endif %}
               {% if p.brand %}<br><span class="text-muted" style="font-size:.75rem">{{ p.brand }}</span>{% endif %}
             </td>
             <td class="small text-muted d-none d-md-table-cell">
               {{ category_labels.get(p.category, p.category | replace('_', ' ') | title) if p.category else "–" }}
             </td>
-            <td class="small text-muted d-none d-lg-table-cell">
-              {{ p.primary_supplier.name if p.primary_supplier else "–" }}
+            <td class="small d-none d-lg-table-cell">
+              {% if p.best_source %}
+              <span class="text-truncate d-inline-block" style="max-width:130px;vertical-align:bottom">{{ p.best_source.supplier.name }}</span>
+              {% if p.source_count > 1 %}<span class="badge bg-light text-dark border ms-1" title="{{ p.source_count }} suppliers compared">{{ p.source_count }}</span>{% endif %}
+              {% elif p.primary_supplier %}
+              <span class="text-muted">{{ p.primary_supplier.name }}</span>
+              {% else %}
+              <a href="/inventory/{{ p.id }}" class="text-muted small">add source</a>
+              {% endif %}
             </td>
             <td class="text-end small d-none d-sm-table-cell">
-              {{ "$%.2f"|format(p.unit_cost) if p.unit_cost else "–" }}
+              {{ "$%.2f"|format(cost) if cost is not none else "–" }}
             </td>
             <td class="text-end small fw-semibold">
               {{ "$%.2f"|format(p.sell_price) if p.sell_price else "–" }}
@@ -180,7 +217,7 @@
     </div>
     <div class="text-muted small mt-2">
       {{ products | length }} product{{ 's' if products | length != 1 }}
-      {% if category_filter or supplier_filter or low_stock %}
+      {% if category_filter or supplier_filter or low_stock or seasonal_filter %}
       · <a href="/inventory/" class="text-muted">Clear filters</a>
       {% endif %}
     </div>

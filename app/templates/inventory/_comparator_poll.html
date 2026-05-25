@@ -50,6 +50,19 @@
   </div>
 </div>
 
+{% if target_product %}
+<div class="alert alert-success py-2 small mb-3 d-flex align-items-center gap-2">
+  <i class="bi bi-bookmark-plus flex-shrink-0"></i>
+  <span>
+    Comparing for <strong>{{ target_product.name }}</strong> ({{ target_product.sku }}) —
+    click <i class="bi bi-bookmark-plus"></i> on any row to save it as a supplier price.
+  </span>
+  <a href="/inventory/{{ target_product.id }}" class="ms-auto text-success fw-semibold text-decoration-none">
+    Back to product <i class="bi bi-arrow-right"></i>
+  </a>
+</div>
+{% endif %}
+
 {% if results %}
 
 {# Banner when all (or most) results are AI fallback estimates #}
@@ -141,11 +154,27 @@
           <i class="bi bi-exclamation-circle text-warning ms-1" title="Low confidence — verify before ordering"></i>
           {% endif %}
         </td>
-        <td>
+        <td class="text-nowrap">
           {% if r.url %}
           <a href="{{ r.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary py-0 px-1">
             <i class="bi bi-box-arrow-up-right"></i>
           </a>
+          {% endif %}
+          {% if target_product %}
+          <form hx-post="/inventory/{{ target_product.id }}/sources/from-comparison"
+                hx-target="this" hx-swap="outerHTML" class="d-inline ms-1">
+            <input type="hidden" name="vendor_name" value="{{ r.vendor_name }}">
+            <input type="hidden" name="vendor_key" value="{{ r.vendor_key }}">
+            <input type="hidden" name="unit_price" value="{{ r.unit_price if r.unit_price is not none else '' }}">
+            <input type="hidden" name="case_price" value="{{ r.case_price if r.case_price is not none else '' }}">
+            <input type="hidden" name="case_qty" value="{{ r.case_qty if r.case_qty is not none else '' }}">
+            <input type="hidden" name="unit_size" value="{{ r.unit_size or '' }}">
+            <input type="hidden" name="url" value="{{ r.url or '' }}">
+            <input type="hidden" name="notes" value="{{ r.product_name }}{% if r.notes %} — {{ r.notes }}{% endif %}">
+            <button class="btn btn-sm btn-outline-success py-0 px-1" title="Save as supplier price for {{ target_product.name }}">
+              <i class="bi bi-bookmark-plus"></i>
+            </button>
+          </form>
           {% endif %}
         </td>
       </tr>

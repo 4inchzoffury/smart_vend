@@ -4,7 +4,7 @@ from app.models.cs_governance import CSGovernanceRule
 from app.models.email_approval import EmailApproval
 from app.models.equipment import Distributor, EquipmentSource, EquipmentUnit
 from app.models.financial import MachineProForma
-from app.models.inventory import InventoryLog, Product, Supplier
+from app.models.inventory import InventoryLog, Product, ProductSource, Supplier
 from app.models.location import Location, Machine
 from app.models.research import ResearchTask
 from app.models.sales import OutreachLog, Prospect
@@ -25,5 +25,6 @@ __all__ = [
     "OutreachLog",
     "Supplier",
     "Product",
+    "ProductSource",
     "InventoryLog",
 ]
