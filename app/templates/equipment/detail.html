@@ -25,6 +25,8 @@
       <span class="badge bg-secondary me-1">{{ unit.manufacturer }}</span>
       {% if unit.reseller %}<span class="badge bg-light text-dark border me-1">via {{ unit.reseller }}</span>{% endif %}
       <span class="badge bg-light text-dark border">{{ type_labels.get(unit.equipment_type, unit.equipment_type) }}</span>
+      {% if unit.is_locked %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle ms-1" title="Verified — AI refresh will not overwrite this unit"><i class="bi bi-lock-fill me-1"></i>Verified</span>{% endif %}
+      {% if unit.status == 'archived' %}<span class="badge bg-danger ms-1">Archived</span>{% endif %}
     </p>
   </div>
   <div class="d-flex gap-2 no-print">
@@ -34,6 +36,16 @@
     <a href="/equipment/compare?ids={{ unit.id }}" class="btn btn-sm btn-outline-primary">
       <i class="bi bi-table me-1"></i>Compare
     </a>
+    {% if unit.status == 'archived' %}
+    <form method="post" action="/equipment/{{ unit.id }}/unarchive">
+      <button class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+    </form>
+    {% else %}
+    <form method="post" action="/equipment/{{ unit.id }}/archive"
+          onsubmit="return confirm('Archive this unit? It drops off the catalog but can be restored.');">
+      <button class="btn btn-sm btn-outline-danger"><i class="bi bi-archive me-1"></i>Archive</button>
+    </form>
+    {% endif %}
   </div>
 </div>
 
@@ -69,6 +81,22 @@
   </div>
 </div>
 
+{# Sourcing & Procurement — where to buy this unit and at what price #}
+<div class="card mb-4 border-success border-opacity-25">
+  <div class="card-header bg-success-subtle d-flex justify-content-between align-items-center">
+    <h6 class="mb-0"><i class="bi bi-cart-check me-1"></i>Sourcing &amp; Procurement</h6>
+    {% if unit.best_source %}
+    <span class="small">
+      Best buy: <strong>{{ unit.best_source.distributor.name }}</strong>
+      {% if unit.best_source.price_low %} at <strong>${{ "{:,}".format(unit.best_source.price_low) }}</strong>{% endif %}
+    </span>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% include "equipment/_sources.html" %}
+  </div>
+</div>
+
 <div class="row g-4">
 
   {# Left: specs table #}
@@ -84,9 +112,12 @@
             {# Pricing #}
             <tr><td colspan="2" class="spec-label pt-3 pb-1">Pricing</td></tr>
             <tr>
-              <td class="text-muted small" style="width:45%">Purchase price</td>
+              <td class="text-muted small" style="width:45%">
+                {% if unit.price_is_starting %}Starting price{% else %}Purchase price{% endif %}
+              </td>
               <td>
                 {% if unit.price_low or unit.price_high %}
+                  {% if unit.price_is_starting %}<span class="text-muted small">from </span>{% endif %}
                   {% if unit.price_low and unit.price_high and unit.price_low != unit.price_high %}
                   <strong>${{ "{:,}".format(unit.price_low) }} – ${{ "{:,}".format(unit.price_high) }}</strong>
                   {% elif unit.price_low %}
@@ -94,6 +125,7 @@
                   {% else %}
                   <strong>From ${{ "{:,}".format(unit.price_high) }}</strong>
                   {% endif %}
+                  {% if unit.price_is_starting %}<br><small class="text-muted">Final pricing by quote — varies with configuration.</small>{% endif %}
                 {% else %}
                 <span class="text-muted">Contact for pricing</span>
                 {% endif %}

@@ -23,6 +23,14 @@
     </button>
   </li>
   <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab == 'distributors' %}active{% endif %}"
+            id="tab-distributors" data-bs-toggle="tab" data-bs-target="#pane-distributors"
+            type="button" role="tab">
+      <i class="bi bi-truck me-1"></i>Distributors
+      <span class="badge bg-secondary ms-1">{{ distributors|length }}</span>
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
     <button class="nav-link {% if active_tab == 'refresh' %}active{% endif %}"
             id="tab-refresh" data-bs-toggle="tab" data-bs-target="#pane-refresh"
             type="button" role="tab">
@@ -41,9 +49,16 @@
        id="pane-catalog" role="tabpanel">
 
     <div class="d-flex justify-content-between align-items-center mb-2 pt-1">
-      <small class="text-muted" id="unit-count">
-        {{ units|length }} unit{{ "s" if units|length != 1 }} shown
-      </small>
+      <div class="d-flex align-items-center gap-3">
+        <small class="text-muted" id="unit-count">
+          {{ units|length }} unit{{ "s" if units|length != 1 }} shown
+        </small>
+        {% if include_archived %}
+        <a class="small text-decoration-none" href="/equipment/"><i class="bi bi-eye-slash me-1"></i>Hide archived</a>
+        {% elif archived_count %}
+        <a class="small text-decoration-none text-muted" href="/equipment/?include_archived=1"><i class="bi bi-archive me-1"></i>Show {{ archived_count }} archived</a>
+        {% endif %}
+      </div>
       <button class="btn btn-sm btn-link text-muted p-0" type="button"
               data-bs-toggle="collapse" data-bs-target="#help-catalog" title="Help &amp; instructions">
         <i class="bi bi-question-circle"></i>
@@ -109,6 +124,12 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- ===================== TAB: DISTRIBUTORS ===================== -->
+  <div class="tab-pane fade {% if active_tab == 'distributors' %}show active{% endif %}"
+       id="pane-distributors" role="tabpanel">
+    {% include "equipment/_tab_distributors.html" %}
   </div>
 
   <!-- ===================== TAB: AI REFRESH ===================== -->

@@ -84,6 +84,17 @@
       {% endfor %}
     </tr>
     <tr>
+      <td class="text-muted small">Best Source</td>
+      {% for unit in units %}
+      <td class="text-center small">
+        {% if unit.best_source %}
+        {{ unit.best_source.distributor.name }}
+        {% if unit.source_count > 1 %}<span class="text-muted">({{ unit.source_count }} sources)</span>{% endif %}
+        {% else %}—{% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    <tr>
       <td class="text-muted small">Platform Fee/mo</td>
       {% for unit in units %}
       <td class="text-center">{% if unit.monthly_fee %}${{ unit.monthly_fee }}{% else %}—{% endif %}</td>

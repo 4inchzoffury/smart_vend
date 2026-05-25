@@ -2,7 +2,7 @@ from app.models.agent import AgentJob
 from app.models.chat import ChatMessage
 from app.models.cs_governance import CSGovernanceRule
 from app.models.email_approval import EmailApproval
-from app.models.equipment import EquipmentUnit
+from app.models.equipment import Distributor, EquipmentSource, EquipmentUnit
 from app.models.financial import MachineProForma
 from app.models.inventory import InventoryLog, Product, Supplier
 from app.models.location import Location, Machine
@@ -15,6 +15,8 @@ __all__ = [
     "CSGovernanceRule",
     "EmailApproval",
     "EquipmentUnit",
+    "Distributor",
+    "EquipmentSource",
     "ResearchTask",
     "MachineProForma",
     "Location",

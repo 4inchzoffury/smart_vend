@@ -1,0 +1,49 @@
+<div class="d-flex justify-content-between align-items-center mb-2 pt-1">
+  <small class="text-muted">{{ distributors|length }} supplier{{ "s" if distributors|length != 1 }} on file</small>
+  <button class="btn btn-sm btn-link text-muted p-0" type="button"
+          data-bs-toggle="collapse" data-bs-target="#help-distributors" title="Help">
+    <i class="bi bi-question-circle"></i>
+  </button>
+</div>
+<div class="collapse mb-3" id="help-distributors">
+  <div class="card border-info border-opacity-25">
+    <div class="card-body bg-info-subtle rounded small">
+      <strong>Distributors</strong> — your supplier directory. Each equipment unit links to the
+      distributors that carry it (see the Sourcing &amp; Procurement section on any unit's detail
+      page) so you can buy from whoever offers the best price and lead time.
+    </div>
+  </div>
+</div>
+
+{% if distributors %}
+<div class="row g-3">
+  {% for d in distributors %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <h6 class="mb-1">
+            {% if d.website %}<a href="{{ d.website }}" target="_blank" rel="noopener">{{ d.name }}<i class="bi bi-box-arrow-up-right ms-1 small"></i></a>
+            {% else %}{{ d.name }}{% endif %}
+          </h6>
+          <span class="badge bg-light text-dark border small">{{ d.distributor_type|capitalize }}</span>
+        </div>
+        {% if d.location %}<div class="small text-muted"><i class="bi bi-geo-alt me-1"></i>{{ d.location }}</div>{% endif %}
+        {% if d.phone %}<div class="small text-muted"><i class="bi bi-telephone me-1"></i>{{ d.phone }}</div>{% endif %}
+        <div class="mt-2">
+          {% if d.financing %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle small me-1"><i class="bi bi-cash-coin me-1"></i>Financing</span>{% endif %}
+          {% if d.fast_ship %}<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle small me-1"><i class="bi bi-truck me-1"></i>Fast ship</span>{% endif %}
+          <span class="badge bg-secondary-subtle text-secondary-emphasis border small">{{ d.sources|length }} unit{{ "s" if d.sources|length != 1 }} sourced</span>
+        </div>
+        {% if d.notes %}<p class="small text-muted mt-2 mb-0">{{ d.notes }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-truck fs-1 d-block mb-2"></i>
+  No distributors on file yet.
+</div>
+{% endif %}

@@ -1,0 +1,138 @@
+<div id="sources-section">
+  {% set best_id = unit.best_source.id if unit.best_source else 0 %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-2">
+      <thead class="table-light">
+        <tr>
+          <th>Distributor</th>
+          <th class="text-end">Price</th>
+          <th>Lead time</th>
+          <th>Stock</th>
+          <th class="text-end no-print"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in unit.sources %}
+        <tr class="{% if s.id == best_id %}table-success{% endif %}">
+          <td>
+            <div class="fw-semibold">
+              {% if s.distributor_url %}
+              <a href="{{ s.distributor_url }}" target="_blank" rel="noopener">{{ s.distributor.name }}<i class="bi bi-box-arrow-up-right ms-1 small"></i></a>
+              {% else %}{{ s.distributor.name }}{% endif %}
+              {% if s.id == best_id %}<span class="badge bg-success ms-1">Best price</span>{% endif %}
+              {% if s.is_preferred %}<span class="badge bg-warning text-dark ms-1"><i class="bi bi-star-fill"></i> Preferred</span>{% endif %}
+            </div>
+            <div class="small text-muted">
+              {{ s.distributor.distributor_type|capitalize }}
+              {% if s.distributor.phone %} · {{ s.distributor.phone }}{% endif %}
+              {% if s.distributor.financing %} · financing{% endif %}
+              {% if s.distributor.fast_ship %} · fast-ship{% endif %}
+            </div>
+            {% if s.price_notes %}<div class="small text-muted fst-italic">{{ s.price_notes }}</div>{% endif %}
+          </td>
+          <td class="text-end">
+            {% if s.price_low and s.price_high and s.price_low != s.price_high %}
+            ${{ "{:,}".format(s.price_low) }}–${{ "{:,}".format(s.price_high) }}
+            {% elif s.price_low %}
+            ${{ "{:,}".format(s.price_low) }}
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="small">
+            {% if s.lead_time_days_min %}
+              {% if s.lead_time_days_max and s.lead_time_days_max != s.lead_time_days_min %}
+              {{ s.lead_time_days_min }}–{{ s.lead_time_days_max }} days
+              {% else %}~{{ s.lead_time_days_min }} days{% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if s.in_stock %}<span class="badge bg-success-subtle text-success-emphasis">In stock</span>
+            {% else %}<span class="text-muted small">{{ s.stock_notes or "—" }}</span>{% endif %}
+          </td>
+          <td class="text-end no-print">
+            <form method="post" action="/equipment/{{ unit.id }}/sources/{{ s.id }}/preferred"
+                  hx-post="/equipment/{{ unit.id }}/sources/{{ s.id }}/preferred"
+                  hx-target="#sources-section" hx-swap="outerHTML" class="d-inline">
+              <button class="btn btn-sm btn-link text-warning p-0 me-2" title="Toggle preferred">
+                <i class="bi {% if s.is_preferred %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+              </button>
+            </form>
+            <form method="post" action="/equipment/{{ unit.id }}/sources/{{ s.id }}/delete"
+                  hx-post="/equipment/{{ unit.id }}/sources/{{ s.id }}/delete"
+                  hx-target="#sources-section" hx-swap="outerHTML" class="d-inline"
+                  hx-confirm="Remove this distributor source?">
+              <button class="btn btn-sm btn-link text-danger p-0" title="Remove source">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted small py-3">No distributor sources yet — add one below.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Add-source form #}
+  <div class="no-print">
+    <button class="btn btn-sm btn-outline-primary" type="button"
+            data-bs-toggle="collapse" data-bs-target="#add-source-{{ unit.id }}">
+      <i class="bi bi-plus-lg me-1"></i>Add a distributor source
+    </button>
+    <div class="collapse mt-2" id="add-source-{{ unit.id }}">
+      <form hx-post="/equipment/{{ unit.id }}/sources" hx-target="#sources-section" hx-swap="outerHTML"
+            class="card card-body bg-body-secondary">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small mb-0">Distributor</label>
+            <select name="distributor_id" class="form-select form-select-sm">
+              <option value="">— choose existing —</option>
+              {% for d in distributors %}
+              <option value="{{ d.id }}">{{ d.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-0">…or add new distributor</label>
+            <input type="text" name="new_distributor_name" class="form-control form-control-sm" placeholder="New supplier name">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Price low ($)</label>
+            <input type="text" name="price_low" class="form-control form-control-sm" placeholder="3095">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Price high ($)</label>
+            <input type="text" name="price_high" class="form-control form-control-sm" placeholder="optional">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Lead min (days)</label>
+            <input type="text" name="lead_time_days_min" class="form-control form-control-sm" placeholder="optional">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0">Lead max (days)</label>
+            <input type="text" name="lead_time_days_max" class="form-control form-control-sm" placeholder="optional">
+          </div>
+          <div class="col-md-9">
+            <label class="form-label small mb-0">Product page URL</label>
+            <input type="text" name="distributor_url" class="form-control form-control-sm" placeholder="https://…">
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="in_stock" value="true" id="instock-{{ unit.id }}">
+              <label class="form-check-label small" for="instock-{{ unit.id }}">In stock</label>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label small mb-0">Price notes</label>
+            <input type="text" name="price_notes" class="form-control form-control-sm" placeholder="e.g. free shipping, sale price thru June">
+          </div>
+        </div>
+        <div class="mt-2">
+          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-check-lg me-1"></i>Save source</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

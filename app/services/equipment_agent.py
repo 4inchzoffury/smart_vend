@@ -326,20 +326,31 @@ def run_equipment_refresh_job(job_id: int) -> None:
                 db, "equipment_batch_size", minimum=1, maximum=10
             )
 
-            units = (
-                db.query(EquipmentUnit).filter(EquipmentUnit.id.in_(unit_ids)).all()
-                if unit_ids
-                else db.query(EquipmentUnit).all()
+            # Never let an auto-refresh overwrite hand-curated/verified rows (is_locked)
+            # or archived units — this is what caused past price drift. The team can
+            # still edit those by hand on the detail page.
+            base_q = db.query(EquipmentUnit).filter(
+                EquipmentUnit.is_locked.is_(False),
+                EquipmentUnit.status == "active",
             )
+            units = (
+                base_q.filter(EquipmentUnit.id.in_(unit_ids)).all()
+                if unit_ids
+                else base_q.all()
+            )
+
+            locked = db.query(EquipmentUnit).filter(EquipmentUnit.is_locked.is_(True)).count()
 
             if not units:
                 job.status = "done"
-                job.agent_log = json.dumps([{"event": "no_units_found"}])
+                job.agent_log = json.dumps([{"event": "no_units_found", "locked_skipped": locked}])
                 job.finished_at = datetime.now()
                 db.commit()
                 return
 
-            log_entries: list[dict[str, Any]] = [{"event": "start", "units": len(units)}]
+            log_entries: list[dict[str, Any]] = [
+                {"event": "start", "units": len(units), "locked_skipped": locked}
+            ]
 
             # ── 1. Fetch external catalogs ─────────────────────────────────
             try:

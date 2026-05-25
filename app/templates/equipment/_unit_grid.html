@@ -16,6 +16,15 @@
   .mfr-micromart { background: linear-gradient(135deg, #fdf4ff, #e9d5ff); }
   .mfr-sandstar  { background: linear-gradient(135deg, #fff1f2, #fecdd3); }
   .mfr-weimi     { background: linear-gradient(135deg, #f0f9ff, #bae6fd); }
+  .mfr-ams       { background: linear-gradient(135deg, #eef2ff, #c7d2fe); }
+  .mfr-seaga     { background: linear-gradient(135deg, #f7fee7, #d9f99d); }
+  .mfr-usi       { background: linear-gradient(135deg, #fefce8, #fde68a); }
+  .mfr-vendo     { background: linear-gradient(135deg, #ecfeff, #a5f3fc); }
+  .mfr-royal     { background: linear-gradient(135deg, #faf5ff, #d8b4fe); }
+  .mfr-imbera    { background: linear-gradient(135deg, #f0fdfa, #99f6e4); }
+  .mfr-crane     { background: linear-gradient(135deg, #f8fafc, #cbd5e1); }
+  .mfr-default   { background: linear-gradient(135deg, #f8f9fa, #e9ecef); }
+  .cat-header { border-left: 4px solid var(--bs-primary); }
 </style>
 
 {% macro mfr_class(mfr) %}
@@ -25,20 +34,56 @@
   {%- elif 'Micromart' in mfr %}mfr-micromart
   {%- elif 'SandStar' in mfr %}mfr-sandstar
   {%- elif 'WEIMI' in mfr %}mfr-weimi
+  {%- elif 'AMS' in mfr %}mfr-ams
+  {%- elif 'Seaga' in mfr %}mfr-seaga
+  {%- elif 'USI' in mfr %}mfr-usi
+  {%- elif 'Vendo' in mfr %}mfr-vendo
+  {%- elif 'Royal' in mfr %}mfr-royal
+  {%- elif 'Imbera' in mfr %}mfr-imbera
+  {%- elif 'Crane' in mfr %}mfr-crane
+  {%- else %}mfr-default
   {%- endif %}
 {%- endmacro %}
 
 {% macro type_icon(et) %}
   {%- if et == 'freezer' %}bi-snow
-  {%- elif et == 'ambient' %}bi-bag
-  {%- elif et in ('kiosk', 'micro_market') %}bi-shop
+  {%- elif et == 'combo' %}bi-grid-1x2
+  {%- elif et == 'drink' %}bi-cup-straw
+  {%- elif et == 'snack' %}bi-bag
+  {%- elif et == 'glass_cooler' %}bi-thermometer-snow
+  {%- elif et == 'kiosk' %}bi-display
+  {%- elif et == 'micro_market' %}bi-shop-window
+  {%- elif et == 'smart_cooler' %}bi-cpu
   {%- else %}bi-box-seam
   {%- endif %}
 {%- endmacro %}
 
-{% if units %}
-<div class="row g-3" id="unit-grid">
-  {% for unit in units %}
+{% macro price_block(unit) %}
+  {% if unit.price_low or unit.price_high %}
+    {% if unit.price_is_starting %}<span class="text-muted small">Starting at </span>{% endif %}
+    {% if unit.price_low and unit.price_high and unit.price_low != unit.price_high %}
+    <strong class="text-success">${{ "{:,}".format(unit.price_low) }}–${{ "{:,}".format(unit.price_high) }}</strong>
+    {% elif unit.price_low %}
+    <strong class="text-success">${{ "{:,}".format(unit.price_low) }}</strong>
+    {% else %}
+    <strong class="text-success">From ${{ "{:,}".format(unit.price_high) }}</strong>
+    {% endif %}
+  {% else %}
+  <span class="text-muted small">Price: contact required</span>
+  {% endif %}
+{% endmacro %}
+
+{% if grouped %}
+{% for type_key, type_label, group_units in grouped %}
+<div class="cat-header bg-body-secondary rounded px-3 py-2 mb-3 {% if not loop.first %}mt-4{% endif %}">
+  <h5 class="mb-0">
+    <i class="bi {{ type_icon(type_key) }} me-2 text-primary"></i>{{ type_label }}s
+    <span class="badge bg-secondary ms-2">{{ group_units|length }}</span>
+  </h5>
+</div>
+
+<div class="row g-3">
+  {% for unit in group_units %}
   <div class="col-md-4 col-lg-4">
     <div class="card h-100 shadow-sm equip-card" data-unit-id="{{ unit.id }}">
 
@@ -62,38 +107,30 @@
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start mb-1">
           <span class="badge bg-secondary small">{{ unit.manufacturer }}</span>
-          <span class="badge bg-light text-dark border small">
-            {{ type_labels.get(unit.equipment_type, unit.equipment_type) }}
-          </span>
+          {% if unit.ai_features %}
+          <span class="badge bg-primary small"><i class="bi bi-cpu me-1"></i>AI</span>
+          {% endif %}
         </div>
         <h6 class="card-title mt-2 mb-1">{{ unit.product_name }}</h6>
         {% if unit.product_line %}
         <p class="text-muted small mb-2">{{ unit.product_line }}</p>
         {% endif %}
 
+        <div class="mb-1">{{ price_block(unit) }}</div>
+
+        {# Sourcing / best-buy badge — the procurement signal for the team #}
+        {% if unit.best_source %}
         <div class="mb-2">
-          {% if unit.price_low or unit.price_high %}
-            {% if unit.price_low and unit.price_high and unit.price_low != unit.price_high %}
-            <strong class="text-success">
-              ${{ "{:,}".format(unit.price_low) }}–${{ "{:,}".format(unit.price_high) }}
-            </strong>
-            {% elif unit.price_low %}
-            <strong class="text-success">${{ "{:,}".format(unit.price_low) }}</strong>
-            {% else %}
-            <strong class="text-success">From ${{ "{:,}".format(unit.price_high) }}</strong>
-            {% endif %}
-          {% else %}
-          <span class="text-muted small">Price: contact required</span>
+          <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle small">
+            <i class="bi bi-cart-check me-1"></i>Best: {{ unit.best_source.distributor.name }}
+          </span>
+          {% if unit.source_count > 1 %}
+          <span class="badge bg-light text-dark border small">{{ unit.source_count }} sources</span>
           {% endif %}
         </div>
+        {% endif %}
 
         <div class="row g-1 text-muted small">
-          {% if unit.height_in and unit.width_in and unit.depth_in %}
-          <div class="col-12">
-            <i class="bi bi-rulers me-1"></i>
-            {{ unit.height_in }}"H × {{ unit.width_in }}"W × {{ unit.depth_in }}"D
-          </div>
-          {% endif %}
           {% if unit.capacity_units %}
           <div class="col-12">
             <i class="bi bi-grid-3x3-gap me-1"></i>~{{ unit.capacity_units }} units capacity
@@ -104,7 +141,11 @@
             <i class="bi bi-shield-check me-1"></i>{{ unit.warranty_years }}-year warranty
           </div>
           {% endif %}
-          {% if unit.delivery_days_min %}
+          {% if unit.best_source and unit.best_source.in_stock %}
+          <div class="col-12 text-success">
+            <i class="bi bi-truck me-1"></i>In stock at {{ unit.best_source.distributor.name }}
+          </div>
+          {% elif unit.delivery_days_min %}
           <div class="col-12">
             <i class="bi bi-truck me-1"></i>
             {% if unit.delivery_days_max and unit.delivery_days_max != unit.delivery_days_min %}
@@ -112,13 +153,6 @@
             {% else %}
             {{ unit.delivery_days_min }} day delivery
             {% endif %}
-          </div>
-          {% endif %}
-          {% if unit.ai_features %}
-          <div class="col-12">
-            <i class="bi bi-cpu me-1 text-primary"></i>
-            <span class="text-primary">AI Vision</span>
-            {% if unit.ai_accuracy_pct %} · {{ unit.ai_accuracy_pct }}% accuracy{% endif %}
           </div>
           {% endif %}
         </div>
@@ -136,6 +170,7 @@
   </div>
   {% endfor %}
 </div>
+{% endfor %}
 {% else %}
 <div class="text-center text-muted py-5">
   <i class="bi bi-inbox fs-1 d-block mb-2"></i>

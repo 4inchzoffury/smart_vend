@@ -56,7 +56,11 @@ Long-running AI tasks (equipment refresh, lead research, email drafting) use Fas
 
 ### AppSetting
 
-Key-value config persisted in SQLite (`app_settings` table). Currently used to remember `search_provider` (duckduckgo vs tavily) between equipment refresh runs. Accessed via `_get_setting` / `_set_setting` helpers in routers.
+Key-value config persisted in SQLite (`app_settings` table). Currently used to remember `search_provider` (duckduckgo vs tavily) between equipment refresh runs, and `equipment_curated_v1` (a sentinel so `scripts/curate_equipment.py` applies only once). Accessed via `_get_setting` / `_set_setting` helpers in routers.
+
+### Equipment sourcing & curation
+
+The equipment catalog (`/equipment/`) is a procurement tool: each `EquipmentUnit` has many `EquipmentSource` rows (one per `Distributor`), so the team compares prices across suppliers (A&M Equipment Sales, VendGuys, Cantaloupe, etc.). `EquipmentUnit.recompute_best_price()` denormalizes the lowest source price onto `price_low/price_high` for fast catalog rendering; `best_source` drives the "best buy" badge. Units are soft-archived (`status="archived"`), never deleted. `is_locked=True` marks curated/verified rows the AI spec-refresh job must skip (it filters out `is_locked`/archived units) — this stopped the price drift that came from unguarded auto-refreshes. `price_is_starting` renders a "Starting at" label for custom-quoted micro-market packages/kiosks. Catalog data is established by three scripts run in `render.yaml` preDeploy: `seed_distributors.py` (idempotent), `curate_equipment.py` (sentinel-guarded; fixes/archives/sources units + adds the curated lineup), and `fetch_equipment_images.py` (downloads real product photos to slug-named files under `static/images/equipment/`, committed so they survive Render's ephemeral FS).
 
 ### Templates
 

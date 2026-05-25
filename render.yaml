@@ -28,10 +28,13 @@ services:
     region: virginia
     branch: main
     buildCommand: "pip install -r requirements.txt"
-    # Runs after build, before the new instance takes traffic. Bootstraps the DB:
-    # create_all + stamp on an empty database, else `alembic upgrade head`. Plain
-    # `alembic upgrade head` can't build from scratch — see scripts/init_db.py.
-    preDeployCommand: "python scripts/init_db.py"
+    # Runs after build, before the new instance takes traffic. Bootstraps the DB
+    # (create_all + stamp on an empty database, else `alembic upgrade head`; plain
+    # `alembic upgrade head` can't build from scratch — see scripts/init_db.py), then
+    # seeds the distributor directory and applies the one-time equipment curation +
+    # product images. seed_distributors / fetch_equipment_images are idempotent and
+    # curate_equipment is sentinel-guarded, so these no-op on every later deploy.
+    preDeployCommand: "python scripts/init_db.py && python scripts/seed_distributors.py && python scripts/curate_equipment.py && python scripts/fetch_equipment_images.py"
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     # Public landing page returns 200 without auth — a valid health probe.
     healthCheckPath: /
