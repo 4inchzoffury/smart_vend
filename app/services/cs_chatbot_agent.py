@@ -105,9 +105,14 @@ def build_chatbot_system_prompt(db: Session, include_tools: bool = True) -> str:
             "then share them with the customer."
         )
     elif settings.google_booking_url:
-        scheduling_note = f"When asked about scheduling, direct them to book here: {settings.google_booking_url}"
+        scheduling_note = (
+            "When asked about scheduling, direct them to book here: "
+            f"{settings.google_booking_url}"
+        )
     else:
-        scheduling_note = "When asked about scheduling, ask them to email us at primemicromarkets@gmail.com."
+        scheduling_note = (
+            "When asked about scheduling, ask them to email us at primemicromarkets@gmail.com."
+        )
 
     if include_tools:
         escalation_note = (
@@ -124,13 +129,14 @@ def build_chatbot_system_prompt(db: Session, include_tools: bool = True) -> str:
 
     lead_capture_note = (
         "CONTACT OPTIONS: When a customer asks about getting a unit, scheduling, pricing, "
-        "or wants to be contacted, always mention all three ways to connect:\n"
-        "  1. Book a consultation (you can show open times on our calendar)\n"
+        "or wants to be contacted, mention the ways to connect:\n"
+        "  1. Book a consultation. If they ask about scheduling, FIRST call check_availability "
+        "and show the returned times as a bulleted list, then point them to booking.\n"
         "  2. Email us at primemicromarkets@gmail.com\n"
         "  3. Click the 'Request a Callback' button below the chat input to leave their "
-        "     contact info — a real team member will personally reach out\n"
-        "Never offer only option 1 alone. Always mention the callback button for customers "
-        "who prefer a personal call."
+        "contact info so a real team member can personally reach out.\n"
+        "When you have specific available times, lead with that list. Offer email and the "
+        "callback button as alternatives, not as a substitute for showing the times."
     )
 
     base += (
@@ -377,7 +383,8 @@ def _load_history(session_id: str, db: Session) -> list[dict]:
 
 
 def _run_anthropic(
-    messages: list[dict], system: str, model: str, session_id: str, db: Session
+    messages: list[dict], system: str, model: str, session_id: str, db: Session,
+    captured: dict | None = None,
 ) -> str:
     import anthropic  # type: ignore[import-untyped]
 
@@ -402,6 +409,8 @@ def _run_anthropic(
             if block.type == "tool_use":
                 tool_calls += 1
                 result = _handle_tool(block.name, block.input, session_id, db)
+                if captured is not None and block.name == "check_availability":
+                    captured["availability"] = result
                 tool_results.append(
                     {
                         "type": "tool_result",
@@ -437,6 +446,7 @@ def _run_openai_compat(
     db: Session,
     max_tokens: int = _MAX_TOKENS_CHAT,
     use_tools: bool = True,
+    captured: dict | None = None,
 ) -> str:
     try:
         from openai import OpenAI  # type: ignore[import-untyped]
@@ -486,6 +496,8 @@ def _run_openai_compat(
             except Exception:
                 tool_input = {}
             result = _handle_tool(tc.function.name, tool_input, session_id, db)
+            if captured is not None and tc.function.name == "check_availability":
+                captured["availability"] = result
             oai_messages.append(
                 {
                     "role": "tool",
@@ -500,7 +512,10 @@ def _run_openai_compat(
 # ── Gemini runner ─────────────────────────────────────────────────────────────
 
 
-def _run_gemini(messages: list[dict], system: str, model: str, session_id: str, db: Session) -> str:
+def _run_gemini(
+    messages: list[dict], system: str, model: str, session_id: str, db: Session,
+    captured: dict | None = None,
+) -> str:
     # Use Gemini's OpenAI-compatible endpoint
     return _run_openai_compat(
         messages=messages,
@@ -510,6 +525,7 @@ def _run_gemini(messages: list[dict], system: str, model: str, session_id: str, 
         base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         session_id=session_id,
         db=db,
+        captured=captured,
     )
 
 
@@ -588,6 +604,26 @@ def _error_message(exc: Exception) -> str:
     )
 
 
+# Marker that google_calendar.format_slots_for_chat prefixes to a real slot list.
+_AVAIL_SLOTS_MARKER = "Here are the next available consultation times"
+
+
+def _ensure_availability_shown(reply: str, captured: dict) -> str:
+    """Guarantee fetched openings appear in the reply.
+
+    Smaller models often call check_availability, then summarize ("you can pick
+    one of these times") without listing them. If the tool returned a real slot
+    list and the model's reply doesn't already include the times, prepend the
+    slot block so the customer always sees concrete options.
+    """
+    avail = captured.get("availability", "")
+    if not avail.startswith(_AVAIL_SLOTS_MARKER):
+        return reply  # tool unused, no openings, or a fallback link — leave as-is
+    if "AM CT" in reply or "PM CT" in reply:
+        return reply  # model already listed the times; don't duplicate
+    return f"{avail}\n\n{reply}".strip() if reply.strip() else avail
+
+
 def _dispatch(
     provider: str,
     model: str,
@@ -595,12 +631,13 @@ def _dispatch(
     system: str,
     session_id: str,
     db: Session,
+    captured: dict | None = None,
 ) -> str:
     """Route to the active provider. Raises on a missing key or unknown provider."""
     if provider == "anthropic":
         if not settings.anthropic_api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not configured.")
-        return _run_anthropic(messages, system, model, session_id, db)
+        return _run_anthropic(messages, system, model, session_id, db, captured=captured)
 
     if provider == "groq":
         if not settings.groq_api_key:
@@ -609,7 +646,7 @@ def _dispatch(
             messages, system, model,
             api_key=settings.groq_api_key,
             base_url="https://api.groq.com/openai/v1",
-            session_id=session_id, db=db,
+            session_id=session_id, db=db, captured=captured,
         )
 
     if provider == "openai":
@@ -619,13 +656,13 @@ def _dispatch(
             messages, system, model,
             api_key=settings.openai_api_key,
             base_url=None,
-            session_id=session_id, db=db,
+            session_id=session_id, db=db, captured=captured,
         )
 
     if provider == "gemini":
         if not settings.gemini_api_key:
             raise RuntimeError("GEMINI_API_KEY not configured.")
-        return _run_gemini(messages, system, model, session_id, db)
+        return _run_gemini(messages, system, model, session_id, db, captured=captured)
 
     if provider == "ollama":
         reply = _run_openai_compat(
@@ -675,8 +712,9 @@ def get_chatbot_reply(session_id: str, user_message: str, db: Session, before_id
     history = [{"role": m.role, "content": m.content} for m in reversed(history_rows)]
     messages = history + [{"role": "user", "content": user_message}]
 
+    captured: dict = {}
     try:
-        reply = _dispatch(provider, model, messages, system, session_id, db)
+        reply = _dispatch(provider, model, messages, system, session_id, db, captured)
     except Exception as primary_exc:
         # Reliability fallback: keep the widget answering on Claude Haiku.
         # This is logged at WARNING so production (Render) logs reveal when the
@@ -690,7 +728,7 @@ def get_chatbot_reply(session_id: str, user_message: str, db: Session, before_id
             )
             try:
                 reply = _run_anthropic(
-                    messages, system, _FALLBACK_ANTHROPIC_MODEL, session_id, db
+                    messages, system, _FALLBACK_ANTHROPIC_MODEL, session_id, db, captured
                 )
             except Exception as fb_exc:
                 _log.error("Chatbot Anthropic fallback also failed: %s", fb_exc)
@@ -700,6 +738,7 @@ def get_chatbot_reply(session_id: str, user_message: str, db: Session, before_id
                        provider, primary_exc)
             reply = _error_message(primary_exc)
 
+    reply = _ensure_availability_shown(reply, captured)
     db.add(ChatMessage(session_id=session_id, role="assistant", content=reply))
     db.commit()
     return reply
