@@ -326,30 +326,28 @@ def run_equipment_refresh_job(job_id: int) -> None:
                 db, "equipment_batch_size", minimum=1, maximum=10
             )
 
-            # Never let an auto-refresh overwrite hand-curated/verified rows (is_locked)
-            # or archived units — this is what caused past price drift. The team can
-            # still edit those by hand on the detail page.
-            base_q = db.query(EquipmentUnit).filter(
-                EquipmentUnit.is_locked.is_(False),
-                EquipmentUnit.status == "active",
-            )
+            # Refresh all active units (archived ones are off-catalog and skipped). Pricing is
+            # owned by the distributor-sourcing system, so the refresh never writes price fields
+            # (see _apply_update) — that's what stops the old price drift. On verified/curated
+            # rows (is_locked) the refresh only fills genuinely-empty spec gaps; it never
+            # overwrites hand-checked data or downgrades the "verified" badge.
+            base_q = db.query(EquipmentUnit).filter(EquipmentUnit.status == "active")
             units = (
                 base_q.filter(EquipmentUnit.id.in_(unit_ids)).all()
                 if unit_ids
                 else base_q.all()
             )
 
-            locked = db.query(EquipmentUnit).filter(EquipmentUnit.is_locked.is_(True)).count()
-
             if not units:
                 job.status = "done"
-                job.agent_log = json.dumps([{"event": "no_units_found", "locked_skipped": locked}])
+                job.agent_log = json.dumps([{"event": "no_units_found"}])
                 job.finished_at = datetime.now()
                 db.commit()
                 return
 
+            locked_in_run = sum(1 for u in units if u.is_locked)
             log_entries: list[dict[str, Any]] = [
-                {"event": "start", "units": len(units), "locked_skipped": locked}
+                {"event": "start", "units": len(units), "locked_gap_fill_only": locked_in_run}
             ]
 
             # ── 1. Fetch external catalogs ─────────────────────────────────
@@ -448,7 +446,7 @@ def run_equipment_refresh_job(job_id: int) -> None:
                 unit = db.get(EquipmentUnit, uid)
                 if not unit:
                     continue
-                _apply_update(unit, record, now)
+                _apply_update(unit, record, now, locked=unit.is_locked)
                 updated += 1
 
             db.commit()
@@ -507,7 +505,16 @@ def _download_image(url: str, unit_id: int) -> str | None:
         return None
 
 
-def _apply_update(unit: EquipmentUnit, record: dict[str, Any], now: datetime) -> None:
+# Pricing now lives on EquipmentSource rows (recompute_best_price denormalizes the best one
+# onto the unit), so the AI refresh must never write these — that's what caused price drift.
+_SOURCE_OWNED_FIELDS = frozenset(
+    {"price_low", "price_high", "price_notes", "monthly_fee", "processing_fee_pct"}
+)
+
+
+def _apply_update(
+    unit: EquipmentUnit, record: dict[str, Any], now: datetime, locked: bool = False
+) -> None:
     fields = [
         "price_low", "price_high", "price_notes", "monthly_fee", "processing_fee_pct",
         "warranty_years", "warranty_notes", "extended_warranty_available", "extended_warranty_notes",
@@ -519,7 +526,15 @@ def _apply_update(unit: EquipmentUnit, record: dict[str, Any], now: datetime) ->
         "highlights", "image_url", "product_url",
     ]
     for field in fields:
-        if field in record and record[field] is not None:
-            setattr(unit, field, record[field])
-    unit.data_confidence = "ai_refreshed"
+        if field in _SOURCE_OWNED_FIELDS:
+            continue  # owned by the distributor-sourcing system; never auto-written
+        value = record.get(field)
+        if value is None:
+            continue
+        if locked and getattr(unit, field) not in (None, ""):
+            continue  # verified row: only fill genuinely-empty gaps, never overwrite curated data
+        setattr(unit, field, value)
     unit.last_refreshed = now
+    if not locked:
+        # Don't downgrade a verified/curated row's confidence badge.
+        unit.data_confidence = "ai_refreshed"

@@ -1,7 +1,10 @@
+from datetime import datetime
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models.equipment import Distributor, EquipmentSource, EquipmentUnit
+from app.services.equipment_agent import _apply_update
 
 
 def _unit(db: Session, **kw) -> EquipmentUnit:
@@ -143,6 +146,34 @@ def test_distributors_tab(client: TestClient, db: Session) -> None:
     resp = client.get("/equipment/?tab=distributors")
     assert resp.status_code == 200
     assert "Acme Supply" in resp.text
+
+
+def test_refresh_never_overwrites_price() -> None:
+    # Pricing is owned by the sourcing system; the AI refresh must leave it alone for all units.
+    u = EquipmentUnit(
+        manufacturer="X", product_name="Y", equipment_type="smart_cooler",
+        price_low=3000, price_high=3000, data_confidence="seeded",
+    )
+    _apply_update(
+        u, {"price_low": 9999, "price_high": 9999, "capacity_units": 100}, datetime.now(),
+        locked=False,
+    )
+    assert u.price_low == 3000  # price untouched
+    assert u.capacity_units == 100  # non-price spec updated
+    assert u.data_confidence == "ai_refreshed"
+
+
+def test_refresh_locked_fills_gaps_only() -> None:
+    u = EquipmentUnit(
+        manufacturer="X", product_name="Y", equipment_type="smart_cooler",
+        connectivity="4G", capacity_units=None, data_confidence="verified", is_locked=True,
+    )
+    _apply_update(
+        u, {"connectivity": "WiFi", "capacity_units": 245}, datetime.now(), locked=True,
+    )
+    assert u.connectivity == "4G"  # curated value preserved
+    assert u.capacity_units == 245  # genuinely-empty gap filled
+    assert u.data_confidence == "verified"  # verified badge not downgraded
 
 
 def test_starting_price_label(client: TestClient, db: Session) -> None:
