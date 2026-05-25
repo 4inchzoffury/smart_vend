@@ -4,6 +4,7 @@
 {% block content %}
 {% set margin = product.margin_pct %}
 {% set best = product.best_source %}
+{% set cost = product.effective_cost %}
 
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
@@ -45,9 +46,10 @@
     <div class="card h-100"><div class="card-body py-3">
       <div class="text-muted small text-uppercase" style="letter-spacing:.04em">Best unit cost</div>
       <div class="h4 mb-0">
-        {{ "$%.3f"|format(product.unit_cost) if product.unit_cost else "—" }}
+        {{ "$%.3f"|format(cost) if cost is not none else "—" }}
       </div>
-      {% if best %}<div class="small text-muted">via {{ best.supplier.name }}</div>{% endif %}
+      {% if best %}<div class="small text-muted">via {{ best.supplier.name }}</div>
+      {% elif product.unit_cost is not none %}<div class="small text-muted">hand-entered</div>{% endif %}
     </div></div>
   </div>
   <div class="col-6 col-lg-3">
@@ -58,8 +60,8 @@
         <span class="badge {% if margin < 30 %}bg-danger{% elif margin < 45 %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ "%.0f"|format(margin) }}%</span>
         {% else %}<span class="text-muted">—</span>{% endif %}
       </div>
-      {% if product.sell_price and product.unit_cost %}
-      <div class="small text-muted">{{ "$%.2f"|format(product.sell_price - product.unit_cost) }}/unit profit</div>
+      {% if product.sell_price and cost is not none %}
+      <div class="small text-muted">{{ "$%.2f"|format(product.sell_price - cost) }}/unit profit</div>
       {% endif %}
     </div></div>
   </div>

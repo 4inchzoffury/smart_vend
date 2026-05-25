@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 logger = logging.getLogger(__name__)
 from sqlalchemy import func as sql_func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.database import get_db
 from app.models.agent import AgentJob
@@ -193,7 +193,16 @@ def inventory_index(
 ) -> HTMLResponse:
     sid = int(supplier_id) if supplier_id else None
     init_sid = int(init_supplier) if init_supplier else None
-    q = db.query(Product).filter(Product.is_active.is_(True))
+    # Eager-load sources (+their suppliers) and the primary supplier so the Best
+    # Source column and cost/margin don't fire a query per product (N+1).
+    q = (
+        db.query(Product)
+        .options(
+            selectinload(Product.sources).selectinload(ProductSource.supplier),
+            joinedload(Product.primary_supplier),
+        )
+        .filter(Product.is_active.is_(True))
+    )
     if category:
         q = q.filter(Product.category == category)
     if sid:
@@ -209,7 +218,7 @@ def inventory_index(
         "total": len(products),
         "low_stock": sum(1 for p in products if p.is_low_stock),
         "avg_margin": (sum(margins) / len(margins)) if margins else None,
-        "missing_cost": sum(1 for p in products if not p.unit_cost),
+        "missing_cost": sum(1 for p in products if p.effective_cost is None),
         "sourced": sum(1 for p in products if p.source_count),
     }
     suppliers = db.query(Supplier).order_by(Supplier.name).all()
@@ -745,6 +754,10 @@ def restock_run(request: Request, db: Session = Depends(get_db)) -> HTMLResponse
 
     products = (
         db.query(Product)
+        .options(
+            selectinload(Product.sources).selectinload(ProductSource.supplier),
+            joinedload(Product.primary_supplier),
+        )
         .filter(
             Product.is_active.is_(True),
             Product.par_level.is_not(None),
@@ -762,7 +775,7 @@ def restock_run(request: Request, db: Session = Depends(get_db)) -> HTMLResponse
             src.supplier.name if src else (p.primary_supplier.name if p.primary_supplier else "Unassigned")
         )
         qty = p.qty_needed
-        unit_cost = src.effective_unit_cost if src else p.unit_cost
+        unit_cost = src.effective_unit_cost if src else p.effective_cost
         case_price = src.case_price if src else None
         pack = (src.case_pack_qty if src else None) or p.case_pack_qty
         cases = None
@@ -797,10 +810,11 @@ def restock_run(request: Request, db: Session = Depends(get_db)) -> HTMLResponse
         else:
             grp["has_unknown"] = True
 
-    # Cheapest-to-stock suppliers first; Unassigned last.
+    # Largest supplier orders first (tackle the big buys first); items with no
+    # known supplier ("Unassigned") sink to the bottom.
     ordered = sorted(
         groups.values(),
-        key=lambda g: (g["supplier_name"] == "Unassigned", -g["subtotal"]),
+        key=lambda g: (g["supplier_name"] == "Unassigned", -g["subtotal"], g["supplier_name"]),
     )
     return templates.TemplateResponse(
         request,
@@ -885,7 +899,7 @@ def product_restock(
         log_type="restock",
         qty_change=qty,
         qty_after=product.on_hand_qty,
-        unit_cost_at_log=product.unit_cost,
+        unit_cost_at_log=product.effective_cost,
         notes=notes or None,
         logged_by=user.get("email") or user.get("name"),
     )
@@ -984,24 +998,21 @@ def add_product_source(
     if not sup_id:
         raise HTTPException(status_code=400, detail="A supplier is required")
 
-    source = ProductSource(
-        product_id=product.id,
-        supplier_id=sup_id,
-        supplier_url=supplier_url.strip() or None,
-        case_price=_to_float(case_price),
-        case_pack_qty=_to_int(case_pack_qty) or product.case_pack_qty,
-        unit_cost=_to_float(unit_cost),
-        unit_size=unit_size.strip() or None,
-        min_order=min_order.strip() or None,
-        price_notes=price_notes.strip() or None,
-        in_stock=in_stock,
-        origin="manual",
-        last_verified=datetime.now(),
-    )
-    db.add(source)
-    db.flush()
-    db.refresh(product)
-    product.recompute_best_cost()
+    # Upsert: re-saving an existing supplier's price updates it rather than adding
+    # a duplicate row for the same (product, supplier).
+    source = next((s for s in product.sources if s.supplier_id == sup_id), None)
+    if source is None:
+        source = ProductSource(product_id=product.id, supplier_id=sup_id, origin="manual")
+        db.add(source)
+    source.supplier_url = supplier_url.strip() or None
+    source.case_price = _to_float(case_price)
+    source.case_pack_qty = _to_int(case_pack_qty) or product.case_pack_qty
+    source.unit_cost = _to_float(unit_cost)
+    source.unit_size = unit_size.strip() or None
+    source.min_order = min_order.strip() or None
+    source.price_notes = price_notes.strip() or None
+    source.in_stock = in_stock
+    source.last_verified = datetime.now()
     db.commit()
     db.refresh(product)
     return _sources_partial(request, product, db)
@@ -1015,9 +1026,6 @@ def delete_product_source(
     source = db.get(ProductSource, source_id)
     if source and source.product_id == product.id:
         db.delete(source)
-        db.flush()
-        db.refresh(product)
-        product.recompute_best_cost()
         db.commit()
         db.refresh(product)
     return _sources_partial(request, product, db)
@@ -1070,22 +1078,21 @@ def save_source_from_comparison(
         db.add(supplier)
         db.flush()
 
-    source = ProductSource(
-        product_id=product.id,
-        supplier_id=supplier.id,
-        supplier_url=url.strip() or None,
-        case_price=_to_float(case_price),
-        case_pack_qty=_to_int(case_qty) or product.case_pack_qty,
-        unit_cost=_to_float(unit_price),
-        unit_size=unit_size.strip() or None,
-        price_notes=notes.strip() or None,
-        origin="comparator",
-        last_verified=datetime.now(),
-    )
-    db.add(source)
-    db.flush()
-    db.refresh(product)
-    product.recompute_best_cost()
+    # Upsert so re-saving the same vendor for this SKU refreshes its price rather
+    # than piling up duplicate rows.
+    source = next((s for s in product.sources if s.supplier_id == supplier.id), None)
+    if source is None:
+        source = ProductSource(
+            product_id=product.id, supplier_id=supplier.id, origin="comparator"
+        )
+        db.add(source)
+    source.supplier_url = url.strip() or None
+    source.case_price = _to_float(case_price)
+    source.case_pack_qty = _to_int(case_qty) or product.case_pack_qty
+    source.unit_cost = _to_float(unit_price)
+    source.unit_size = unit_size.strip() or None
+    source.price_notes = notes.strip() or None
+    source.last_verified = datetime.now()
     db.commit()
     return HTMLResponse(
         '<span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Saved to '

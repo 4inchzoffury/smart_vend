@@ -183,7 +183,7 @@ def test_effective_unit_cost_case_math(db: Session) -> None:
     assert abs(src.effective_unit_cost - 0.79) < 0.001
 
 
-def test_add_source_recomputes_best_cost(client: TestClient, db: Session) -> None:
+def test_add_source_sets_best_cost(client: TestClient, db: Session) -> None:
     s = _make_supplier(db)
     p = _make_product(db, unit_cost=None, case_pack_qty=24)
     resp = client.post(
@@ -193,7 +193,24 @@ def test_add_source_recomputes_best_cost(client: TestClient, db: Session) -> Non
     assert resp.status_code == 200
     db.refresh(p)
     assert p.source_count == 1
-    assert abs(p.unit_cost - 1.00) < 0.001  # 24 / 24
+    assert abs(p.best_unit_cost - 1.00) < 0.001  # 24 / 24, derived (never stored)
+    assert abs(p.effective_cost - 1.00) < 0.001
+
+
+def test_adding_source_never_overwrites_hand_typed_cost(client: TestClient, db: Session) -> None:
+    # The hand-entered unit_cost column must stay untouched; effective_cost is derived.
+    s = _make_supplier(db)
+    p = _make_product(db, unit_cost=0.50)
+    client.post(f"/inventory/{p.id}/sources", data={"supplier_id": str(s.id), "unit_cost": "0.79"})
+    db.refresh(p)
+    assert p.unit_cost == 0.50  # column unchanged
+    assert abs(p.effective_cost - 0.79) < 0.001  # but cost reflects the real supplier offer
+    # Removing the only source reverts effective_cost to the hand-typed value (no stale stickiness).
+    src_id = p.sources[0].id
+    client.post(f"/inventory/{p.id}/sources/{src_id}/delete")
+    db.refresh(p)
+    assert p.source_count == 0
+    assert abs(p.effective_cost - 0.50) < 0.001
 
 
 def test_cheaper_source_becomes_best(client: TestClient, db: Session) -> None:
@@ -207,7 +224,17 @@ def test_cheaper_source_becomes_best(client: TestClient, db: Session) -> None:
     db.refresh(p)
     assert p.source_count == 2
     assert p.best_source.supplier.name == "Webstaurant"
-    assert abs(p.unit_cost - 0.70) < 0.001
+    assert abs(p.best_unit_cost - 0.70) < 0.001
+
+
+def test_resaving_supplier_updates_not_duplicates(client: TestClient, db: Session) -> None:
+    s = _make_supplier(db)
+    p = _make_product(db, unit_cost=None)
+    client.post(f"/inventory/{p.id}/sources", data={"supplier_id": str(s.id), "unit_cost": "1.00"})
+    client.post(f"/inventory/{p.id}/sources", data={"supplier_id": str(s.id), "unit_cost": "0.80"})
+    db.refresh(p)
+    assert p.source_count == 1  # same supplier upserted, not duplicated
+    assert abs(p.best_unit_cost - 0.80) < 0.001
 
 
 def test_toggle_preferred_source_is_exclusive(client: TestClient, db: Session) -> None:
@@ -249,7 +276,7 @@ def test_product_detail_page_renders(client: TestClient, db: Session) -> None:
 
 
 def test_save_source_from_comparison(client: TestClient, db: Session) -> None:
-    p = _make_product(db, case_pack_qty=40)
+    p = _make_product(db, case_pack_qty=40, unit_cost=None)
     resp = client.post(
         f"/inventory/{p.id}/sources/from-comparison",
         data={
@@ -267,7 +294,9 @@ def test_save_source_from_comparison(client: TestClient, db: Session) -> None:
     db.refresh(p)
     assert p.source_count == 1
     assert p.sources[0].origin == "comparator"
-    assert abs(p.unit_cost - 0.62) < 0.001
+    # case math (24.80/40) wins over the single-unit price; both equal 0.62 here
+    assert abs(p.effective_cost - 0.62) < 0.001
+    assert p.unit_cost is None  # hand-typed column untouched
 
 
 def test_restock_run_groups_below_par(client: TestClient, db: Session) -> None:

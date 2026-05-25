@@ -92,10 +92,30 @@ class Product(Base):
         return priced + unpriced
 
     @property
+    def best_unit_cost(self) -> float | None:
+        """Cheapest per-unit cost across supplier offers. Derived (never stored), so
+        the operator's hand-entered unit_cost is never overwritten and there is no
+        denormalized value that can drift or go stale when a source is removed.
+        Unlike EquipmentUnit (which denormalizes for cost filtering), the product
+        catalog loads sources for the Best Source column anyway, so a column buys
+        nothing here."""
+        best = self.best_source
+        return best.effective_unit_cost if best else None
+
+    @property
+    def effective_cost(self) -> float | None:
+        """Cost used for margin and restock estimates: the cheapest supplier offer
+        when one exists, otherwise the hand-entered unit_cost."""
+        bc = self.best_unit_cost
+        return bc if bc is not None else self.unit_cost
+
+    @property
     def margin_pct(self) -> float | None:
-        """Gross margin from sell_price vs unit_cost (the denormalized best cost)."""
-        if self.sell_price and self.unit_cost:
-            return (self.sell_price - self.unit_cost) / self.sell_price * 100
+        """Gross margin from sell_price vs effective_cost."""
+        cost = self.effective_cost
+        # sell_price truthy guards the division; cost == 0.0 is a valid (free) cost.
+        if self.sell_price and cost is not None:
+            return (self.sell_price - cost) / self.sell_price * 100
         return None
 
     @property
@@ -108,18 +128,6 @@ class Product(Base):
         if self.par_level is None:
             return 0
         return max(0, self.par_level - self.on_hand_qty)
-
-    def recompute_best_cost(self) -> None:
-        """Sync denormalized unit_cost from the cheapest source's per-unit cost.
-
-        The product table, margin badge, and restock-run estimates read the
-        unit-level cost, so it must mirror the best (lowest) supplier offering.
-        Products with no priced source keep whatever cost was entered by hand.
-        """
-        priced = self.priced_sources
-        if not priced:
-            return
-        self.unit_cost = priced[0].effective_unit_cost
 
 
 class ProductSource(Base):
@@ -160,13 +168,15 @@ class ProductSource(Base):
 
     @property
     def effective_unit_cost(self) -> float | None:
-        """Per-unit cost used for comparison: explicit unit_cost, else case math."""
-        if self.unit_cost is not None:
-            return self.unit_cost
+        """Per-unit cost used for comparison. Vending buys by the case, so case math
+        (case_price / case_pack_qty) wins when present; a bare unit_cost is the
+        fallback for items sold singly. This keeps a comparator row that carries
+        both a single-unit retail price and a bulk case price from overstating the
+        true per-unit cost."""
         pack = self.case_pack_qty or 0
         if self.case_price is not None and pack > 0:
             return self.case_price / pack
-        return None
+        return self.unit_cost
 
 
 class InventoryLog(Base):

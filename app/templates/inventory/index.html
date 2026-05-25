@@ -148,7 +148,8 @@
         </thead>
         <tbody>
           {% for p in products %}
-          {% set margin = ((p.sell_price - p.unit_cost) / p.sell_price * 100) if p.sell_price and p.unit_cost else none %}
+          {% set cost = p.effective_cost %}
+          {% set margin = p.margin_pct %}
           {% set low = p.par_level and p.on_hand_qty < p.par_level %}
           <tr {% if low %}class="table-warning"{% endif %}>
             <td class="text-muted small d-none d-sm-table-cell font-monospace">{{ p.sku }}</td>
@@ -171,7 +172,7 @@
               {% endif %}
             </td>
             <td class="text-end small d-none d-sm-table-cell">
-              {{ "$%.2f"|format(p.unit_cost) if p.unit_cost else "–" }}
+              {{ "$%.2f"|format(cost) if cost is not none else "–" }}
             </td>
             <td class="text-end small fw-semibold">
               {{ "$%.2f"|format(p.sell_price) if p.sell_price else "–" }}
