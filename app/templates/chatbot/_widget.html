@@ -162,6 +162,84 @@
   .chat-cb-submit { color: #fff; border: none; font-size: .8rem; }
   .chat-callback__note { text-align: center; margin: 6px 0 0; }
   .chat-error { color: #dc3545; }
+
+  /* Attention nudge: rotating tips that pop up every ~30-40s to invite a chat */
+  @keyframes chat-fab-jump {
+    0%, 100% { transform: translateY(0); }
+    25%      { transform: translateY(-14px) scale(1.05); }
+    45%      { transform: translateY(0)     scale(1); }
+    65%      { transform: translateY(-7px); }
+    85%      { transform: translateY(0); }
+  }
+  @keyframes chat-fab-pulse {
+    0%   { box-shadow: 0 4px 16px rgba(0, 0, 0, .25), 0 0 0 0 rgba(0, 180, 216, .55); }
+    70%  { box-shadow: 0 4px 16px rgba(0, 0, 0, .25), 0 0 0 14px rgba(0, 180, 216, 0); }
+    100% { box-shadow: 0 4px 16px rgba(0, 0, 0, .25), 0 0 0 0 rgba(0, 180, 216, 0); }
+  }
+  .chat-fab--attn {
+    animation: chat-fab-jump  1.2s ease-out 0s 3,
+               chat-fab-pulse 1.5s ease-out 0s 3;
+  }
+  @keyframes chat-nudge-in {
+    from { opacity: 0; transform: translateY(8px) scale(.92); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+  @keyframes chat-nudge-out {
+    from { opacity: 1; transform: translateY(0)  scale(1); }
+    to   { opacity: 0; transform: translateY(6px) scale(.96); }
+  }
+  .chat-nudge {
+    position: fixed;
+    bottom: 44px;
+    right: 100px;
+    z-index: 1059;
+    max-width: 240px;
+    background: #fff;
+    color: #1a1a2e;
+    padding: 10px 32px 10px 14px;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+    font-size: .82rem;
+    line-height: 1.35;
+    cursor: pointer;
+    transform-origin: bottom right;
+    animation: chat-nudge-in .26s ease-out both;
+  }
+  .chat-nudge--hide { animation: chat-nudge-out .22s ease-in forwards; }
+  .chat-nudge::after {
+    content: ''; position: absolute;
+    right: -7px; bottom: 16px;
+    width: 0; height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-left: 8px solid #fff;
+    filter: drop-shadow(2px 0 1px rgba(0, 0, 0, .04));
+  }
+  .chat-nudge__close {
+    position: absolute; top: 4px; right: 6px;
+    background: none; border: none; color: #adb5bd;
+    cursor: pointer; font-size: 1rem; line-height: 1; padding: 2px 5px;
+    border-radius: 50%; transition: color .15s, background .15s;
+  }
+  .chat-nudge__close:hover { color: #495057; background: #f0f2f5; }
+  .chat-nudge__wave { display: inline-block; transform-origin: 70% 70%; animation: chat-nudge-wave 1.6s ease-in-out infinite; }
+  @keyframes chat-nudge-wave {
+    0%, 60%, 100% { transform: rotate(0); }
+    10% { transform: rotate(14deg); }
+    20% { transform: rotate(-8deg); }
+    30% { transform: rotate(14deg); }
+    40% { transform: rotate(-4deg); }
+    50% { transform: rotate(10deg); }
+  }
+  @media (max-width: 480px) {
+    .chat-nudge { max-width: 200px; right: 96px; bottom: 40px; font-size: .78rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-fab--attn { animation: none; }
+    .chat-nudge { animation: none; }
+    .chat-nudge--hide { animation: none; opacity: 0; }
+    .chat-nudge__wave { animation: none; }
+  }
 </style>
 
 <!-- Chat FAB (floating action button) -->
@@ -174,6 +252,18 @@
     <path d="M8 15c4.418 0 8-3.134 8-7s-3.582-7-8-7-8 3.134-8 7c0 1.76.743 3.37 1.97 4.6-.097 1.016-.417 2.13-.771 2.966-.079.186.074.394.273.362 2.256-.37 3.597-.938 4.18-1.234A9.06 9.06 0 0 0 8 15z"/>
   </svg>
 </button>
+
+<!-- Attention nudge bubble (shown briefly on first visit) -->
+<div id="chat-nudge" class="chat-nudge" role="button" tabindex="0"
+     aria-label="Open chat" style="display:none;"
+     onclick="openChatFromNudge()"
+     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openChatFromNudge();}">
+  <button type="button" class="chat-nudge__close"
+          onclick="event.stopPropagation();dismissChatNudge();"
+          aria-label="Dismiss">✕</button>
+  <span class="chat-nudge__wave" aria-hidden="true">👋</span>
+  <span id="chat-nudge-text">Have a question about something you see? Chat with us!</span>
+</div>
 
 <!-- Chat panel -->
 <div id="chat-panel" class="chat-panel d-none">
@@ -332,6 +422,7 @@
     var panel = document.getElementById('chat-panel');
     var fab   = document.getElementById('chat-fab');
     if (panel.classList.contains('d-none')) {
+      dismissChatNudge();
       panel.classList.remove('d-none');
       panel.style.display = 'flex';
       fab.style.display = 'none';
@@ -468,6 +559,83 @@
         btn.textContent = 'Submit Request';
       });
   };
+
+  // Attention nudge: rotating tooltips that pop up every ~30-40s + bouncing FAB
+  var NUDGE_KEY = 'pmm_chat_nudge_dismissed';
+  var NUDGE_MESSAGES = [
+    'Have a question about something you see? Chat with us!',
+    'Want to get started? Book a time with the chat assistant!',
+    'Want to get in touch with the team? Use the assistant to send us a message!',
+    'Curious how Prime Micro Markets works? Ask the assistant anything.',
+    'Looking for the right smart cooler for your space? Chat with us!'
+  ];
+  var nudgeTimers = [];
+  var nudgeIdx = 0;
+  var nudgeStopped = false;
+
+  function clearNudgeTimers() {
+    nudgeTimers.forEach(function (t) { clearTimeout(t); });
+    nudgeTimers = [];
+  }
+
+  function showNudge() {
+    if (nudgeStopped) return;
+    var panel = document.getElementById('chat-panel');
+    if (panel && !panel.classList.contains('d-none')) {
+      // Chat is open; try again later instead of nagging
+      nudgeTimers.push(setTimeout(showNudge, 30000));
+      return;
+    }
+    var nudge = document.getElementById('chat-nudge');
+    var fab   = document.getElementById('chat-fab');
+    var text  = document.getElementById('chat-nudge-text');
+    if (!nudge || !fab || !text) return;
+    text.textContent = NUDGE_MESSAGES[nudgeIdx % NUDGE_MESSAGES.length];
+    nudgeIdx++;
+    nudge.classList.remove('chat-nudge--hide');
+    nudge.style.display = 'block';
+    // Restart the FAB jump animation each cycle
+    fab.classList.remove('chat-fab--attn');
+    void fab.offsetWidth; // force reflow so the animation replays
+    fab.classList.add('chat-fab--attn');
+    nudgeTimers.push(setTimeout(function () {
+      fab.classList.remove('chat-fab--attn');
+    }, 5000));
+    nudgeTimers.push(setTimeout(hideNudge, 7000));
+  }
+
+  function hideNudge() {
+    var nudge = document.getElementById('chat-nudge');
+    var fab   = document.getElementById('chat-fab');
+    if (fab) fab.classList.remove('chat-fab--attn');
+    if (nudge && nudge.style.display !== 'none') {
+      nudge.classList.add('chat-nudge--hide');
+      setTimeout(function () {
+        nudge.style.display = 'none';
+        nudge.classList.remove('chat-nudge--hide');
+      }, 240);
+    }
+    if (!nudgeStopped) {
+      var gap = 30000 + Math.floor(Math.random() * 10000); // 30-40s
+      nudgeTimers.push(setTimeout(showNudge, gap));
+    }
+  }
+
+  window.dismissChatNudge = function () {
+    clearNudgeTimers();
+    nudgeStopped = true;
+    try { sessionStorage.setItem(NUDGE_KEY, '1'); } catch (e) {}
+    hideNudge();
+  };
+  window.openChatFromNudge = function () {
+    dismissChatNudge();
+    toggleChat();
+  };
+
+  (function () {
+    try { if (sessionStorage.getItem(NUDGE_KEY)) { nudgeStopped = true; return; } } catch (e) {}
+    nudgeTimers.push(setTimeout(showNudge, 800));
+  })();
 
   // Drag-to-reposition via header
   (function () {
