@@ -33,6 +33,16 @@ def search(
     Returns a list of {title, url, content, score} dicts. Never raises for a
     provider failure — returns [] only if every provider fails.
     """
+    # Hard-cap query length. Tavily rejects >400 chars and DuckDuckGo truncates
+    # silently; either way an overly long query is a bug (typically a SQLAlchemy
+    # Query object stringified by accident — keep this guard even after the
+    # known shadow bug is patched).
+    if len(query) > 380:
+        logger.warning(
+            "Search query truncated from %d to 380 chars; head=%r", len(query), query[:120]
+        )
+        query = query[:380]
+
     if provider == "tavily":
         try:
             results = _tavily(query, max_results)

@@ -338,7 +338,9 @@ def inventory_index(
     init_sid = int(init_supplier) if init_supplier else None
     # Eager-load sources (+their suppliers) and the primary supplier so the Best
     # Source column and cost/margin don't fire a query per product (N+1).
-    q = (
+    # NOTE: do not shadow the URL `q` parameter — it carries the Find Prices
+    # pre-fill query and is read further down.
+    products_q = (
         db.query(Product)
         .options(
             selectinload(Product.sources).selectinload(ProductSource.supplier),
@@ -347,14 +349,16 @@ def inventory_index(
         .filter(Product.is_active.is_(True))
     )
     if category:
-        q = q.filter(Product.category == category)
+        products_q = products_q.filter(Product.category == category)
     if sid:
-        q = q.filter(Product.primary_supplier_id == sid)
+        products_q = products_q.filter(Product.primary_supplier_id == sid)
     if low_stock:
-        q = q.filter(Product.par_level.is_not(None), Product.on_hand_qty < Product.par_level)
+        products_q = products_q.filter(
+            Product.par_level.is_not(None), Product.on_hand_qty < Product.par_level
+        )
     if seasonal:
-        q = q.filter(Product.is_seasonal.is_(True))
-    products = q.order_by(Product.category, Product.name).all()
+        products_q = products_q.filter(Product.is_seasonal.is_(True))
+    products = products_q.order_by(Product.category, Product.name).all()
 
     margins = [p.margin_pct for p in products if p.margin_pct is not None]
     summary = {
@@ -816,8 +820,12 @@ def compare_run(
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     vendor_cfg = load_vendor_settings(db)
+    # Length cap defends against accidental Query/object stringification leaking
+    # into the form (Tavily caps at 400 chars and a giant query is never a real
+    # SKU search anyway).
+    cleaned_query = product_query.strip()[:200]
     params = {
-        "product_query": product_query.strip(),
+        "product_query": cleaned_query,
         "vendors": vendors or VENDOR_KEYS,
         "search_provider": search_provider,
         "vendor_config": vendor_cfg,

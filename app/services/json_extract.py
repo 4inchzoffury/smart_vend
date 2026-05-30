@@ -57,7 +57,11 @@ def extract_json_list(text: str, *, context: str = "response") -> list[dict[str,
     except json.JSONDecodeError:
         pass
 
-    # Strategy 2 & 3: raw_decode scanning from each opening bracket/brace
+    # Strategy 2 & 3: raw_decode scanning from each opening bracket/brace.
+    # NOTE: an LLM that legitimately found nothing returns "[]" (sometimes with
+    # trailing apology prose). That parses to an empty list, which is the
+    # correct answer — accept it instead of treating empty-but-parsed as
+    # "keep scanning". We only keep scanning when raw_decode itself failed.
     for opener in ("[", "{"):
         pos = cleaned.find(opener)
         while pos != -1:
@@ -67,7 +71,7 @@ def extract_json_list(text: str, *, context: str = "response") -> list[dict[str,
                 pos = cleaned.find(opener, pos + 1)
                 continue
             result = _coerce_list(parsed)
-            if result:
+            if result is not None:
                 return result
             pos = cleaned.find(opener, pos + 1)
 

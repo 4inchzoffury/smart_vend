@@ -623,6 +623,57 @@ def test_compare_tab_prefills_from_product_id(client: TestClient, db: Session) -
     assert f'name="product_id" value="{p.id}"' in resp.text
 
 
+def test_compare_tab_q_param_does_not_leak_sql(client: TestClient, db: Session) -> None:
+    """Regression: the URL `q` parameter must not be shadowed by the products
+    SQLAlchemy Query inside inventory_index. Previously `q` was reassigned to a
+    Query[Product] object, and `str(Query)` returned the compiled SELECT
+    statement, which then rendered into the comparator form's value attribute
+    and got POSTed as the product_query — sending a SQL statement to
+    Tavily/DuckDuckGo."""
+    p = _make_product(db, sku="RB-8-4OZ", name="Red Bull 8.4oz")
+    resp = client.get(f"/inventory/?tab=compare&product_id={p.id}&q=Red+Bull+8.4oz")
+    assert resp.status_code == 200
+    # The form value should be the literal product name, not a SQL statement.
+    assert "SELECT products.id" not in resp.text
+    assert "products_sku" not in resp.text
+    # `q` should round-trip into the search input.
+    assert "Red Bull 8.4oz" in resp.text
+
+
+def test_web_search_truncates_overlong_query(monkeypatch) -> None:
+    """Defense-in-depth: even if a giant query slips into the search dispatcher,
+    it gets capped to 380 chars before hitting Tavily (which 400-char-rejects)."""
+    from app.services import web_search
+
+    captured: dict[str, str] = {}
+
+    def fake_ddg(query: str, max_results: int) -> list[dict]:
+        captured["query"] = query
+        return []
+
+    monkeypatch.setattr(web_search, "_duckduckgo", fake_ddg)
+    huge = "SELECT products.id AS products_id, " * 100  # ~3.6 KB
+    web_search.search(huge, max_results=3)
+    assert "query" in captured
+    assert len(captured["query"]) <= 380
+
+
+def test_json_extract_accepts_legitimate_empty_list() -> None:
+    """Regression: an LLM that returns '[]' followed by apology prose is
+    saying 'no results' — the extractor must return [] not log a warning and
+    return [] (the previous behavior advanced past the parsed empty list and
+    failed). Verifies the firecrawl walmart 'page not accessible' case."""
+    from app.services.json_extract import extract_json_list
+
+    response = (
+        "```json\n[]\n```\n\n"
+        "I cannot extract product pricing information because the requested "
+        "page is not accessible. The error message [says it timed out]."
+    )
+    result = extract_json_list(response, context="test")
+    assert result == []
+
+
 def test_candymachines_routes_offdomain_links_to_pseudo_vendor() -> None:
     """Off-domain hrefs in the CandyMachines fallback get their own vendor key."""
     from app.services.price_fetcher.candy_machines import _route_by_host
