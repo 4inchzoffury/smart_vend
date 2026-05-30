@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 from sqlalchemy import func as sql_func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.database import get_db
+from app.config import settings as app_settings
+from app.database import engine, get_db
 from app.models.agent import AgentJob
 from app.models.inventory import InventoryLog, Product, ProductSource, Supplier
 from app.services import inventory_agent, price_comparator
@@ -34,9 +35,17 @@ from app.views import templates
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 PRODUCT_CATEGORIES = [
-    "beverage_water", "beverage_energy", "beverage_soda", "beverage_juice",
-    "snack_chips", "snack_candy", "snack_healthy",
-    "meal_sandwich", "meal_salad", "personal_care", "other",
+    "beverage_water",
+    "beverage_energy",
+    "beverage_soda",
+    "beverage_juice",
+    "snack_chips",
+    "snack_candy",
+    "snack_healthy",
+    "meal_sandwich",
+    "meal_salad",
+    "personal_care",
+    "other",
 ]
 
 # Human-readable labels for internal category slugs
@@ -186,8 +195,7 @@ def supplier_edit_form(
     if not supplier:
         return Response(status_code=404)
     return templates.TemplateResponse(
-        request, "inventory/supplier_edit.html",
-        {"active_nav": "inventory", "supplier": supplier}
+        request, "inventory/supplier_edit.html", {"active_nav": "inventory", "supplier": supplier}
     )
 
 
@@ -336,6 +344,12 @@ def inventory_index(
 ) -> HTMLResponse:
     sid = int(supplier_id) if supplier_id else None
     init_sid = int(init_supplier) if init_supplier else None
+    # Discover Suppliers was merged into Vendors (Inventory v2). Old links and
+    # bookmarks targeting ?tab=sourcing or #sourcing still need to land somewhere
+    # sensible — they go to the merged Vendors tab where discovery now lives in
+    # a collapsed section.
+    if tab == "sourcing":
+        tab = "suppliers"
     # Eager-load sources (+their suppliers) and the primary supplier so the Best
     # Source column and cost/margin don't fire a query per product (N+1).
     # NOTE: do not shadow the URL `q` parameter — it carries the Find Prices
@@ -377,9 +391,7 @@ def inventory_index(
     )
     # Priority section on the Suppliers tab: not-yet-open suppliers explicitly
     # ranked above the default priority. Lower number sorts to the top.
-    priority_suppliers = [
-        s for s in suppliers if s.account_status != "open" and s.priority < 100
-    ]
+    priority_suppliers = [s for s in suppliers if s.account_status != "open" and s.priority < 100]
     db_cats = {r[0] for r in db.query(Product.category).distinct() if r[0]}
     categories = PRODUCT_CATEGORIES + [c for c in sorted(db_cats) if c not in PRODUCT_CATEGORIES]
     vendor_cfg = load_vendor_settings(db)
@@ -392,6 +404,7 @@ def inventory_index(
     )
     search_provider = _get_setting(db, "inventory_search_provider", "duckduckgo")
     from app.config import settings as app_settings
+
     tavily_available = bool(app_settings.tavily_api_key)
     firecrawl_available = bool(app_settings.firecrawl_api_key)
     # Find Prices tab can be pre-bound to a product (clicked from a catalog row
@@ -408,6 +421,10 @@ def inventory_index(
         .limit(20)
         .all()
     )
+    # Bulk "Source all missing prices" surfaces only when there's work to do.
+    # Counted on the already-loaded products so we don't hit the DB twice.
+    unsourced_count = sum(1 for p in products if not p.source_count)
+    bulk_sourcing_active = _get_setting(db, "bulk_sourcing_in_progress", "") == "1"
     return templates.TemplateResponse(
         request,
         "inventory/index.html",
@@ -439,6 +456,9 @@ def inventory_index(
             "category_options": PRODUCT_CATEGORY_OPTIONS,
             "current_provider": search_provider,
             "sourcing_jobs": sourcing_jobs,
+            # Bulk sourcing (v2)
+            "unsourced_count": unsourced_count,
+            "bulk_sourcing_active": bulk_sourcing_active,
         },
     )
 
@@ -553,9 +573,7 @@ def inventory_search_jobs_list(request: Request, db: Session = Depends(get_db)) 
         .limit(20)
         .all()
     )
-    return templates.TemplateResponse(
-        request, "inventory/_search_job_history.html", {"jobs": jobs}
-    )
+    return templates.TemplateResponse(request, "inventory/_search_job_history.html", {"jobs": jobs})
 
 
 @router.get("/search/{job_id}/poll", response_class=HTMLResponse)
@@ -575,9 +593,7 @@ def inventory_search_poll(
     existing_names: set[str] = set()
     if supplier_results:
         names = [s.get("supplier_name", "").strip().lower() for s in supplier_results]
-        rows = db.query(Supplier.name).filter(
-            Supplier.name.in_([n for n in names if n])
-        ).all()
+        rows = db.query(Supplier.name).filter(Supplier.name.in_([n for n in names if n])).all()
         existing_names = {r[0].lower() for r in rows}
     return templates.TemplateResponse(
         request,
@@ -603,9 +619,11 @@ def inventory_search_job(
     supplier_id_map: dict[str, int] = {}
     if supplier_results:
         names = [s.get("supplier_name", "").strip().lower() for s in supplier_results]
-        rows = db.query(Supplier.id, Supplier.name).filter(
-            Supplier.name.in_([n for n in names if n])
-        ).all()
+        rows = (
+            db.query(Supplier.id, Supplier.name)
+            .filter(Supplier.name.in_([n for n in names if n]))
+            .all()
+        )
         existing_names = {r[1].lower() for r in rows}
         supplier_id_map = {r[1].lower(): r[0] for r in rows}
     input_params: dict = {}
@@ -729,6 +747,7 @@ def seed_starter_products(db: Session = Depends(get_db)) -> HTMLResponse:
 # Price Comparator routes  (must be before /{product_id} wildcard routes)
 # ---------------------------------------------------------------------------
 
+
 @router.get("/compare/stores", response_class=HTMLResponse)
 def compare_stores(
     request: Request,
@@ -804,6 +823,7 @@ def compare_settings_save(
 
     # Redirect so the full page reloads with updated vendor badges in the search form
     from starlette.responses import Response as StarletteResponse
+
     resp = StarletteResponse(status_code=200)
     resp.headers["HX-Redirect"] = "/inventory/?tab=compare"
     return resp
@@ -824,6 +844,12 @@ def compare_run(
     # into the form (Tavily caps at 400 chars and a giant query is never a real
     # SKU search anyway).
     cleaned_query = product_query.strip()[:200]
+    bound_pid = _to_int(product_id)
+    bound_pack: int | None = None
+    if bound_pid:
+        bound_product = db.get(Product, bound_pid)
+        if bound_product and bound_product.case_pack_qty:
+            bound_pack = bound_product.case_pack_qty
     params = {
         "product_query": cleaned_query,
         "vendors": vendors or VENDOR_KEYS,
@@ -831,7 +857,10 @@ def compare_run(
         "vendor_config": vendor_cfg,
         # When launched from a product detail page, results can be saved back as
         # ProductSource rows for that SKU (see /sources/from-comparison).
-        "product_id": _to_int(product_id),
+        "product_id": bound_pid,
+        # Lets the dispatcher backfill case_price from retail unit_price for
+        # cross-vendor comparison (Inventory v2 normalize() pass).
+        "fallback_case_pack": bound_pack,
     }
     job = AgentJob(
         job_type="price_comparison",
@@ -853,9 +882,7 @@ def compare_history(request: Request, db: Session = Depends(get_db)) -> HTMLResp
         .limit(10)
         .all()
     )
-    return templates.TemplateResponse(
-        request, "inventory/_comparator_history.html", {"jobs": jobs}
-    )
+    return templates.TemplateResponse(request, "inventory/_comparator_history.html", {"jobs": jobs})
 
 
 @router.get("/compare/{job_id}/poll", response_class=HTMLResponse)
@@ -893,9 +920,7 @@ def compare_poll(job_id: int, request: Request, db: Session = Depends(get_db)) -
 
 
 @router.get("/compare/{job_id}", response_class=HTMLResponse)
-def compare_results(
-    job_id: int, request: Request, db: Session = Depends(get_db)
-) -> HTMLResponse:
+def compare_results(job_id: int, request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     job = db.get(AgentJob, job_id)
     if not job:
         return Response(status_code=404)
@@ -943,6 +968,7 @@ def compare_delete(job_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 # (fixed path — must be declared before the /{product_id} wildcard below)
 # ---------------------------------------------------------------------------
 
+
 @router.get("/restock-run", response_class=HTMLResponse)
 def restock_run(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     import math
@@ -967,7 +993,9 @@ def restock_run(request: Request, db: Session = Depends(get_db)) -> HTMLResponse
     for p in products:
         src = p.buying_source
         supplier_name = (
-            src.supplier.name if src else (p.primary_supplier.name if p.primary_supplier else "Unassigned")
+            src.supplier.name
+            if src
+            else (p.primary_supplier.name if p.primary_supplier else "Unassigned")
         )
         qty = p.qty_needed
         unit_cost = src.effective_unit_cost if src else p.effective_cost
@@ -1027,6 +1055,7 @@ def restock_run(request: Request, db: Session = Depends(get_db)) -> HTMLResponse
 # ---------------------------------------------------------------------------
 # Product wildcard routes  (must be after all fixed-path routes above)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/{product_id}/edit", response_class=HTMLResponse)
 def product_edit_form(
@@ -1117,6 +1146,7 @@ def product_deactivate(product_id: int, db: Session = Depends(get_db)) -> HTMLRe
 # Product detail page + per-supplier sourcing  (wildcard — keep after the above)
 # ---------------------------------------------------------------------------
 
+
 def _get_product_or_404(db: Session, product_id: int) -> Product:
     product = db.get(Product, product_id)
     if not product:
@@ -1180,9 +1210,7 @@ def add_product_source(
     sup_id = _to_int(supplier_id)
     if not sup_id and new_supplier_name.strip():
         # Let the team add a supplier on the fly without leaving the form.
-        existing = (
-            db.query(Supplier).filter(Supplier.name == new_supplier_name.strip()).first()
-        )
+        existing = db.query(Supplier).filter(Supplier.name == new_supplier_name.strip()).first()
         if existing:
             sup_id = existing.id
         else:
@@ -1241,6 +1269,73 @@ def toggle_preferred_product_source(
     return _sources_partial(request, product, db)
 
 
+def _upsert_product_source_from_comparison(
+    db: Session,
+    product: Product,
+    *,
+    vendor_name: str,
+    vendor_key: str = "",
+    unit_price: float | None = None,
+    case_price: float | None = None,
+    case_qty: int | None = None,
+    unit_size: str | None = None,
+    url: str | None = None,
+    notes: str | None = None,
+    origin: str = "comparator",
+) -> ProductSource:
+    """Upsert a ProductSource from a comparator result row.
+
+    Shared by both the form-driven "Save to product" button and the v2
+    background flows (per-row refresh, "Source all missing prices"). The
+    vendor name maps to a Supplier (found by lowercase match, else created);
+    the source row is keyed on (product, supplier) so re-saving the same
+    vendor refreshes price rather than duplicating rows.
+
+    ``origin`` distinguishes saves: ``"comparator"`` (operator clicked save),
+    ``"comparator_auto"`` (bulk/per-row background auto-save), or
+    ``"comparator_discovered"`` (off-known-vendor host saved from the CM
+    referrals or AI fallback subsection). Backfills missing unit math from
+    case math so the saved row is consistent.
+    """
+    supplier = (
+        db.query(Supplier).filter(sql_func.lower(Supplier.name) == vendor_name.lower()).first()
+    )
+    if not supplier:
+        meta = VENDOR_META.get(vendor_key, {})
+        supplier = Supplier(name=vendor_name, supplier_type=meta.get("type") or "online")
+        db.add(supplier)
+        db.flush()
+
+    source = next((s for s in product.sources if s.supplier_id == supplier.id), None)
+    if source is None:
+        source = ProductSource(product_id=product.id, supplier_id=supplier.id, origin=origin)
+        db.add(source)
+    else:
+        # Preserve a more specific origin (e.g. "comparator_discovered") if it
+        # was set previously, but upgrade a stale "comparator" to "auto" when
+        # the background path refreshed it.
+        if origin and source.origin != origin and not source.origin:
+            source.origin = origin
+        elif origin == "comparator_auto" and source.origin == "comparator":
+            source.origin = "comparator_auto"
+
+    # Backfill missing unit math so the persisted row is internally consistent.
+    pack = case_qty or product.case_pack_qty
+    if unit_price is None and case_price is not None and pack:
+        unit_price = round(case_price / pack, 4)
+    if case_price is None and unit_price is not None and pack:
+        case_price = round(unit_price * pack, 2)
+
+    source.supplier_url = url or None
+    source.case_price = case_price
+    source.case_pack_qty = pack
+    source.unit_cost = unit_price
+    source.unit_size = unit_size or None
+    source.price_notes = notes or None
+    source.last_verified = datetime.now()
+    return source
+
+
 @router.post("/{product_id}/sources/from-comparison", response_class=HTMLResponse)
 def save_source_from_comparison(
     product_id: int,
@@ -1252,44 +1347,274 @@ def save_source_from_comparison(
     unit_size: str = Form(""),
     url: str = Form(""),
     notes: str = Form(""),
+    # v2: lets the off-domain "Discovered via web search" save flow tag the
+    # ProductSource so Vendors-tab chips can distinguish the origin.
+    origin: str = Form("comparator"),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    """Persist one price-comparator result as a ProductSource for this SKU.
-
-    Maps the comparator vendor to a Supplier (found by name, else created), so an
-    ephemeral search becomes a durable, comparable supplier price.
-    """
+    """Persist one Find Product Prices result as a ProductSource for this SKU."""
     product = _get_product_or_404(db, product_id)
     name = vendor_name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Vendor name required")
 
-    supplier = (
-        db.query(Supplier).filter(sql_func.lower(Supplier.name) == name.lower()).first()
+    _upsert_product_source_from_comparison(
+        db,
+        product,
+        vendor_name=name,
+        vendor_key=vendor_key,
+        unit_price=_to_float(unit_price),
+        case_price=_to_float(case_price),
+        case_qty=_to_int(case_qty),
+        unit_size=unit_size.strip(),
+        url=url.strip(),
+        notes=notes.strip(),
+        origin=origin or "comparator",
     )
-    if not supplier:
-        meta = VENDOR_META.get(vendor_key, {})
-        supplier = Supplier(name=name, supplier_type=meta.get("type") or "online")
-        db.add(supplier)
-        db.flush()
-
-    # Upsert so re-saving the same vendor for this SKU refreshes its price rather
-    # than piling up duplicate rows.
-    source = next((s for s in product.sources if s.supplier_id == supplier.id), None)
-    if source is None:
-        source = ProductSource(
-            product_id=product.id, supplier_id=supplier.id, origin="comparator"
-        )
-        db.add(source)
-    source.supplier_url = url.strip() or None
-    source.case_price = _to_float(case_price)
-    source.case_pack_qty = _to_int(case_qty) or product.case_pack_qty
-    source.unit_cost = _to_float(unit_price)
-    source.unit_size = unit_size.strip() or None
-    source.price_notes = notes.strip() or None
-    source.last_verified = datetime.now()
     db.commit()
     return HTMLResponse(
         '<span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Saved to '
         f'<a href="/inventory/{product.id}" class="text-white text-decoration-underline">product</a></span>'
+    )
+
+
+# ----------------------------------------------------------------------
+# Inventory v2: bulk + per-row background sourcing
+# ----------------------------------------------------------------------
+# The catalog used to require the operator to open each SKU, click into Find
+# Product Prices, run a search, and save the best result — 25 clicks for an
+# empty catalog. The two endpoints below collapse that to (a) one button that
+# sources every unsourced SKU and (b) a per-row refresh that runs in the
+# background and auto-saves the cheapest primary result. Both share
+# _auto_save_best_for_product, which picks the cheapest non-AI-fallback row
+# from a finished AgentJob and upserts a ProductSource with origin
+# "comparator_auto".
+
+
+def _auto_save_best_for_product(db: Session, job_id: int, product_id: int) -> ProductSource | None:
+    """Pick the cheapest primary result from a finished price_comparison job
+    and persist it as a ProductSource for ``product_id``.
+
+    Primary = source in {api, scrape}, i.e. direct vendor extraction. AI
+    fallback rows (source="ai_search") and off-domain referrals
+    (vendor_key starting "cm_ref_" or "ai_ref_") are skipped — the operator
+    can still save those manually from the results page if they want.
+    """
+    job = db.get(AgentJob, job_id)
+    if not job or job.status != "done":
+        return None
+    product = db.get(Product, product_id)
+    if not product:
+        return None
+    try:
+        rows = json.loads(job.draft_body or "[]")
+    except json.JSONDecodeError:
+        return None
+    priced: list[dict] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        if r.get("source") not in ("api", "scrape"):
+            continue
+        vk = r.get("vendor_key") or ""
+        if vk.startswith(("cm_ref_", "ai_ref_")):
+            continue
+        if r.get("unit_price"):
+            priced.append(r)
+    if not priced:
+        return None
+    best = min(priced, key=lambda r: float(r["unit_price"]))
+    _upsert_product_source_from_comparison(
+        db,
+        product,
+        vendor_name=best.get("vendor_name") or best.get("vendor_key") or "Unknown",
+        vendor_key=best.get("vendor_key", ""),
+        unit_price=best.get("unit_price"),
+        case_price=best.get("case_price"),
+        case_qty=best.get("case_qty"),
+        unit_size=best.get("unit_size"),
+        url=best.get("url"),
+        notes=f"Auto-saved from job #{job.id}: {best.get('product_name', '')}",
+        origin="comparator_auto",
+    )
+    db.commit()
+    return None
+
+
+def _build_comparison_params(product: Product, vendor_cfg: dict) -> dict:
+    """Construct the AgentJob input_params for a single-SKU price comparison."""
+    return {
+        "product_query": product.name,
+        "vendors": VENDOR_KEYS,
+        "search_provider": "tavily" if app_settings.tavily_api_key else "duckduckgo",
+        "vendor_config": vendor_cfg,
+        "product_id": product.id,
+        "fallback_case_pack": product.case_pack_qty,
+    }
+
+
+def _refresh_status_fragment(product_id: int, job_id: int) -> str:
+    """HTML for the per-row spinner while a refresh job is in flight."""
+    return (
+        f'<span id="row-refresh-{product_id}" class="d-inline" '
+        f'hx-get="/inventory/{product_id}/refresh-prices/status?job_id={job_id}" '
+        f'hx-trigger="every 3s" hx-swap="outerHTML">'
+        '<span class="spinner-border spinner-border-sm text-primary" role="status" '
+        'title="Refreshing prices…"></span>'
+        "</span>"
+    )
+
+
+def _refresh_done_fragment(product_id: int, ok: bool) -> str:
+    """HTML for the per-row button after a refresh completes."""
+    icon = "bi-arrow-clockwise" if ok else "bi-exclamation-circle"
+    color = "btn-outline-success" if ok else "btn-outline-warning"
+    return (
+        f'<span id="row-refresh-{product_id}" class="d-inline" '
+        f'title="{"Refresh complete — reload to see new Best Source" if ok else "Refresh hit an error — see job log"}">'
+        f'<button class="btn btn-sm {color} py-0 px-1" '
+        f'hx-post="/inventory/{product_id}/refresh-prices" '
+        f'hx-target="#row-refresh-{product_id}" hx-swap="outerHTML" '
+        f'title="Refresh prices from all vendors (auto-saves the best)">'
+        f'<i class="bi {icon}"></i>'
+        f"</button></span>"
+    )
+
+
+@router.post("/{product_id}/refresh-prices", response_class=HTMLResponse)
+def refresh_prices_for_product(
+    product_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Spawn a single-SKU price comparison and auto-save the best result."""
+    product = _get_product_or_404(db, product_id)
+    vendor_cfg = load_vendor_settings(db)
+    job = AgentJob(
+        job_type="price_comparison",
+        status="pending",
+        input_params=json.dumps(_build_comparison_params(product, vendor_cfg)),
+    )
+    db.add(job)
+    db.commit()
+
+    job_id = job.id
+    pid = product.id
+
+    def _run_and_save() -> None:
+        price_comparator.run_price_comparison_job(job_id)
+        with Session(engine) as inner:
+            _auto_save_best_for_product(inner, job_id, pid)
+
+    background_tasks.add_task(_run_and_save)
+    return HTMLResponse(_refresh_status_fragment(pid, job_id))
+
+
+@router.get("/{product_id}/refresh-prices/status", response_class=HTMLResponse)
+def refresh_prices_status(
+    product_id: int,
+    job_id: int = Query(...),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Polled by the per-row spinner until the background refresh finishes."""
+    job = db.get(AgentJob, job_id)
+    if not job or job.status in ("pending", "running"):
+        return HTMLResponse(_refresh_status_fragment(product_id, job_id))
+    return HTMLResponse(_refresh_done_fragment(product_id, ok=(job.status == "done")))
+
+
+def _bulk_source_missing(product_ids: list[int]) -> None:
+    """Sequentially source missing prices for each Product ID.
+
+    One AgentJob per SKU, run synchronously inside this coroutine. After each
+    completes, the cheapest primary result is auto-saved as a ProductSource
+    (origin="comparator_auto") and a progress counter is updated in
+    AppSetting so the catalog's status strip can render live counts.
+
+    The loop is idempotent against re-trigger: any SKU that has gained a
+    ProductSource between queueing and execution is skipped.
+    """
+    for i, pid in enumerate(product_ids, start=1):
+        try:
+            with Session(engine) as db:
+                product = db.get(Product, pid)
+                if not product or product.sources:
+                    _set_setting(db, "bulk_sourcing_done", str(i))
+                    continue
+                vendor_cfg = load_vendor_settings(db)
+                job = AgentJob(
+                    job_type="price_comparison",
+                    status="pending",
+                    input_params=json.dumps(_build_comparison_params(product, vendor_cfg)),
+                )
+                db.add(job)
+                db.commit()
+                job_id = job.id
+            price_comparator.run_price_comparison_job(job_id)
+            with Session(engine) as db:
+                _auto_save_best_for_product(db, job_id, pid)
+                _set_setting(db, "bulk_sourcing_done", str(i))
+        except Exception:  # noqa: BLE001 — bulk loop must not die on one SKU
+            logger.exception("Bulk source: failed on product_id=%s", pid)
+            with Session(engine) as db:
+                _set_setting(db, "bulk_sourcing_done", str(i))
+    with Session(engine) as db:
+        _set_setting(db, "bulk_sourcing_in_progress", "")
+
+
+@router.post("/bulk-source/run")
+def source_missing_run(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Queue background price comparisons for every unsourced SKU."""
+    if _get_setting(db, "bulk_sourcing_in_progress", "") == "1":
+        return RedirectResponse(url="/inventory/?tab=products", status_code=303)
+
+    unsourced_ids: list[int] = []
+    for p in (
+        db.query(Product)
+        .options(selectinload(Product.sources))
+        .filter(Product.is_active.is_(True))
+        .all()
+    ):
+        if not p.sources:
+            unsourced_ids.append(p.id)
+
+    if not unsourced_ids:
+        return RedirectResponse(url="/inventory/?tab=products", status_code=303)
+
+    _set_setting(db, "bulk_sourcing_total", str(len(unsourced_ids)))
+    _set_setting(db, "bulk_sourcing_done", "0")
+    _set_setting(db, "bulk_sourcing_in_progress", "1")
+    background_tasks.add_task(_bulk_source_missing, unsourced_ids)
+    return RedirectResponse(url="/inventory/?tab=products", status_code=303)
+
+
+@router.get("/bulk-source/status", response_class=HTMLResponse)
+def source_missing_status(db: Session = Depends(get_db)) -> HTMLResponse:
+    """Live progress strip for the bulk-source run. Idle = empty div."""
+    active = _get_setting(db, "bulk_sourcing_in_progress", "") == "1"
+    if not active:
+        return HTMLResponse('<div id="bulk-source-strip"></div>')
+    try:
+        done = int(_get_setting(db, "bulk_sourcing_done", "0") or 0)
+    except ValueError:
+        done = 0
+    try:
+        total = int(_get_setting(db, "bulk_sourcing_total", "0") or 0)
+    except ValueError:
+        total = 0
+    pct = (done / total * 100) if total else 0
+    return HTMLResponse(
+        f'<div id="bulk-source-strip" '
+        f'hx-get="/inventory/bulk-source/status" '
+        f'hx-trigger="every 3s" hx-swap="outerHTML" '
+        f'class="alert alert-info py-2 small mb-3 d-flex align-items-center gap-2">'
+        f'<span class="spinner-border spinner-border-sm text-primary"></span>'
+        f"<strong>Sourcing missing prices…</strong>"
+        f'<span class="text-muted">{done} of {total} SKUs done</span>'
+        f'<div class="progress flex-grow-1" style="height:6px">'
+        f'<div class="progress-bar" role="progressbar" style="width: {pct:.0f}%"></div>'
+        f"</div></div>"
     )

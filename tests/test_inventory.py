@@ -271,7 +271,9 @@ def test_product_detail_page_renders(client: TestClient, db: Session) -> None:
     p = _make_product(db)
     resp = client.get(f"/inventory/{p.id}")
     assert resp.status_code == 200
-    assert "Sourcing" in resp.text
+    # v2: the "Sourcing & Price Comparison" card was split into two side-by-side
+    # cards. "Market prices" is the right one (was the procurement card).
+    assert "Market prices" in resp.text
     assert "Restock History" in resp.text
 
 
@@ -371,9 +373,7 @@ def test_supplier_create_normalizes_bad_status(client: TestClient, db: Session) 
     assert s.account_status == "not_started"
 
 
-def test_status_endpoint_cycles_and_returns_banner(
-    client: TestClient, db: Session
-) -> None:
+def test_status_endpoint_cycles_and_returns_banner(client: TestClient, db: Session) -> None:
     """POST /suppliers/{id}/status updates the row and re-renders the priority banner."""
     s = _make_supplier(db, name="Vistar Banner Test", priority=10)
     resp = client.post(
@@ -397,9 +397,7 @@ def test_status_endpoint_cycles_and_returns_banner(
     assert s.account_status == "open"
 
 
-def test_priority_banner_only_shows_unopened_priority_rows(
-    client: TestClient, db: Session
-) -> None:
+def test_priority_banner_only_shows_unopened_priority_rows(client: TestClient, db: Session) -> None:
     _make_supplier(db, name="Vistar Pri", priority=10)
     _make_supplier(db, name="Already Open", priority=20, account_status="open")
     _make_supplier(db, name="Default Pri", priority=100)
@@ -457,10 +455,14 @@ def test_ingest_creates_products_and_sources(db: Session) -> None:
     p = db.query(Product).filter(Product.sku == "V100").first()
     assert p is not None
     assert p.primary_supplier_id == supplier.id
-    src = db.query(ProductSource).filter(
-        ProductSource.product_id == p.id,
-        ProductSource.supplier_id == supplier.id,
-    ).first()
+    src = (
+        db.query(ProductSource)
+        .filter(
+            ProductSource.product_id == p.id,
+            ProductSource.supplier_id == supplier.id,
+        )
+        .first()
+    )
     assert src is not None
     assert src.case_price == 38.50
     assert src.origin.endswith("_import")
@@ -485,9 +487,7 @@ def test_ingest_is_idempotent_on_re_import(db: Session) -> None:
     assert r2.sources_created == 0
     assert r2.sources_updated == 1
 
-    sources = (
-        db.query(ProductSource).filter(ProductSource.supplier_id == supplier.id).all()
-    )
+    sources = db.query(ProductSource).filter(ProductSource.supplier_id == supplier.id).all()
     assert len(sources) == 1
     assert sources[0].case_price == 11.00
 
@@ -507,20 +507,14 @@ def test_ingest_synthesizes_sku_when_missing(db: Session) -> None:
 
 def test_import_route_csv_ingests_rows(client: TestClient, db: Session) -> None:
     supplier = _make_supplier(db, name="Vistar Route", priority=10)
-    csv_blob = (
-        "sku,name,case_pack_qty,case_price\n"
-        "RR1,Route One,12,25.00\n"
-        "RR2,Route Two,24,40.00\n"
-    )
+    csv_blob = "sku,name,case_pack_qty,case_price\nRR1,Route One,12,25.00\nRR2,Route Two,24,40.00\n"
     resp = client.post(
         f"/inventory/suppliers/{supplier.id}/import",
         data={"mode": "csv", "payload": csv_blob},
     )
     assert resp.status_code == 200
     assert "Import complete" in resp.text
-    assert db.query(ProductSource).filter(
-        ProductSource.supplier_id == supplier.id
-    ).count() == 2
+    assert db.query(ProductSource).filter(ProductSource.supplier_id == supplier.id).count() == 2
 
 
 def test_import_route_empty_payload_shows_error(client: TestClient, db: Session) -> None:
@@ -533,9 +527,7 @@ def test_import_route_empty_payload_shows_error(client: TestClient, db: Session)
     assert "Paste a CSV" in resp.text
 
 
-def test_research_task_7_2_renders_inventory_deep_link(
-    client: TestClient, db: Session
-) -> None:
+def test_research_task_7_2_renders_inventory_deep_link(client: TestClient, db: Session) -> None:
     """Task #7.2 gets a building-icon deep link to the Inventory > Suppliers tab."""
     from app.models.research import ResearchTask
 
@@ -572,9 +564,7 @@ def test_product_create_auto_slugs_blank_sku(client: TestClient, db: Session) ->
     assert p.name == "Coca-Cola Classic 12oz"
 
 
-def test_product_create_auto_slug_dedupes_on_collision(
-    client: TestClient, db: Session
-) -> None:
+def test_product_create_auto_slug_dedupes_on_collision(client: TestClient, db: Session) -> None:
     """Second blank-SKU submission with the same name appends a numeric suffix."""
     payload = {"sku": "", "name": "Test Product Alpha"}
     client.post("/inventory/", data=payload, follow_redirects=False)
@@ -692,3 +682,87 @@ def test_candymachines_routes_offdomain_links_to_pseudo_vendor() -> None:
     )
     # Empty / unparseable host → safe default to candy_machines.
     assert _route_by_host(None)[0] == "candy_machines"
+
+
+# ----------------------------------------------------------------------
+# Inventory v2 integration assertions
+# ----------------------------------------------------------------------
+
+
+def test_v2_three_tabs_only(client: TestClient) -> None:
+    """Discover Suppliers was merged into Vendors in v2 — only 3 tabs remain."""
+    resp = client.get("/inventory/")
+    assert resp.status_code == 200
+    assert "Catalog" in resp.text
+    assert "Vendors" in resp.text
+    assert "Find Product Prices" in resp.text
+    # The old "Discover Suppliers" tab name no longer appears as a tab button.
+    assert 'id="tab-sourcing"' not in resp.text
+
+
+def test_v2_sourcing_tab_query_redirects_to_vendors(client: TestClient) -> None:
+    """Old bookmarks targeting ?tab=sourcing land on the merged Vendors tab."""
+    resp = client.get("/inventory/?tab=sourcing")
+    assert resp.status_code == 200
+    # The router normalizes tab=sourcing → suppliers, which makes the Vendors
+    # tab pane active. The discovery form is embedded in that tab now.
+    assert 'id="pane-suppliers" role="tabpanel"' in resp.text
+    assert "show active" in resp.text
+
+
+def test_v2_vendors_supply_checkbox_removed(client: TestClient, db: Session) -> None:
+    """Vendors Supply was archived — the comparator form no longer renders it."""
+    resp = client.get("/inventory/?tab=compare")
+    assert resp.status_code == 200
+    assert 'value="vendors_supply"' not in resp.text
+
+
+def test_v2_vendors_supply_not_in_dispatcher() -> None:
+    """The dispatcher map has no vendors_supply key after archiving."""
+    from app.services.price_comparator import _FETCHERS, VENDOR_KEYS
+
+    assert "vendors_supply" not in _FETCHERS
+    assert "vendors_supply" not in VENDOR_KEYS
+
+
+def test_v2_product_detail_splits_paid_vs_market(client: TestClient, db: Session) -> None:
+    """The detail page now renders two cards side by side: What I've paid + Market prices."""
+    p = _make_product(db)
+    # Log a restock so the "What I've paid" card has content.
+    log = InventoryLog(
+        product_id=p.id,
+        log_type="restock",
+        qty_change=24,
+        qty_after=24,
+        unit_cost_at_log=0.45,
+        notes="Sam's Club run",
+    )
+    db.add(log)
+    db.commit()
+    resp = client.get(f"/inventory/{p.id}")
+    assert resp.status_code == 200
+    assert "What I've paid" in resp.text
+    assert "Market prices" in resp.text
+    # Restock cost surfaces in the left card.
+    assert "$0.450" in resp.text
+
+
+def test_v2_bulk_source_button_only_when_unsourced(client: TestClient, db: Session) -> None:
+    """The 'Source N missing' button only renders if at least one Product has
+    zero ProductSources. With every SKU sourced, the button is hidden."""
+    p = _make_product(db)
+    sup = _make_supplier(db)
+    db.add(ProductSource(product_id=p.id, supplier_id=sup.id, case_price=12.0, case_pack_qty=24))
+    db.commit()
+    resp = client.get("/inventory/")
+    assert resp.status_code == 200
+    assert "Source 1 missing" not in resp.text
+    assert "Source 0 missing" not in resp.text
+
+
+def test_v2_bulk_source_button_visible_when_work_to_do(client: TestClient, db: Session) -> None:
+    """At least one unsourced active SKU → 'Source N missing' button appears."""
+    _make_product(db)
+    resp = client.get("/inventory/")
+    assert resp.status_code == 200
+    assert "Source 1 missing" in resp.text

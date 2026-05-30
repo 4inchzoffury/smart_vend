@@ -65,12 +65,14 @@
 
 {% if results %}
 
-{# Split off-domain hits surfaced by CandyMachines (boxncase.com etc.) from
-   the primary vendor rows. They're vendor *candidates*, not authoritative
-   prices, so they render in their own subsection below and don't compete for
-   the "Best" badge. #}
-{% set primary_results = results | rejectattr('source', 'equalto', 'cm_referral') | list %}
-{% set referral_results = results | selectattr('source', 'equalto', 'cm_referral') | list %}
+{# Off-domain hits — vendor candidates surfaced by either CandyMachines'
+   anchor-scraping fallback (source='cm_referral') or the AI fallback when it
+   found a price on a host we don't have a direct fetcher for
+   (source='ai_ref'). They render in their own subsection below and don't
+   compete for the "Best" badge. #}
+{% set _refsources = ['cm_referral', 'ai_ref'] %}
+{% set primary_results = results | rejectattr('source', 'in', _refsources) | list %}
+{% set referral_results = results | selectattr('source', 'in', _refsources) | list %}
 
 {# Vendors that were checked but returned no rows — surfaced as a one-line
    "no hits" list so the operator knows the search ran but came up empty (and
@@ -149,10 +151,20 @@
         <td class="text-end small fw-semibold">
           {% if r.unit_price is not none %}
           ${{ "%.2f"|format(r.unit_price) }}
+          {% if r.unit_price_derived %}
+          <span class="badge bg-light text-muted border ms-1" style="font-size:.6rem"
+                title="Computed from case price ÷ case qty">calc</span>
+          {% endif %}
           {% else %}–{% endif %}
         </td>
         <td class="text-end small d-none d-md-table-cell">
-          {% if r.case_price is not none %}${{ "%.2f"|format(r.case_price) }}{% else %}–{% endif %}
+          {% if r.case_price is not none %}
+          ${{ "%.2f"|format(r.case_price) }}
+          {% if r.case_price_derived %}
+          <span class="badge bg-light text-muted border ms-1" style="font-size:.6rem"
+                title="Computed from unit price × case pack">calc</span>
+          {% endif %}
+          {% else %}–{% endif %}
         </td>
         <td class="text-end small d-none d-md-table-cell">
           {{ r.case_qty or "–" }}
@@ -221,15 +233,17 @@
 </div>
 {% endif %}
 
-{# Off-domain candidates surfaced by CandyMachines. Saved as Suppliers when
-   the operator clicks bookmark — see candy_machines.py module docstring. #}
+{# Off-domain candidates from either CandyMachines anchor-scraping (source=
+   'cm_referral') or the AI fallback (source='ai_ref'). Saved as Suppliers
+   when the operator clicks bookmark — origin gets tagged
+   "comparator_discovered" so the Vendors tab can chip them. #}
 {% if referral_results %}
 <div class="card border-0 mt-4">
   <div class="card-header bg-info-subtle text-info-emphasis small py-2">
     <i class="bi bi-stars me-1"></i>
-    <strong>Discovered via CandyMachines</strong>
+    <strong>Discovered via web search</strong>
     <span class="text-muted ms-2">
-      Off-domain vendor candidates — verify before treating as a real price. Save any row to add the host as a new Supplier.
+      Off-domain vendor candidates. Verify before treating as a real price. Save any row to add the host as a new Vendor in your directory.
     </span>
   </div>
   <div class="table-responsive">
@@ -272,14 +286,16 @@
             </a>
             {% endif %}
             {% if target_product %}
+            {% set via = 'CandyMachines' if r.source == 'cm_referral' else 'web search' %}
             <form hx-post="/inventory/{{ target_product.id }}/sources/from-comparison"
                   hx-target="this" hx-swap="outerHTML" class="d-inline ms-1">
               <input type="hidden" name="vendor_name" value="{{ r.vendor_name }}">
               <input type="hidden" name="vendor_key" value="{{ r.vendor_key }}">
               <input type="hidden" name="unit_price" value="{{ r.unit_price if r.unit_price is not none else '' }}">
               <input type="hidden" name="url" value="{{ r.url or '' }}">
-              <input type="hidden" name="notes" value="Discovered via CandyMachines — {{ r.product_name }}">
-              <button class="btn btn-sm btn-outline-info py-0 px-1" title="Add {{ r.vendor_name }} as a new Supplier and save this price">
+              <input type="hidden" name="notes" value="Discovered via {{ via }} — {{ r.product_name }}">
+              <input type="hidden" name="origin" value="comparator_discovered">
+              <button class="btn btn-sm btn-outline-info py-0 px-1" title="Add {{ r.vendor_name }} as a new Vendor and save this price">
                 <i class="bi bi-bookmark-plus"></i>
               </button>
             </form>

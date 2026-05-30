@@ -10,6 +10,33 @@ from bs4 import BeautifulSoup
 
 from app.services.price_fetcher.models import FetchError, PriceResult
 
+# Walmart's priceInfo values arrive as both numbers and strings ("$1.98",
+# "1.98 each", "$1.98/oz"). Strip currency / per-unit qualifiers before float
+# coercion so a legitimate price isn't silently dropped.
+_PRICE_NOISE_RE = re.compile(
+    r"[\$,]|usd|each|/\s*ea\.?|/\s*ct\b|/\s*oz\b|/\s*lb\b",
+    re.IGNORECASE,
+)
+
+
+def _coerce_price(val: object) -> float | None:
+    """Coerce a price field to a positive float, handling dirty strings."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return float(val) if val > 0 else None
+    if not isinstance(val, str):
+        return None
+    cleaned = _PRICE_NOISE_RE.sub("", val).strip()
+    if not cleaned:
+        return None
+    try:
+        f = float(cleaned)
+        return f if f > 0 else None
+    except ValueError:
+        return None
+
+
 _HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -164,29 +191,48 @@ def search_products(
         if not name:
             continue
 
-        # Navigate price — multiple schema variants
+        # Navigate price — multiple schema variants. priceInfo.linePrice and
+        # priceInfo.unitPrice.price both show up depending on listing type.
         price: float | None = None
         price_info = item.get("priceInfo") or {}
         current = price_info.get("currentPrice") or {}
         for key in ("price", "priceString"):
-            raw = current.get(key)
-            if raw:
-                try:
-                    price = float(str(raw).replace("$", "").replace(",", ""))
-                    break
-                except ValueError:
-                    pass
+            p = _coerce_price(current.get(key))
+            if p is not None:
+                price = p
+                break
         if price is None:
-            # try top-level price
-            raw = item.get("price")
-            if raw:
-                try:
-                    price = float(str(raw).replace("$", "").replace(",", ""))
-                except ValueError:
-                    pass
+            for key in ("linePrice", "unitPriceString"):
+                p = _coerce_price(price_info.get(key))
+                if p is not None:
+                    price = p
+                    break
+        if price is None:
+            price = _coerce_price(item.get("price"))
+
+        # Unit size: Walmart sometimes exposes it on priceInfo.unitPrice.unit
+        # ("each", "oz") or on the item directly. Surfacing it lets the results
+        # table distinguish "12oz" from "20oz" packs of the same SKU.
+        unit_size: str | None = None
+        unit_obj = price_info.get("unitPrice") or {}
+        for src in (item, unit_obj, price_info):
+            if not isinstance(src, dict):
+                continue
+            for key in ("unitOfMeasure", "unit", "size", "packSize"):
+                val = src.get(key)
+                if isinstance(val, str) and val.strip():
+                    unit_size = val.strip()
+                    break
+            if unit_size:
+                break
 
         url_path = item.get("canonicalUrl") or item.get("productPageUrl") or ""
         url = f"{_BASE_URL}{url_path}" if url_path.startswith("/") else url_path or None
+
+        # Skip phantom rows. Dispatcher's is_empty() catches this too, but
+        # dropping at extraction keeps the result list tight.
+        if price is None and not url:
+            continue
 
         location_note = f"Store #{store_id}" if store_id else "walmart.com"
 
@@ -197,6 +243,7 @@ def search_products(
                 vendor_type="local_retail",
                 product_name=name,
                 unit_price=price,
+                unit_size=unit_size,
                 url=url,
                 in_stock=True,
                 notes=location_note,

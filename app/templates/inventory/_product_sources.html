@@ -26,7 +26,20 @@
               {% if s.is_preferred %}<span class="badge bg-warning text-dark ms-1"><i class="bi bi-star-fill"></i> Preferred</span>{% endif %}
             </div>
             <div class="small text-muted">
-              {% if s.origin == 'comparator' %}<i class="bi bi-bar-chart-line me-1"></i>from comparator{% elif s.origin == 'ai_sourcing' %}<i class="bi bi-robot me-1"></i>AI sourced{% else %}manual entry{% endif %}
+              {% if s.origin == 'comparator' %}
+                <i class="bi bi-bar-chart-line me-1"></i>from comparator
+              {% elif s.origin == 'comparator_auto' %}
+                <i class="bi bi-bar-chart-line me-1"></i>from comparator
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1" style="font-size:.6rem">auto</span>
+              {% elif s.origin == 'comparator_discovered' %}
+                <i class="bi bi-stars me-1"></i>discovered via comparator
+              {% elif s.origin == 'ai_sourcing' %}
+                <i class="bi bi-robot me-1"></i>AI sourced
+              {% elif s.origin and s.origin.endswith('_import') %}
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i>imported list
+              {% else %}
+                manual entry
+              {% endif %}
               {% if s.unit_size %} · {{ s.unit_size }}{% endif %}
               {% if s.min_order %} · min {{ s.min_order }}{% endif %}
               {% if s.last_verified %} · checked {{ s.last_verified.strftime('%b %d') }}{% endif %}

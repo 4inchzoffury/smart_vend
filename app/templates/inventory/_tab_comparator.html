@@ -1,4 +1,4 @@
-{# Price Comparator tab — embedded in inventory/index.html #}
+{# Find Product Prices tab — embedded in inventory/index.html #}
 
 <div class="pt-1">
 
@@ -11,7 +11,7 @@
   <div class="collapse mb-3" id="help-compare">
     <div class="card border-info border-opacity-25">
       <div class="card-body bg-info-subtle rounded small">
-        <strong>Price Comparator</strong> — Finds product prices and links across vendors using AI-powered web search.
+        <strong>Find Product Prices</strong> compares a single SKU across Sam's Club, Walmart, wholesale vendors, and the open web, using AI-powered search when direct scrapes come up empty.
         <ul class="mb-0 mt-1">
           <li>Type a product name (e.g. "Doritos", "Red Bull 8oz") and choose which vendors to check.</li>
           <li>Configure store ZIP/Club ID via the <i class="bi bi-gear"></i> gear icon so searches target your local store.</li>
@@ -32,7 +32,7 @@
       <!-- Search card -->
       <div class="card border-primary border-opacity-25 mb-3">
         <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-          <h6 class="mb-0 text-primary"><i class="bi bi-bar-chart-line me-1"></i>Compare Prices</h6>
+          <h6 class="mb-0 text-primary"><i class="bi bi-bar-chart-line me-1"></i>Find Product Prices</h6>
           <button class="btn btn-sm btn-link text-muted p-0"
                   type="button"
                   data-bs-toggle="collapse"
@@ -75,11 +75,11 @@
               <div class="row row-cols-1 row-cols-sm-2 g-1">
                 {% for vk in vendor_keys %}
                 {% set meta = vendor_meta[vk] %}
-                {# Vendors Supply scraping is stale (selectors no longer match the
-                   live site) and WebstaurantStore is reliable only with
-                   Firecrawl. Both default to unchecked so the operator doesn't
-                   waste a comparison on a fetcher that will return nothing. #}
-                {% set vendor_off = (vk == 'vendors_supply') or (vk == 'webstaurantstore' and not firecrawl_available) %}
+                {# WebstaurantStore is reliable only with Firecrawl. Default
+                   it to unchecked when Firecrawl isn't configured so the
+                   operator doesn't waste a comparison on a fetcher that will
+                   return nothing. (Vendors Supply was archived in v2.) #}
+                {% set vendor_off = (vk == 'webstaurantstore' and not firecrawl_available) %}
                 <div class="col">
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="vendors"
@@ -121,11 +121,6 @@
                             needs Firecrawl
                           </span>
                         {% endif %}
-                      {% elif vk == 'vendors_supply' %}
-                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1" style="font-size:.65rem"
-                              title="Site markup has changed; scraping is unreliable. Prefer Supplier Import for this distributor.">
-                          experimental
-                        </span>
                       {% elif vk == 'candy_machines' %}
                         <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size:.65rem"
                               title="Also surfaces off-domain vendor candidates (boxncase, shoptheking, etc.)">
@@ -171,7 +166,7 @@
             </div>
 
             <button type="submit" class="btn btn-primary w-100">
-              <i class="bi bi-search me-1"></i>Run Price Comparison
+              <i class="bi bi-search me-1"></i>Find Product Prices
             </button>
           </form>
         </div>
@@ -181,7 +176,7 @@
       {% if compare_jobs %}
       <div class="card border-0 bg-light">
         <div class="card-header bg-transparent py-2">
-          <h6 class="mb-0 small fw-semibold"><i class="bi bi-clock-history me-1"></i>Recent Comparisons</h6>
+          <h6 class="mb-0 small fw-semibold"><i class="bi bi-clock-history me-1"></i>Recent Searches</h6>
         </div>
         <div class="list-group list-group-flush small">
           {% for j in compare_jobs %}
@@ -229,13 +224,12 @@
       <div id="compare-placeholder" class="card border-0 bg-light d-flex align-items-center justify-content-center py-5">
         <div class="text-center text-muted px-4">
           <i class="bi bi-bar-chart-line fs-1 d-block mb-3 text-primary opacity-50"></i>
-          <h5 class="mb-2">Live Price Comparison</h5>
+          <h5 class="mb-2">Find product prices across vendors</h5>
           <p class="mb-1 small">
-            Uses AI-powered web search to find product prices and links across wholesale vendors and local retailers.
-            Walmart and Sam's Club require click-through to confirm live prices.
+            Compare one SKU at Sam's Club, Walmart, wholesale distributors, and the open web. AI fills the gaps when a direct scrape comes up empty, and CandyMachines surfaces off-domain vendor candidates as a bonus.
           </p>
           <p class="small text-muted mb-3">
-            Enter a product name and click <strong>Run Price Comparison</strong> to see results.
+            Enter a product name and click <strong>Find Product Prices</strong> to see results.
           </p>
           <div class="d-flex gap-2 justify-content-center flex-wrap small">
             {% for vk in vendor_keys %}

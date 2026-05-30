@@ -1,13 +1,21 @@
-{# Suppliers tab — embedded in inventory/index.html #}
+{# Vendors tab — embedded in inventory/index.html. Merged in v2: vendor
+   directory (top) + collapsed AI discovery (bottom). #}
 
 <div class="pt-1">
   {% include "inventory/_priority_suppliers.html" %}
 
   <div class="d-flex justify-content-between align-items-center mb-2">
-    <div class="text-muted small">{{ suppliers | length }} supplier{{ 's' if suppliers | length != 1 }}</div>
+    <div class="text-muted small">
+      {{ suppliers | length }} vendor{{ 's' if suppliers | length != 1 }} on file
+    </div>
     <div class="d-flex align-items-center gap-2">
+      <a href="#discover-vendors" class="btn btn-outline-secondary btn-sm"
+         data-bs-toggle="collapse" data-bs-target="#discover-vendors"
+         aria-expanded="false" aria-controls="discover-vendors">
+        <i class="bi bi-robot me-1"></i>Discover new vendors
+      </a>
       <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
-        <i class="bi bi-plus-lg me-1"></i>Add Supplier
+        <i class="bi bi-plus-lg me-1"></i>Add Vendor
       </button>
       <button class="btn btn-sm btn-link text-muted p-0" type="button"
               data-bs-toggle="collapse" data-bs-target="#help-suppliers" title="Help &amp; instructions">
@@ -18,13 +26,13 @@
   <div class="collapse mb-3" id="help-suppliers">
     <div class="card border-info border-opacity-25">
       <div class="card-body bg-info-subtle rounded small">
-        <strong>Suppliers</strong> — Track vendors and distributors you order vending products from.
+        <strong>Vendors</strong> are the distributors, warehouse clubs, and online wholesalers you buy from. This is your address book + a sourcing workshop.
         <ul class="mb-0 mt-1">
-          <li>The yellow <strong>Open These Accounts</strong> banner at the top tracks priority suppliers that need an account opened before the first machine load (research task #7.2). Click a status pill to cycle Not Started → Applied → Open.</li>
-          <li>Add contact info, account numbers, and minimum order quantities for each supplier.</li>
-          <li>Suppliers link to products — click the product-count badge to filter the product list.</li>
-          <li>Use the <strong>AI Sourcing</strong> tab to discover new suppliers automatically.</li>
-          <li>Opened the Vistar account? On Vistar's edit page, paste your order guide CSV or text into <strong>Import Prices</strong> to bulk-load <code>ProductSource</code> rows.</li>
+          <li>The yellow <strong>Open These Accounts</strong> banner tracks priority vendors that still need an account opened (research task #7.2). Click a status pill to cycle Not Started → Applied → Open.</li>
+          <li>Each card shows contact info, an origin chip (manual / imported / discovered / comparator), and a count of products you've sourced here. Click the count to filter the catalog.</li>
+          <li>Don't see who you need? Click <strong>Discover new vendors</strong> to run an AI search for wholesalers in your area.</li>
+          <li>Got a vendor's order guide? Open their card, click <em>Edit</em>, then paste the CSV or text into <strong>Import Prices</strong> to bulk-load offers.</li>
+          <li>To compare a single SKU across all vendors at once, use <strong>Find Product Prices</strong>.</li>
         </ul>
       </div>
     </div>
@@ -33,6 +41,27 @@
   {% if suppliers %}
   <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
     {% for s in suppliers %}
+    {# Derive an origin chip from the linked ProductSource rows so the operator
+       can tell at a glance whether this vendor came in via manual entry, an
+       AI sourcing run, a price-list import, or the comparator. A vendor with
+       no linked sources is treated as "manual" (the default state for
+       hand-added or seeded rows). Jinja loop scope is isolated, so we track
+       the flags on a namespace. #}
+    {% set ns = namespace(imported=false, comp_auto=false, comp_disc=false, comp=false) %}
+    {% for p in s.products %}
+      {% for ps in p.sources %}
+        {% if ps.supplier_id == s.id and ps.origin %}
+          {% if ps.origin.endswith('_import') %}{% set ns.imported = true %}{% endif %}
+          {% if ps.origin == 'comparator_auto' %}{% set ns.comp_auto = true %}{% endif %}
+          {% if ps.origin == 'comparator_discovered' %}{% set ns.comp_disc = true %}{% endif %}
+          {% if ps.origin == 'comparator' %}{% set ns.comp = true %}{% endif %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+    {% set has_imported = ns.imported %}
+    {% set has_comparator_auto = ns.comp_auto %}
+    {% set has_comparator_discovered = ns.comp_disc %}
+    {% set has_comparator = ns.comp %}
     <div class="col" id="supplier-row-{{ s.id }}">
       <div class="card h-100 shadow-sm">
         <div class="card-body">
@@ -48,6 +77,36 @@
             {% if s.supplier_type %}
             <span class="badge bg-secondary ms-2 flex-shrink-0" style="font-size:.7rem">
               {{ s.supplier_type | replace("_", " ") | title }}
+            </span>
+            {% endif %}
+          </div>
+
+          {# Origin chips — show where this vendor's prices came from. Multiple
+             origins can coexist (e.g. imported a CSV, then ran a comparator
+             refresh). #}
+          <div class="mb-2 d-flex flex-wrap gap-1" style="min-height:1.1rem">
+            {% if has_imported %}
+            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:.65rem"
+                  title="Prices imported from a CSV / order guide">
+              <i class="bi bi-file-earmark-spreadsheet me-1"></i>Imported list
+            </span>
+            {% endif %}
+            {% if has_comparator_discovered %}
+            <span class="badge bg-info-subtle text-info border border-info-subtle" style="font-size:.65rem"
+                  title="Discovered via Find Product Prices web search">
+              <i class="bi bi-robot me-1"></i>Discovered
+            </span>
+            {% endif %}
+            {% if has_comparator or has_comparator_auto %}
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:.65rem"
+                  title="Prices saved from a Find Product Prices comparison">
+              <i class="bi bi-bar-chart-line me-1"></i>From comparator{% if has_comparator_auto %} (auto){% endif %}
+            </span>
+            {% endif %}
+            {% if not (has_imported or has_comparator_discovered or has_comparator or has_comparator_auto) %}
+            <span class="badge bg-light text-muted border" style="font-size:.65rem"
+                  title="Added manually or via seed">
+              <i class="bi bi-person me-1"></i>Manual
             </span>
             {% endif %}
           </div>
@@ -145,19 +204,48 @@
   {% else %}
   <div class="text-center text-muted py-5">
     <i class="bi bi-building fs-1 d-block mb-2"></i>
-    No suppliers yet.
+    No vendors yet.
     <button class="btn btn-primary btn-sm ms-2"
             data-bs-toggle="modal" data-bs-target="#addSupplierModal">Add one</button>
+    <span class="d-block mt-2 small">
+      or let an AI search find some:
+      <a href="#discover-vendors" data-bs-toggle="collapse" data-bs-target="#discover-vendors">
+        discover new vendors
+      </a>
+    </span>
   </div>
   {% endif %}
+
+  {# Merged AI Discovery panel (was the standalone "Discover Suppliers" tab).
+     Auto-expanded when the operator has zero vendors so onboarding is one
+     click; collapsed by default once the directory has rows. #}
+  <div id="discover-vendors" class="collapse mt-4 {% if not suppliers %}show{% endif %}">
+    <div class="card border-info border-opacity-25">
+      <div class="card-header bg-info-subtle d-flex justify-content-between align-items-center">
+        <div>
+          <i class="bi bi-robot text-info me-1"></i>
+          <strong>Discover new vendors with AI</strong>
+          <span class="text-muted small ms-2">Looking for more wholesalers near you? Claude searches the web for distributors that carry vending categories.</span>
+        </div>
+        <button class="btn btn-sm btn-link text-muted p-0" type="button"
+                data-bs-toggle="collapse" data-bs-target="#discover-vendors"
+                aria-label="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        {% include "inventory/_tab_sourcing.html" %}
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Add Supplier Modal -->
+<!-- Add Vendor Modal -->
 <div class="modal fade" id="addSupplierModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Add Supplier</h5>
+        <h5 class="modal-title">Add Vendor</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" action="/inventory/suppliers">

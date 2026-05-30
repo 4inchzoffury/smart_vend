@@ -6,12 +6,14 @@
   <h1 class="h3 mb-0"><i class="bi bi-box me-2 text-primary"></i>Product Inventory</h1>
 </div>
 <p class="text-muted small mb-3">
-  Build your catalog, open supplier accounts, compare prices, and keep machines stocked.
+  Build a catalog, source it across vendors, and keep machines stocked. Compare prices across Sam's Club, Walmart, wholesalers, and any vendor you discover.
 </p>
 
-{# Tab keys (`products`, `compare`, `suppliers`, `sourcing`) intentionally stay
-   the same so existing URLs (`?tab=compare`, `#suppliers`) keep working. Only
-   labels and icons change to better describe what each tab does. #}
+{# Inventory v2: three tabs instead of four — Discover Suppliers merged into
+   Vendors (the AI search lives in a collapsed section there). Tab keys
+   (`products`, `compare`, `suppliers`) stay the same so existing URLs keep
+   working. The router normalizes `?tab=sourcing` to `?tab=suppliers`, and the
+   JS hash handler below maps `#sourcing` the same way. #}
 <ul class="nav nav-tabs mb-0" id="inventoryTabs" role="tablist">
   <li class="nav-item" role="presentation">
     <button class="nav-link {% if active_tab == 'products' %}active{% endif %}"
@@ -25,8 +27,8 @@
     <button class="nav-link {% if active_tab == 'suppliers' %}active{% endif %}"
             id="tab-suppliers" data-bs-toggle="tab" data-bs-target="#pane-suppliers"
             type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'suppliers' else 'false' }}"
-            title="Who you buy from">
-      <i class="bi bi-building me-1"></i>Suppliers
+            title="Vendors you buy from, plus AI discovery for new ones">
+      <i class="bi bi-building me-1"></i>Vendors
     </button>
   </li>
   <li class="nav-item" role="presentation">
@@ -34,15 +36,7 @@
             id="tab-compare" data-bs-toggle="tab" data-bs-target="#pane-compare"
             type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'compare' else 'false' }}"
             title="Compare a product across vendors">
-      <i class="bi bi-bar-chart-line me-1"></i>Find Prices
-    </button>
-  </li>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link {% if active_tab == 'sourcing' %}active{% endif %}"
-            id="tab-sourcing" data-bs-toggle="tab" data-bs-target="#pane-sourcing"
-            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'sourcing' else 'false' }}"
-            title="Search the web for new vendors">
-      <i class="bi bi-robot me-1"></i>Discover Suppliers
+      <i class="bi bi-bar-chart-line me-1"></i>Find Product Prices
     </button>
   </li>
 </ul>
@@ -124,6 +118,22 @@
         </div>
       </div>
       <div class="d-flex gap-2">
+        {# Bulk price sourcing: queues a price comparison for every SKU with
+           zero ProductSources, runs in the background, auto-saves the
+           cheapest primary result. Only enabled when there's work to do
+           and no run is already in flight. #}
+        {% if unsourced_count and not bulk_sourcing_active %}
+        <form method="post" action="/inventory/bulk-source/run" class="d-inline">
+          <button class="btn btn-outline-primary btn-sm"
+                  title="Run Find Product Prices on every SKU missing a supplier offer">
+            <i class="bi bi-broadcast-pin me-1"></i>Source {{ unsourced_count }} missing
+          </button>
+        </form>
+        {% elif bulk_sourcing_active %}
+        <button class="btn btn-outline-primary btn-sm" disabled>
+          <span class="spinner-border spinner-border-sm me-1" role="status"></span>Sourcing…
+        </button>
+        {% endif %}
         <a class="btn btn-outline-success btn-sm" href="/inventory/restock-run">
           <i class="bi bi-cart-plus me-1"></i>Restock Run
         </a>
@@ -137,6 +147,14 @@
         </button>
       </div>
     </div>
+
+    {# Live status strip for the bulk-source run. Hidden when idle; HTMX swaps
+       it in once a run starts and polls until done. The endpoint returns an
+       empty div when finished, which clears the strip. #}
+    <div id="bulk-source-strip"
+         hx-get="/inventory/bulk-source/status"
+         hx-trigger="load{% if bulk_sourcing_active %}, every 3s{% endif %}"
+         hx-swap="outerHTML"></div>
 
     {% if products %}
     <div class="table-responsive">
@@ -200,8 +218,21 @@
               {{ p.par_level or "–" }}
             </td>
             <td class="text-end text-nowrap">
+              {# v2: one-click background refresh — runs Find Product Prices on
+                 every default vendor and auto-saves the cheapest primary
+                 result. The deep-link icon next to it opens the comparator
+                 tab for operators who want the full results view. #}
+              <span id="row-refresh-{{ p.id }}" class="d-inline">
+                <button class="btn btn-sm btn-outline-primary py-0 px-1"
+                        title="Refresh prices from all vendors (auto-saves the best)"
+                        hx-post="/inventory/{{ p.id }}/refresh-prices"
+                        hx-target="#row-refresh-{{ p.id }}"
+                        hx-swap="outerHTML">
+                  <i class="bi bi-arrow-clockwise"></i>
+                </button>
+              </span>
               <a href="/inventory/?tab=compare&product_id={{ p.id }}&q={{ p.name | urlencode }}"
-                 class="btn btn-sm btn-outline-primary py-0 px-1" title="Find prices across vendors">
+                 class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1" title="Open Find Product Prices for this SKU">
                 <i class="bi bi-bar-chart-line"></i>
               </a>
               <button class="btn btn-sm btn-outline-success py-0 px-1 ms-1"
@@ -296,15 +327,15 @@
               with case prices intact.
             </p>
             <a href="/inventory/?tab=suppliers" class="btn btn-outline-success btn-sm">
-              <i class="bi bi-building me-1"></i>Open Suppliers tab
+              <i class="bi bi-building me-1"></i>Open Vendors tab
             </a>
           </div>
         </div>
       </div>
     </div>
     <div class="text-center text-muted small">
-      No suppliers yet either?
-      <a href="/inventory/?tab=sourcing">Discover suppliers near Panama City</a>
+      No vendors yet either?
+      <a href="/inventory/?tab=suppliers#discover-vendors">Discover vendors near Panama City</a>
       with an AI search.
     </div>
     {% endif %}
@@ -315,14 +346,9 @@
     {% include "inventory/_tab_suppliers.html" %}
   </div>
 
-  <!-- ===================== TAB: FIND PRICES (was Price Comparator) ===================== -->
+  <!-- ===================== TAB: FIND PRODUCT PRICES (was Price Comparator) ===================== -->
   <div class="tab-pane fade {% if active_tab == 'compare' %}show active{% endif %}" id="pane-compare" role="tabpanel">
     {% include "inventory/_tab_comparator.html" %}
-  </div>
-
-  <!-- ===================== TAB: DISCOVER SUPPLIERS (was AI Sourcing) ===================== -->
-  <div class="tab-pane fade {% if active_tab == 'sourcing' %}show active{% endif %}" id="pane-sourcing" role="tabpanel">
-    {% include "inventory/_tab_sourcing.html" %}
   </div>
 
 </div>
@@ -390,12 +416,15 @@ function applyProductFilter(el, param, value) {
   window.location.href = url.toString();
 }
 
-// Restore active tab from URL param or hash
+// Restore active tab from URL param or hash. `sourcing` was merged into
+// Vendors in v2 — alias it so old bookmarks (`#sourcing`, `?tab=sourcing`)
+// still resolve to the right tab on the client side too.
 (function () {
   const params = new URLSearchParams(window.location.search);
   const tabParam = params.get('tab');
   const tabHash = window.location.hash.replace('#', '');
-  const tabId = tabParam || tabHash;
+  let tabId = tabParam || tabHash;
+  if (tabId === 'sourcing') tabId = 'suppliers';
   if (tabId && tabId !== 'products') {
     const btn = document.getElementById('tab-' + tabId);
     if (btn) {

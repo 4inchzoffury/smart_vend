@@ -7,7 +7,7 @@ from dataclasses import dataclass
 class PriceResult:
     vendor_key: str
     vendor_name: str
-    vendor_type: str           # "online_wholesale" | "online_vending" | "local_wholesale" | "local_retail"
+    vendor_type: str  # "online_wholesale" | "online_vending" | "local_wholesale" | "local_retail"
     product_name: str
     unit_price: float | None = None
     case_price: float | None = None
@@ -17,8 +17,41 @@ class PriceResult:
     in_stock: bool | None = None
     min_order: str | None = None
     notes: str = ""
-    source: str = "scrape"    # "api" | "scrape" | "ai_search"
-    confidence: str = "medium" # "high" | "medium" | "low"
+    source: str = "scrape"  # "api" | "scrape" | "ai_search"
+    confidence: str = "medium"  # "high" | "medium" | "low"
+    # True when the unit price was derived from case math rather than scraped
+    # directly. UI surfaces a small "calc" badge so the operator knows.
+    unit_price_derived: bool = False
+    case_price_derived: bool = False
+
+    def normalize(self, *, fallback_case_pack: int | None = None) -> None:
+        """Backfill unit_price <-> case_price math when we have enough info.
+
+        Wholesale fetchers (WebstaurantStore) often return case_price + case_qty
+        with unit_price=None. Retail fetchers (Sam's Club, Walmart) return
+        unit_price but no case fields. If the bound Product knows its
+        case_pack_qty, pass that as ``fallback_case_pack`` so the dispatcher
+        can derive the missing side for cross-vendor comparison.
+
+        Operates in place. Already-set values are never overwritten.
+        """
+        qty = self.case_qty or fallback_case_pack
+        if self.unit_price is None and self.case_price is not None and qty:
+            self.unit_price = round(self.case_price / qty, 4)
+            self.unit_price_derived = True
+        if self.case_price is None and self.unit_price is not None and qty:
+            self.case_price = round(self.unit_price * qty, 2)
+            self.case_price_derived = True
+            if not self.case_qty:
+                self.case_qty = qty
+
+    def is_empty(self) -> bool:
+        """A row with no price, no case data, and no URL carries no information.
+
+        The dispatcher drops these before rendering — they only ever produced
+        a $— $— $— $— row in the results table and confused the operator.
+        """
+        return self.unit_price is None and self.case_price is None and not self.url
 
     def to_dict(self) -> dict:
         return {
@@ -36,6 +69,8 @@ class PriceResult:
             "notes": self.notes,
             "source": self.source,
             "confidence": self.confidence,
+            "unit_price_derived": self.unit_price_derived,
+            "case_price_derived": self.case_price_derived,
         }
 
 

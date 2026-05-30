@@ -76,28 +76,82 @@
   </div>
 </div>
 
-{# Sourcing & Procurement — where to buy this SKU and at what unit cost #}
-<div class="card mb-4 border-success border-opacity-25">
-  <div class="card-header bg-success-subtle d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <h6 class="mb-0"><i class="bi bi-cart-check me-1"></i>Sourcing &amp; Price Comparison</h6>
-    <div class="d-flex align-items-center gap-2">
-      {% if best %}
-      <span class="small">
-        Best: <strong>{{ best.supplier.name }}</strong>
-        {% if best.effective_unit_cost is not none %} at <strong>${{ "%.3f"|format(best.effective_unit_cost) }}</strong>/unit{% endif %}
-      </span>
-      {% endif %}
-      <form method="post" action="/inventory/compare" class="d-inline">
-        <input type="hidden" name="product_query" value="{{ product.brand ~ ' ' if product.brand }}{{ product.name }}">
-        <input type="hidden" name="product_id" value="{{ product.id }}">
-        <button type="submit" class="btn btn-sm btn-success">
-          <i class="bi bi-bar-chart-line me-1"></i>Compare prices online
-        </button>
-      </form>
+{# Two columns: my purchase history (left) vs market offers (right). The
+   data model separates these — Product.unit_cost + InventoryLog.unit_cost_at_log
+   are tracking my actual spend, while ProductSource is the catalog of vendor
+   offers. Surfacing them side by side makes the distinction obvious. #}
+{% set restocks_with_cost = logs | selectattr('unit_cost_at_log', 'defined')
+                                  | selectattr('unit_cost_at_log')
+                                  | list %}
+<div class="row g-3 mb-4">
+  <!-- LEFT: What I've paid -->
+  <div class="col-lg-5">
+    <div class="card h-100 border-secondary border-opacity-25">
+      <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-wallet2 me-1"></i>What I've paid</h6>
+        <span class="text-muted small">My purchase history</span>
+      </div>
+      <div class="card-body">
+        <div class="small mb-3 d-flex justify-content-between align-items-baseline">
+          <span class="text-muted">Hand-entered unit cost</span>
+          <span class="fw-semibold">
+            {{ "$%.3f"|format(product.unit_cost) if product.unit_cost is not none else "—" }}
+          </span>
+        </div>
+        {% if restocks_with_cost %}
+        <div class="text-muted small text-uppercase mb-1" style="letter-spacing:.04em">
+          Last {{ restocks_with_cost[:5] | length }} restocks
+        </div>
+        <table class="table table-sm mb-2 small">
+          <tbody>
+            {% for log in restocks_with_cost[:5] %}
+            <tr>
+              <td class="text-muted ps-0">{{ log.logged_at.strftime('%Y-%m-%d') if log.logged_at else '—' }}</td>
+              <td class="text-end fw-semibold">${{ "%.3f"|format(log.unit_cost_at_log) }}</td>
+              <td class="text-muted text-truncate" style="max-width:170px" title="{{ log.notes or '' }}">{{ log.notes or '' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="text-muted" style="font-size:.7rem">
+          Sourced from restock log entries with a recorded unit cost.
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-3 small">
+          <i class="bi bi-receipt fs-3 d-block mb-2 opacity-50"></i>
+          No restock history with cost yet.<br>
+          Log a restock to start tracking what you actually paid.
+        </div>
+        {% endif %}
+      </div>
     </div>
   </div>
-  <div class="card-body">
-    {% include "inventory/_product_sources.html" %}
+
+  <!-- RIGHT: Market prices -->
+  <div class="col-lg-7">
+    <div class="card h-100 border-success border-opacity-25">
+      <div class="card-header bg-success-subtle d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0"><i class="bi bi-shop me-1"></i>Market prices</h6>
+        <div class="d-flex align-items-center gap-2">
+          {% if best %}
+          <span class="small">
+            Best: <strong>{{ best.supplier.name }}</strong>
+            {% if best.effective_unit_cost is not none %} @ <strong>${{ "%.3f"|format(best.effective_unit_cost) }}</strong>/unit{% endif %}
+          </span>
+          {% endif %}
+          <form method="post" action="/inventory/compare" class="d-inline">
+            <input type="hidden" name="product_query" value="{{ product.brand ~ ' ' if product.brand }}{{ product.name }}">
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+            <button type="submit" class="btn btn-sm btn-success">
+              <i class="bi bi-arrow-clockwise me-1"></i>Refresh prices
+            </button>
+          </form>
+        </div>
+      </div>
+      <div class="card-body">
+        {% include "inventory/_product_sources.html" %}
+      </div>
+    </div>
   </div>
 </div>
 

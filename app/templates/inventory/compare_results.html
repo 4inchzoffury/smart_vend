@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Price Comparison – {{ input_params.get('product_query', 'Results') }} – Prime Vending{% endblock %}
+{% block title %}Product Prices – {{ input_params.get('product_query', 'Results') }} – Prime Vending{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h1 class="h4 mb-0">
-    <i class="bi bi-bar-chart-line me-2 text-primary"></i>Price Comparison
+    <i class="bi bi-bar-chart-line me-2 text-primary"></i>Product Prices
     <span class="text-muted fw-normal fs-6 ms-2">#{{ job.id }}</span>
   </h1>
   <div class="d-flex gap-2">
-    <a href="/inventory/#compare" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-arrow-left me-1"></i>Back to Comparator
+    <a href="/inventory/?tab=compare" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back to Find Product Prices
     </a>
   </div>
 </div>

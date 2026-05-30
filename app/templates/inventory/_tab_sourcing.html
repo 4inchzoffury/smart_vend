@@ -1,27 +1,9 @@
-{# AI Sourcing tab — embedded in inventory/index.html #}
+{# Discover Vendors — embedded in inventory/_tab_suppliers.html as a collapsed
+   section so the directory and the AI-discovery form live on the same tab
+   (Inventory v2: merged Suppliers + Discover Suppliers). The outer help
+   banner was removed; the Vendors tab provides framing copy above. #}
 
 <div class="pt-1">
-
-  <div class="d-flex align-items-center justify-content-end mb-1">
-    <button class="btn btn-sm btn-link text-muted p-0" type="button"
-            data-bs-toggle="collapse" data-bs-target="#help-sourcing" title="Help &amp; instructions">
-      <i class="bi bi-question-circle"></i>
-    </button>
-  </div>
-  <div class="collapse mb-3" id="help-sourcing">
-    <div class="card border-info border-opacity-25">
-      <div class="card-body bg-info-subtle rounded small">
-        <strong>Discover Suppliers</strong> — Search the web with Claude AI for wholesale distributors and warehouse clubs serving your market.
-        <ul class="mb-0 mt-1">
-          <li>Pick the categories you sell. Claude finds broadliners, beverage distributors, and warehouse clubs near you.</li>
-          <li>Results land as new rows in the <strong>Suppliers</strong> tab — open accounts, add contact info, then use <em>Find Prices</em> or <em>Supplier Import</em> to turn each into real ProductSource offers.</li>
-          <li>Tavily (paid) returns richer page content than DuckDuckGo (free); pick Tavily when an API key is set.</li>
-          <li>Jobs run in the background — leave the page and come back; the Recent Searches list updates.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
   <!-- Token usage -->
   <div class="card border-0 bg-light px-3 py-2 mb-4"
        id="sourcing-usage-bar"

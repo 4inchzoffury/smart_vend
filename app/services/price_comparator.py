@@ -7,6 +7,7 @@ import logging
 import re
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
 
@@ -21,17 +22,18 @@ logger = logging.getLogger(__name__)
 _AI_MODEL = "claude-haiku-4-5-20251001"
 _MAX_FALLBACK_SEARCHES = 4
 
-# Vendor site domains for targeted URL searches
+# Vendor site domains for targeted URL searches. Vendors Supply was archived
+# in Inventory v2 (selectors stale, no live scraping); historical AgentJob rows
+# may still reference it via VENDOR_META, but it's no longer dispatched.
 _VENDOR_SITE = {
     "walmart": "walmart.com",
     "sams_club": "samsclub.com",
     "webstaurantstore": "webstaurantstore.com",
-    "vendors_supply": "vendorssupply.com",
     "candy_machines": "candymachines.com",
 }
 
 # Vendor display order (also controls which vendors appear in settings)
-VENDOR_KEYS = ["sams_club", "walmart", "webstaurantstore", "vendors_supply", "candy_machines"]
+VENDOR_KEYS = ["sams_club", "walmart", "webstaurantstore", "candy_machines"]
 
 
 def _setting_keys(vendor_key: str) -> dict[str, str]:
@@ -48,7 +50,6 @@ def _setting_keys(vendor_key: str) -> dict[str, str]:
             "store_name": "compare_walmart_store_name",
         },
         "webstaurantstore": {"email": "compare_webstaurantstore_email"},
-        "vendors_supply": {"email": "compare_vendors_supply_email"},
         "candy_machines": {"email": "compare_candy_machines_email"},
     }.get(vendor_key, {})
 
@@ -62,7 +63,9 @@ def load_vendor_settings(db: Session) -> dict[str, dict[str, str]]:
     result: dict[str, dict[str, str]] = {}
     for vk in VENDOR_KEYS:
         keys = _setting_keys(vk)
-        result[vk] = {field: all_settings.get(setting_key, "") for field, setting_key in keys.items()}
+        result[vk] = {
+            field: all_settings.get(setting_key, "") for field, setting_key in keys.items()
+        }
     return result
 
 
@@ -82,7 +85,9 @@ def _fetch_sams_club(query: str, vend_cfg: dict) -> list[PriceResult]:
 
     club_id = vend_cfg.get("club_id", "").strip()
     if not club_id:
-        raise FetchError("Sam's Club Club ID not configured — enter your Club ID in the gear ⚙ settings.")
+        raise FetchError(
+            "Sam's Club Club ID not configured — enter your Club ID in the gear ⚙ settings."
+        )
     return sams_club.search_products(query, club_id=club_id)
 
 
@@ -99,12 +104,6 @@ def _fetch_webstaurantstore(query: str, vend_cfg: dict) -> list[PriceResult]:
     return webstaurantstore.search_products(query, account_email=vend_cfg.get("email"))
 
 
-def _fetch_vendors_supply(query: str, vend_cfg: dict) -> list[PriceResult]:
-    from app.services.price_fetcher import vendors_supply
-
-    return vendors_supply.search_products(query, account_email=vend_cfg.get("email"))
-
-
 def _fetch_candy_machines(query: str, vend_cfg: dict) -> list[PriceResult]:
     from app.services.price_fetcher import candy_machines
 
@@ -115,7 +114,6 @@ _FETCHERS = {
     "sams_club": _fetch_sams_club,
     "walmart": _fetch_walmart,
     "webstaurantstore": _fetch_webstaurantstore,
-    "vendors_supply": _fetch_vendors_supply,
     "candy_machines": _fetch_candy_machines,
 }
 
@@ -187,8 +185,14 @@ def _ai_fallback(
     if not all_results:
         return []
 
-    log.append({"event": "ai_fallback_search", "vendor": vendor_key, "queries": queries_run,
-                "result_count": len(all_results)})
+    log.append(
+        {
+            "event": "ai_fallback_search",
+            "vendor": vendor_key,
+            "queries": queries_run,
+            "result_count": len(all_results),
+        }
+    )
     search_text = json.dumps(all_results)
 
     system = (
@@ -226,11 +230,21 @@ def _ai_fallback(
         end = clean.rfind("]")
         parsed = json.loads(clean[idx : end + 1]) if idx != -1 and end > idx else []
     except Exception:
-        logger.exception("AI fallback JSON parse failed for vendor %s, query: %s", vendor_key, query[:80])
+        logger.exception(
+            "AI fallback JSON parse failed for vendor %s, query: %s", vendor_key, query[:80]
+        )
         return []
 
+    # When the AI fallback surfaces a price on a vendor we don't have a direct
+    # fetcher for, route the row to its own ai_ref_{host} key so the results
+    # template can group it under "Discovered via web search" and the save
+    # flow spawns a new Supplier from the hostname (origin=
+    # "comparator_discovered"). The bound vendor's own domain still passes
+    # through with the original vendor_key.
+    expected_host = (site_domain or "").lower().removeprefix(".")
+
     fallback_results = []
-    for item in (parsed if isinstance(parsed, list) else []):
+    for item in parsed if isinstance(parsed, list) else []:
         if not isinstance(item, dict):
             continue
         name = str(item.get("product_name") or "").strip()
@@ -239,19 +253,41 @@ def _ai_fallback(
         unit_p = item.get("unit_price")
         case_p = item.get("case_price")
         has_price = bool(unit_p or case_p)
+        item_url = item.get("url") or ""
+        row_vendor_key = vendor_key
+        row_vendor_name = vendor_name
+        row_vendor_type = meta.get("type", "online_wholesale")
+        if item_url:
+            host = (urlparse(item_url).hostname or "").lower().removeprefix("www.")
+            if host and expected_host and not host.endswith(expected_host):
+                # Off-domain hit — surface as a vendor candidate.
+                row_vendor_key = f"ai_ref_{host}"
+                row_vendor_name = host
+                row_vendor_type = "online_wholesale"
         fallback_results.append(
             PriceResult(
-                vendor_key=vendor_key,
-                vendor_name=vendor_name,
-                vendor_type=meta.get("type", "online_wholesale"),
+                vendor_key=row_vendor_key,
+                vendor_name=row_vendor_name,
+                vendor_type=row_vendor_type,
                 product_name=name,
                 unit_price=float(unit_p) if unit_p else None,
                 case_price=float(case_p) if case_p else None,
                 case_qty=item.get("case_qty"),
-                url=item.get("url"),
-                notes=str(item.get("notes") or ("AI-found price" if has_price else "Visit URL to see current price")),
-                source="ai_search",
-                confidence="medium" if has_price else "low",
+                url=item_url or None,
+                notes=str(
+                    item.get("notes")
+                    or (
+                        "Discovered via web search — verify before ordering"
+                        if row_vendor_key.startswith("ai_ref_")
+                        else "AI-found price"
+                        if has_price
+                        else "Visit URL to see current price"
+                    )
+                ),
+                source="ai_search" if not row_vendor_key.startswith("ai_ref_") else "ai_ref",
+                confidence="low"
+                if row_vendor_key.startswith("ai_ref_")
+                else ("medium" if has_price else "low"),
             )
         )
     return fallback_results
@@ -278,6 +314,15 @@ def run_price_comparison_job(job_id: int) -> None:
             selected_vendors: list[str] = params.get("vendors", VENDOR_KEYS)
             provider: str = params.get("search_provider", "duckduckgo")
             vendor_cfg: dict[str, dict] = params.get("vendor_config", {})
+            # Bound Product's case pack lets the dispatcher backfill missing
+            # case prices from a retail unit price for fairer cross-vendor
+            # comparison. Optional; None when the operator runs an unbound
+            # query from the comparator form.
+            fallback_pack = params.get("fallback_case_pack")
+            try:
+                fallback_pack = int(fallback_pack) if fallback_pack else None
+            except (TypeError, ValueError):
+                fallback_pack = None
 
             if not query:
                 raise ValueError("No product query provided.")
@@ -292,25 +337,48 @@ def run_price_comparison_job(job_id: int) -> None:
 
                 try:
                     results = fetcher(query, cfg)
-                    log.append({
-                        "event": "fetch_done",
-                        "vendor": vendor_key,
-                        "count": len(results),
-                        "source": "direct",
-                    })
+                    log.append(
+                        {
+                            "event": "fetch_done",
+                            "vendor": vendor_key,
+                            "count": len(results),
+                            "source": "direct",
+                        }
+                    )
                 except FetchError as exc:
                     log.append({"event": "fetch_error", "vendor": vendor_key, "error": str(exc)})
                     results = []
                 except Exception as exc:
-                    log.append({"event": "fetch_exception", "vendor": vendor_key, "error": str(exc)})
+                    log.append(
+                        {"event": "fetch_exception", "vendor": vendor_key, "error": str(exc)}
+                    )
                     results = []
 
                 if not results:
                     log.append({"event": "fallback_start", "vendor": vendor_key})
                     results = _ai_fallback(query, vendor_key, provider, log, vendor_cfg=cfg)
-                    log.append({"event": "fallback_done", "vendor": vendor_key, "count": len(results)})
+                    log.append(
+                        {"event": "fallback_done", "vendor": vendor_key, "count": len(results)}
+                    )
 
-                all_results.extend(r.to_dict() for r in results)
+                # Normalize each row's unit/case math, then drop fully empty
+                # rows (no price, no URL — they only ever rendered "$—" and
+                # confused the operator). v2.
+                kept: list[PriceResult] = []
+                for r in results:
+                    r.normalize(fallback_case_pack=fallback_pack)
+                    if not r.is_empty():
+                        kept.append(r)
+                if len(kept) < len(results):
+                    log.append(
+                        {
+                            "event": "dropped_empty_rows",
+                            "vendor": vendor_key,
+                            "dropped": len(results) - len(kept),
+                        }
+                    )
+
+                all_results.extend(r.to_dict() for r in kept)
 
             job.draft_body = json.dumps(all_results)
             job.prospects_found = len(all_results)
