@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prime Micro Markets · Sales Sheet</title>
+  <style>
+    /* ── Print setup ───────────────────────────── */
+    @page { size: Letter; margin: 0.4in; }
+
+    :root {
+      --pm-dark:   #0b1526;
+      --pm-navy:   #1a3254;
+      --pm-blue:   #0369a1;
+      --pm-sky:    #0ea5e9;
+      --pm-teal:   #0d9488;
+      --pm-orange: #ea580c;
+      --pm-light:  #f1f5f9;
+      --pm-muted:  #475569;
+      --pm-border: #e2e8f0;
+      --pm-text:   #1e293b;
+    }
+
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    html, body {
+      margin: 0; padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: var(--pm-text);
+      background: #fff;
+      font-size: 10.25pt;
+      line-height: 1.4;
+    }
+
+    .page {
+      width: 7.7in;
+      margin: 0 auto;
+      padding: 0;
+    }
+
+    /* ── Header ────────────────────────────────── */
+    .header {
+      background: linear-gradient(150deg, var(--pm-dark) 0%, #0c2d50 60%, #083d4f 100%);
+      color: #fff;
+      padding: 0.55in 0.4in;
+      border-radius: 0.18in;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 80% 30%, rgba(14,165,233,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .head-row { display: flex; align-items: center; justify-content: space-between; gap: 0.25in; position: relative; z-index: 1; }
+    .brand-block { flex: 1; }
+    .brand-name {
+      font-size: 11pt; font-weight: 800; letter-spacing: .18em;
+      text-transform: uppercase; color: #fff; margin-bottom: 6pt;
+    }
+    .brand-name span { color: var(--pm-sky); }
+    .head-tag {
+      display: inline-block;
+      background: rgba(14,165,233,.18);
+      border: 1px solid rgba(14,165,233,.4);
+      color: #7dd3fc;
+      border-radius: 99px;
+      padding: 2pt 10pt;
+      font-size: 7pt; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      margin-bottom: 8pt;
+    }
+    .head-h1 {
+      font-size: 22pt; font-weight: 900; line-height: 1.05;
+      letter-spacing: -.01em; margin: 0 0 6pt 0;
+    }
+    .head-h1 em { font-style: normal; color: var(--pm-sky); }
+    .head-sub {
+      font-size: 10pt; color: rgba(255,255,255,.78);
+      max-width: 4.4in; line-height: 1.5; margin: 0;
+    }
+    .head-right { text-align: right; min-width: 1.6in; }
+    .vob-badge {
+      display: inline-flex; align-items: center; gap: 5pt;
+      background: rgba(234,88,12,.18);
+      border: 1px solid rgba(234,88,12,.5);
+      color: #fdba74;
+      border-radius: 6pt; padding: 5pt 9pt;
+      font-size: 8pt; font-weight: 800;
+      letter-spacing: .08em; text-transform: uppercase;
+      margin-bottom: 8pt;
+    }
+    .vob-badge::before { content: '★'; font-size: 9pt; }
+
+    /* ── Value strip ───────────────────────────── */
+    .strip {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 4pt; margin: 10pt 0 12pt;
+    }
+    .strip-cell {
+      background: var(--pm-dark); color: #fff;
+      padding: 8pt 6pt; text-align: center;
+      border-radius: 4pt;
+    }
+    .strip-val { font-size: 14pt; font-weight: 800; color: var(--pm-sky); line-height: 1; }
+    .strip-lbl {
+      font-size: 6.5pt; color: rgba(255,255,255,.55);
+      margin-top: 3pt; text-transform: uppercase;
+      letter-spacing: .05em; font-weight: 600;
+    }
+
+    /* ── Section heading ───────────────────────── */
+    .sec {
+      font-size: 9.5pt; font-weight: 800;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--pm-blue);
+      border-left: 3pt solid var(--pm-orange);
+      padding-left: 7pt;
+      margin: 0 0 7pt 0;
+    }
+
+    /* ── Two-col body ──────────────────────────── */
+    .body-row { display: grid; grid-template-columns: 1.05fr 1fr; gap: 14pt; }
+
+    /* ── What you get ──────────────────────────── */
+    .offer-list { padding: 0; margin: 0; list-style: none; }
+    .offer-list li {
+      display: flex; gap: 7pt; padding: 5pt 0;
+      border-bottom: 1px solid var(--pm-border);
+      font-size: 9.5pt;
+    }
+    .offer-list li:last-child { border-bottom: none; }
+    .offer-list .check {
+      flex-shrink: 0; width: 14pt; height: 14pt;
+      border-radius: 50%;
+      background: var(--pm-teal); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 8pt;
+    }
+    .offer-list strong { color: var(--pm-text); }
+    .offer-list span { color: var(--pm-muted); }
+
+    /* ── Equipment block ───────────────────────── */
+    .equip-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 6pt;
+    }
+    .equip-tile {
+      border: 1px solid var(--pm-border);
+      border-radius: 5pt;
+      padding: 7pt 8pt;
+      background: var(--pm-light);
+    }
+    .equip-tile h4 {
+      margin: 0 0 2pt;
+      font-size: 9pt; font-weight: 800; color: var(--pm-navy);
+    }
+    .equip-tile p {
+      margin: 0; font-size: 7.8pt; color: var(--pm-muted); line-height: 1.4;
+    }
+
+    /* ── Process strip ─────────────────────────── */
+    .proc {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 6pt; margin-top: 4pt;
+    }
+    .proc-step {
+      text-align: center;
+      border: 1px solid var(--pm-border);
+      border-radius: 5pt;
+      padding: 8pt 6pt;
+      background: #fff;
+      position: relative;
+    }
+    .proc-num {
+      width: 22pt; height: 22pt; border-radius: 50%;
+      background: linear-gradient(135deg, var(--pm-blue), var(--pm-teal));
+      color: #fff; font-weight: 800; font-size: 10pt;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 5pt;
+    }
+    .proc-step h4 {
+      margin: 0 0 2pt; font-size: 8.5pt; font-weight: 800; color: var(--pm-text);
+    }
+    .proc-step p { margin: 0; font-size: 7.5pt; color: var(--pm-muted); line-height: 1.35; }
+
+    /* ── Footer / CTA ──────────────────────────── */
+    .foot {
+      margin-top: 12pt;
+      background: var(--pm-dark);
+      color: #fff;
+      border-radius: 8pt;
+      padding: 12pt 16pt;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      align-items: center;
+      gap: 14pt;
+    }
+    .foot h3 {
+      margin: 0 0 4pt; font-size: 13pt; font-weight: 800;
+    }
+    .foot p { margin: 0; font-size: 8.5pt; color: rgba(255,255,255,.72); line-height: 1.45; }
+    .foot-cta {
+      background: var(--pm-orange);
+      color: #fff;
+      border-radius: 5pt;
+      padding: 9pt 14pt;
+      text-align: center;
+      text-decoration: none;
+      display: block;
+    }
+    .foot-cta .top { font-size: 7.5pt; letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
+    .foot-cta .big { font-size: 12pt; font-weight: 800; margin-top: 3pt; }
+    .foot-meta {
+      margin-top: 8pt;
+      display: flex; gap: 12pt; flex-wrap: wrap;
+      font-size: 8pt; color: rgba(255,255,255,.65);
+    }
+    .foot-meta span { display: inline-flex; align-items: center; gap: 4pt; }
+
+    /* ── Tagged ownership block ────────────────── */
+    .ownership {
+      margin-top: 6pt;
+      font-size: 7.2pt;
+      color: rgba(255,255,255,.45);
+      text-align: center;
+      border-top: 1px solid rgba(255,255,255,.08);
+      padding-top: 6pt;
+    }
+
+    @media print {
+      body { font-size: 10pt; }
+      .page { width: auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="head-row">
+      <div class="brand-block">
+        <div class="brand-name">Prime Micro <span>Markets</span></div>
+        <span class="head-tag">AI-Powered Smart Vending</span>
+        <h1 class="head-h1">A premium breakroom,<br><em>at zero cost to you.</em></h1>
+        <p class="head-sub">
+          We install, stock, and service a modern smart cooler or micro market
+          at your location. Your team gets 24/7 cashless access to fresh snacks
+          and beverages. You get a better workplace benefit with nothing on your plate.
+        </p>
+      </div>
+      <div class="head-right">
+        <div class="vob-badge">Veteran Owned</div>
+        <div style="font-size:8pt;color:rgba(255,255,255,.55);line-height:1.5;">
+          Locally operated from<br>
+          <strong style="color:#fff;">Panama City, FL</strong><br>
+          Service across Bay County
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VALUE STRIP -->
+  <div class="strip">
+    <div class="strip-cell"><div class="strip-val">$0</div><div class="strip-lbl">Cost to your location</div></div>
+    <div class="strip-cell"><div class="strip-val">24 / 7</div><div class="strip-lbl">Always available</div></div>
+    <div class="strip-cell"><div class="strip-val">150+</div><div class="strip-lbl">Curated products</div></div>
+    <div class="strip-cell"><div class="strip-val">Local</div><div class="strip-lbl">Same-day service</div></div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body-row">
+
+    <!-- LEFT: What you get -->
+    <div>
+      <h2 class="sec">What You Get</h2>
+      <ul class="offer-list">
+        <li>
+          <div class="check">✓</div>
+          <div><strong>Free placement, free install.</strong>
+          <span>No purchase, no lease, no maintenance fees. We own and service the equipment.</span></div>
+        </li>
+        <li>
+          <div class="check">✓</div>
+          <div><strong>Premium AI smart cooler or micro market.</strong>
+          <span>Tap-and-go checkout, cashless and cash payment, real-time inventory.</span></div>
+        </li>
+        <li>
+          <div class="check">✓</div>
+          <div><strong>Curated product mix for your team.</strong>
+          <span>Name brands, healthy options, local favorites. We adjust based on what actually sells.</span></div>
+        </li>
+        <li>
+          <div class="check">✓</div>
+          <div><strong>Full-service restocking and repair.</strong>
+          <span>Local technicians. We restock proactively and respond on-site when something needs attention.</span></div>
+        </li>
+        <li>
+          <div class="check">✓</div>
+          <div><strong>Health and safety built in.</strong>
+          <span>Temperature monitored 24/7. NAMA health-safe lockout on fresh food. COI naming your property.</span></div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- RIGHT: Equipment options -->
+    <div>
+      <h2 class="sec">Equipment, Matched to Your Space</h2>
+      <div class="equip-grid">
+        <div class="equip-tile">
+          <h4>Smart AI Cooler</h4>
+          <p>Single-door, ~250 items. Best for offices, gyms, hotel lobbies. 50 to 300 daily visitors.</p>
+        </div>
+        <div class="equip-tile">
+          <h4>Snack &amp; Drink Combo</h4>
+          <p>~45 selections, snacks + cold drinks in one footprint. Best for 200 to 600 daily.</p>
+        </div>
+        <div class="equip-tile">
+          <h4>Micro Market Kiosk</h4>
+          <p>Open shelves with self-checkout. The ultimate breakroom upgrade for 200+ employees.</p>
+        </div>
+        <div class="equip-tile">
+          <h4>Fresh Food Cooler</h4>
+          <p>Sandwiches, salads, meals at 34 to 41°F. Best where there's real lunch demand.</p>
+        </div>
+        <div class="equip-tile">
+          <h4>Dual-Door AI Tower</h4>
+          <p>~864 items, dual zone, AI grab-and-go. Built for 500+ daily visitors.</p>
+        </div>
+        <div class="equip-tile">
+          <h4>Outdoor or Frozen</h4>
+          <p>All-weather rated, or true freezer for ice cream and frozen meals. Sized to your traffic.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PROCESS -->
+  <div style="margin-top:14pt;">
+    <h2 class="sec">From Hello to First Sale in About Two Weeks</h2>
+    <div class="proc">
+      <div class="proc-step">
+        <div class="proc-num">1</div>
+        <h4>Free Site Walk</h4>
+        <p>We visit, measure the space, and recommend the right unit. 20 minutes, no obligation.</p>
+      </div>
+      <div class="proc-step">
+        <div class="proc-num">2</div>
+        <h4>Simple Agreement</h4>
+        <p>One-page placement contract. 30 to 60 day termination notice. You keep your power, we keep the rest.</p>
+      </div>
+      <div class="proc-step">
+        <div class="proc-num">3</div>
+        <h4>White-Glove Install</h4>
+        <p>We deliver, level, plug in to a standard 110V outlet, and stock. Done in under an hour.</p>
+      </div>
+      <div class="proc-step">
+        <div class="proc-num">4</div>
+        <h4>Ongoing Service</h4>
+        <p>Local restocking on your schedule. Live monitoring. Same-day response on service calls.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER CTA -->
+  <div class="foot">
+    <div>
+      <h3>Ready for a free site assessment?</h3>
+      <p>
+        Tell us where you'd want it placed and roughly how many people are in the building each day.
+        We'll come out, measure, and send a written proposal within 48 hours. No cost, no commitment.
+      </p>
+      <div class="foot-meta">
+        <span>✉ primemicromarkets@gmail.com</span>
+        <span>☎ __________</span>
+        <span>🌐 primemicromarkets.com</span>
+      </div>
+    </div>
+    <a class="foot-cta" href="https://primemicromarkets.com/#contact">
+      <div class="top">Book Your Walk-Through</div>
+      <div class="big">primemicromarkets.com</div>
+    </a>
+  </div>
+
+  <div class="ownership">
+    Prime Micro Markets LLC · Veteran-Owned Small Business · Panama City, Florida · NAICS 454210
+  </div>
+
+</div>
+</body>
+</html>
