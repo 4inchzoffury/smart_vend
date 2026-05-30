@@ -4,14 +4,30 @@
   <input type="text" name="name" class="form-control form-control-sm" required
          value="{{ s.name if s else '' }}" placeholder="e.g. Sam's Club">
 </div>
-<div class="mb-2">
-  <label class="form-label small fw-semibold">Type</label>
-  <select name="supplier_type" class="form-select form-select-sm">
-    <option value="">— Select —</option>
-    {% for t in ['warehouse_club', 'broadline_distributor', 'specialty', 'direct_brand', 'cash_and_carry', 'online'] %}
-    <option value="{{ t }}" {% if s and s.supplier_type == t %}selected{% endif %}>{{ t | replace("_", " ") | title }}</option>
-    {% endfor %}
-  </select>
+<div class="row g-2 mb-2">
+  <div class="col-sm-6">
+    <label class="form-label small fw-semibold">Type</label>
+    <select name="supplier_type" class="form-select form-select-sm">
+      <option value="">— Select —</option>
+      {% for t in ['warehouse_club', 'broadline_distributor', 'beverage_distributor', 'specialty', 'direct_brand', 'cash_and_carry', 'online'] %}
+      <option value="{{ t }}" {% if s and s.supplier_type == t %}selected{% endif %}>{{ t | replace("_", " ") | title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-3">
+    <label class="form-label small fw-semibold">Status</label>
+    <select name="account_status" class="form-select form-select-sm">
+      {% set cur = (s.account_status if s else 'not_started') %}
+      <option value="not_started" {% if cur == 'not_started' %}selected{% endif %}>Not Started</option>
+      <option value="applied" {% if cur == 'applied' %}selected{% endif %}>Applied</option>
+      <option value="open" {% if cur == 'open' %}selected{% endif %}>Open</option>
+    </select>
+  </div>
+  <div class="col-sm-3">
+    <label class="form-label small fw-semibold" title="Lower sorts to the top of the 'open these accounts' banner">Priority</label>
+    <input type="number" name="priority" class="form-control form-control-sm"
+           value="{{ s.priority if s else 100 }}" min="0" max="999">
+  </div>
 </div>
 <div class="mb-2">
   <label class="form-label small fw-semibold">Account / Member Number
@@ -41,6 +57,13 @@
   <label class="form-label small fw-semibold">Website</label>
   <input type="url" name="website" class="form-control form-control-sm"
          value="{{ s.website or '' if s else '' }}" placeholder="https://...">
+</div>
+<div class="mb-2">
+  <label class="form-label small fw-semibold">Address
+    <span class="text-muted fw-normal">(physical location, for local pickup)</span>
+  </label>
+  <input type="text" name="address" class="form-control form-control-sm"
+         value="{{ s.address or '' if s else '' }}" placeholder="e.g. 927 Mulberry Ave, Panama City, FL 32401">
 </div>
 <div class="mb-2">
   <label class="form-label small fw-semibold">Notes

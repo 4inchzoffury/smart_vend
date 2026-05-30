@@ -123,7 +123,20 @@ async def _inbox_poll_loop() -> None:
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 — keep the loop alive across failures
-            _log.warning("Inbox poll iteration failed: %s", exc)
+            # GmailReauthRequiredError is the expected, recoverable failure: the
+            # token row has already been cleared and the UI now shows a
+            # reconnect banner, so log it once at INFO and move on. Anything
+            # else stays a WARNING so genuine bugs aren't swallowed.
+            from app.services.gmail_monitor import GmailReauthRequiredError
+
+            if isinstance(exc, GmailReauthRequiredError):
+                _log.info(
+                    "Gmail OAuth rejected; cleared local token. "
+                    "Reconnect at /customer-service/gmail/connect. (%s)",
+                    exc,
+                )
+            else:
+                _log.warning("Inbox poll iteration failed: %s", exc)
         await asyncio.sleep(interval * 60)
 
 

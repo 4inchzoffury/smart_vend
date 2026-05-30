@@ -1,0 +1,110 @@
+{# Import Prices panel — embedded on the supplier edit page.
+   Two modes share one POST endpoint: CSV/text paste vs AI-extracted catalog text. #}
+
+<div class="card border-primary border-opacity-25">
+  <div class="card-header bg-primary bg-opacity-10 d-flex justify-content-between align-items-center py-2">
+    <h6 class="mb-0 text-primary">
+      <i class="bi bi-cloud-upload me-1"></i>Import Prices
+    </h6>
+    <button class="btn btn-sm btn-link text-muted p-0" type="button"
+            data-bs-toggle="collapse" data-bs-target="#help-import" title="Help">
+      <i class="bi bi-question-circle"></i>
+    </button>
+  </div>
+
+  <div class="collapse" id="help-import">
+    <div class="card-body bg-info-subtle small">
+      <strong>Bulk-load this supplier's price list</strong> into Products + ProductSources.
+      <ul class="mb-0 mt-1">
+        <li><strong>CSV / text</strong> — paste a comma-separated table with a header row. Recognized columns (any order, any of these spellings):
+          <code>sku</code>, <code>name</code>, <code>brand</code>, <code>category</code>, <code>case_pack_qty</code> (or <em>pack</em>, <em>units/case</em>),
+          <code>case_price</code> (or <em>wholesale</em>), <code>unit_cost</code> (or <em>each</em>), <code>unit_size</code>, <code>min_order</code>, <code>notes</code>.</li>
+        <li><strong>AI extract</strong> — paste raw catalog text (PDF copy-paste, email body, screenshot OCR). Claude Haiku will pull rows out. Requires <code>ANTHROPIC_API_KEY</code>.</li>
+        <li>Existing Products match by SKU first, then case-insensitive name (within category). Existing ProductSources for this supplier get refreshed in place — re-imports won't duplicate.</li>
+        <li>The <code>origin</code> on each ProductSource is tagged <code>{{ supplier.name | lower | replace(" ", "_") }}_import</code> so you can spot AI-loaded rows on the product detail page.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card-body">
+    {% if result %}
+      {% if result.products_created or result.products_updated or result.sources_created or result.sources_updated %}
+      <div class="alert alert-success py-2 small mb-3">
+        <strong>Import complete.</strong>
+        Products: {{ result.products_created }} new, {{ result.products_updated }} updated.
+        Sources: {{ result.sources_created }} new, {{ result.sources_updated }} updated.
+        {% if result.skipped %}
+        <details class="mt-1">
+          <summary class="text-muted">{{ result.skipped | length }} row{{ 's' if result.skipped | length != 1 }} skipped</summary>
+          <ul class="mb-0 mt-1">{% for s in result.skipped %}<li>{{ s }}</li>{% endfor %}</ul>
+        </details>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="alert alert-warning py-2 small mb-3">
+        No rows ingested.
+        {% if result.skipped %}
+        <details><summary>{{ result.skipped | length }} skipped — show reasons</summary>
+          <ul class="mb-0 mt-1">{% for s in result.skipped %}<li>{{ s }}</li>{% endfor %}</ul>
+        </details>
+        {% else %}
+        Make sure the input has at least a <code>sku</code> or <code>name</code> column per row.
+        {% endif %}
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if error %}
+    <div class="alert alert-danger py-2 small mb-3">
+      <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+    </div>
+    {% endif %}
+
+    <ul class="nav nav-pills nav-pills-sm mb-3" id="importModeTabs" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active py-1 px-2 small" id="mode-csv-tab" data-bs-toggle="tab"
+                data-bs-target="#mode-csv" type="button" role="tab">
+          <i class="bi bi-table me-1"></i>CSV / text
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link py-1 px-2 small" id="mode-ai-tab" data-bs-toggle="tab"
+                data-bs-target="#mode-ai" type="button" role="tab">
+          <i class="bi bi-robot me-1"></i>AI extract
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="mode-csv" role="tabpanel">
+        <form method="post" action="/inventory/suppliers/{{ supplier.id }}/import">
+          <input type="hidden" name="mode" value="csv">
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Paste CSV</label>
+            <textarea name="payload" class="form-control form-control-sm font-monospace" rows="12"
+                      placeholder="sku,name,brand,case_pack_qty,case_price,unit_size&#10;V123,Doritos Nacho 1.75oz,Frito-Lay,64,38.50,1.75oz&#10;V124,Lay's Classic 1oz,Frito-Lay,104,29.95,1oz">{{ submitted_payload or '' }}</textarea>
+            <div class="form-text">First row is the header. Extra columns are ignored.</div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-cloud-upload me-1"></i>Import CSV
+          </button>
+        </form>
+      </div>
+
+      <div class="tab-pane fade" id="mode-ai" role="tabpanel">
+        <form method="post" action="/inventory/suppliers/{{ supplier.id }}/import">
+          <input type="hidden" name="mode" value="ai">
+          <div class="mb-2">
+            <label class="form-label small fw-semibold">Paste unstructured catalog text</label>
+            <textarea name="payload" class="form-control form-control-sm" rows="12"
+                      placeholder="Paste anything: a PDF copy-paste, a rep's email, a screenshot OCR. Claude Haiku will pull SKU / name / pack / price into structured rows.">{{ submitted_payload or '' }}</textarea>
+            <div class="form-text">Caps input at 20k characters to keep token spend bounded.</div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-robot me-1"></i>Extract &amp; Import
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

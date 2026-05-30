@@ -7,6 +7,11 @@
   <div class="d-flex align-items-center gap-2">
     {% if gmail_connected %}
     <span class="badge bg-success"><i class="bi bi-envelope-check me-1"></i>Gmail Connected</span>
+    {% elif gmail_reauth_reason %}
+    <a href="/customer-service/gmail/connect" class="btn btn-sm btn-warning"
+       title="{{ gmail_reauth_reason }}">
+      <i class="bi bi-arrow-repeat me-1"></i>Reconnect Gmail
+    </a>
     {% else %}
     <a href="/customer-service/gmail/connect" class="btn btn-sm btn-outline-warning">
       <i class="bi bi-envelope-exclamation me-1"></i>Connect Gmail Inbox
@@ -32,6 +37,19 @@
 <div class="alert alert-{{ flash.type }} alert-dismissible fade show" role="alert">
   {{ flash.message }}
   <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if gmail_reauth_reason and not gmail_connected %}
+<div class="alert alert-warning d-flex align-items-center" role="alert">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  <div class="flex-grow-1">
+    <strong>Gmail authorization expired.</strong>
+    {{ gmail_reauth_reason }} Inbox polling is paused until you reconnect.
+  </div>
+  <a href="/customer-service/gmail/connect" class="btn btn-sm btn-warning ms-2">
+    <i class="bi bi-arrow-repeat me-1"></i>Reconnect Gmail
+  </a>
 </div>
 {% endif %}
 

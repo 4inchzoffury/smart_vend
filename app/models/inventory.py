@@ -19,10 +19,21 @@ class Supplier(Base):
     contact_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
     contact_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     website: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Onboarding state — surfaces the "open these accounts" workflow on the
+    # Suppliers tab. Lower `priority` sorts to the top of that banner.
+    account_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="not_started"
+    )
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     products: Mapped[list[Product]] = relationship(back_populates="primary_supplier")
+
+    @property
+    def is_open(self) -> bool:
+        return self.account_status == "open"
 
 
 class Product(Base):

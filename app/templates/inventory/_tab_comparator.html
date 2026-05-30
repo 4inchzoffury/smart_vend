@@ -44,10 +44,29 @@
         <div class="card-body">
           <form method="post" action="/inventory/compare" id="compare-form">
 
+            {# When launched from a catalog row or supplier card, the query and
+               product_id are pre-bound so "Save best result" can target the
+               right SKU without a second picker. #}
+            {% if compare_product %}
+            <div class="alert alert-primary py-2 px-3 small mb-3 d-flex align-items-center gap-2">
+              <i class="bi bi-bullseye"></i>
+              <div class="flex-grow-1">
+                Comparing prices for
+                <a href="/inventory/{{ compare_product.id }}" class="fw-semibold text-decoration-none">{{ compare_product.name }}</a>
+                <span class="text-muted">(SKU {{ compare_product.sku }})</span>
+              </div>
+              <a href="/inventory/?tab=compare" class="text-decoration-none small" title="Search a different product">
+                change <i class="bi bi-x-lg"></i>
+              </a>
+            </div>
+            <input type="hidden" name="product_id" value="{{ compare_product.id }}">
+            {% endif %}
+
             <div class="mb-3">
               <label class="form-label fw-semibold">Product to Search</label>
               <input type="text" name="product_query" class="form-control form-control-sm"
-                     placeholder="e.g. Doritos Nacho Cheese, Snickers, Red Bull" required>
+                     placeholder="e.g. Doritos Nacho Cheese, Snickers, Red Bull"
+                     value="{{ compare_query or '' }}" required>
               <div class="form-text">Enter a brand name, product name, or general term (e.g. "energy drinks")</div>
             </div>
 
@@ -56,11 +75,17 @@
               <div class="row row-cols-1 row-cols-sm-2 g-1">
                 {% for vk in vendor_keys %}
                 {% set meta = vendor_meta[vk] %}
+                {# Vendors Supply scraping is stale (selectors no longer match the
+                   live site) and WebstaurantStore is reliable only with
+                   Firecrawl. Both default to unchecked so the operator doesn't
+                   waste a comparison on a fetcher that will return nothing. #}
+                {% set vendor_off = (vk == 'vendors_supply') or (vk == 'webstaurantstore' and not firecrawl_available) %}
                 <div class="col">
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="vendors"
-                           value="{{ vk }}" id="vend_{{ vk }}" checked>
-                    <label class="form-check-label small d-flex align-items-center gap-1" for="vend_{{ vk }}">
+                           value="{{ vk }}" id="vend_{{ vk }}"
+                           {% if not vendor_off %}checked{% endif %}>
+                    <label class="form-check-label small d-flex align-items-center gap-1 flex-wrap" for="vend_{{ vk }}">
                       <i class="bi {{ meta.icon }} text-{{ meta.color }}"></i>
                       {{ meta.label }}
                       {% if vk == 'sams_club' %}
@@ -83,10 +108,29 @@
                             Set ZIP ↗
                           </span>
                         {% endif %}
-                      {% elif vk == 'webstaurantstore' and vendor_cfg.webstaurantstore.email %}
+                      {% elif vk == 'webstaurantstore' %}
+                        {% if firecrawl_available %}
+                          {% if vendor_cfg.webstaurantstore.email %}
                           <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size:.65rem">
                             ✓ Account
                           </span>
+                          {% endif %}
+                        {% else %}
+                          <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-1" style="font-size:.65rem"
+                                title="Set FIRECRAWL_API_KEY to enable reliable WebstaurantStore scraping">
+                            needs Firecrawl
+                          </span>
+                        {% endif %}
+                      {% elif vk == 'vendors_supply' %}
+                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1" style="font-size:.65rem"
+                              title="Site markup has changed; scraping is unreliable. Prefer Supplier Import for this distributor.">
+                          experimental
+                        </span>
+                      {% elif vk == 'candy_machines' %}
+                        <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size:.65rem"
+                              title="Also surfaces off-domain vendor candidates (boxncase, shoptheking, etc.)">
+                          finds alt vendors
+                        </span>
                       {% endif %}
                     </label>
                   </div>
@@ -117,10 +161,11 @@
                 </div>
               </div>
               <div class="form-text">
+                Used as a fallback when a vendor's direct scrape returns nothing.
                 {% if tavily_available %}
-                Tavily is configured and selected — it fetches full page content for better price extraction.
+                Tavily fetches full page content, so prices land more often than with DuckDuckGo snippets.
                 {% else %}
-                DuckDuckGo is free but returns short snippets. Add <code>TAVILY_API_KEY</code> to .env for better price data.
+                Add <code>TAVILY_API_KEY</code> to your environment for better extraction.
                 {% endif %}
               </div>
             </div>

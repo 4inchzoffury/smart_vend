@@ -333,3 +333,311 @@ def test_supplier_create_with_account_number(client: TestClient, db: Session) ->
     s = db.query(Supplier).filter(Supplier.name == "Costco").first()
     assert s is not None
     assert s.account_number == "MEMBER-123"
+
+
+# ── Supplier onboarding workflow (research task #7.2) ───────────────────────
+
+
+def test_supplier_create_persists_account_status_and_priority(
+    client: TestClient, db: Session
+) -> None:
+    resp = client.post(
+        "/inventory/suppliers",
+        data={
+            "name": "Vistar Test",
+            "account_status": "applied",
+            "priority": "10",
+            "address": "123 Main St",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    s = db.query(Supplier).filter(Supplier.name == "Vistar Test").first()
+    assert s is not None
+    assert s.account_status == "applied"
+    assert s.priority == 10
+    assert s.address == "123 Main St"
+
+
+def test_supplier_create_normalizes_bad_status(client: TestClient, db: Session) -> None:
+    """Unknown status values fall back to not_started — guard against form tampering."""
+    client.post(
+        "/inventory/suppliers",
+        data={"name": "Bogus", "account_status": "wide_open"},
+        follow_redirects=False,
+    )
+    s = db.query(Supplier).filter(Supplier.name == "Bogus").first()
+    assert s is not None
+    assert s.account_status == "not_started"
+
+
+def test_status_endpoint_cycles_and_returns_banner(
+    client: TestClient, db: Session
+) -> None:
+    """POST /suppliers/{id}/status updates the row and re-renders the priority banner."""
+    s = _make_supplier(db, name="Vistar Banner Test", priority=10)
+    resp = client.post(
+        f"/inventory/suppliers/{s.id}/status",
+        data={"account_status": "applied"},
+    )
+    assert resp.status_code == 200
+    # Banner partial — should mention the row since it's not yet open.
+    assert "Vistar Banner Test" in resp.text
+    db.refresh(s)
+    assert s.account_status == "applied"
+
+    # Cycle to open — row should drop out of the banner.
+    resp = client.post(
+        f"/inventory/suppliers/{s.id}/status",
+        data={"account_status": "open"},
+    )
+    assert resp.status_code == 200
+    assert "Vistar Banner Test" not in resp.text
+    db.refresh(s)
+    assert s.account_status == "open"
+
+
+def test_priority_banner_only_shows_unopened_priority_rows(
+    client: TestClient, db: Session
+) -> None:
+    _make_supplier(db, name="Vistar Pri", priority=10)
+    _make_supplier(db, name="Already Open", priority=20, account_status="open")
+    _make_supplier(db, name="Default Pri", priority=100)
+    resp = client.get("/inventory/?tab=suppliers")
+    assert resp.status_code == 200
+    assert "Open These Accounts" in resp.text
+    assert "Vistar Pri" in resp.text
+    # Banner shouldn't list opened or default-priority rows (they're in the main grid).
+    banner_html = resp.text.split('id="priority-suppliers"')[1].split("</div>", 50)[0]
+    assert "Already Open" not in banner_html
+    assert "Default Pri" not in banner_html
+
+
+# ── Supplier price import service ───────────────────────────────────────────
+
+
+def test_parse_csv_text_canonicalizes_headers() -> None:
+    from app.services.supplier_import import parse_csv_text
+
+    blob = (
+        "Item #,Description,Brand,Pack,Wholesale,Size\n"
+        "V001,Doritos Nacho,Frito-Lay,64,$38.50,1.75oz\n"
+        "V002,Lay's Classic,Frito-Lay,104,29.95,1oz\n"
+    )
+    rows = parse_csv_text(blob)
+    assert len(rows) == 2
+    assert rows[0].sku == "V001"
+    assert rows[0].name == "Doritos Nacho"
+    assert rows[0].case_pack_qty == 64
+    assert rows[0].case_price == 38.50
+    assert rows[1].unit_size == "1oz"
+
+
+def test_parse_csv_text_skips_rows_missing_both_sku_and_name() -> None:
+    from app.services.supplier_import import parse_csv_text
+
+    blob = "sku,name,case_price\nV001,Doritos,38.50\n,,12.00\n"
+    rows = parse_csv_text(blob)
+    assert len(rows) == 1
+    assert rows[0].sku == "V001"
+
+
+def test_ingest_creates_products_and_sources(db: Session) -> None:
+    from app.services.supplier_import import ImportRow, ingest_supplier_offers
+
+    supplier = _make_supplier(db, name="Vistar Ingest", priority=10)
+    rows = [
+        ImportRow(sku="V100", name="Test Chips", brand="Frito", case_pack_qty=64, case_price=38.50),
+        ImportRow(sku="V101", name="Test Soda", case_pack_qty=24, case_price=12.99),
+    ]
+    result = ingest_supplier_offers(db, supplier.id, rows)
+    assert result.products_created == 2
+    assert result.sources_created == 2
+    assert result.products_updated == 0
+    p = db.query(Product).filter(Product.sku == "V100").first()
+    assert p is not None
+    assert p.primary_supplier_id == supplier.id
+    src = db.query(ProductSource).filter(
+        ProductSource.product_id == p.id,
+        ProductSource.supplier_id == supplier.id,
+    ).first()
+    assert src is not None
+    assert src.case_price == 38.50
+    assert src.origin.endswith("_import")
+
+
+def test_ingest_is_idempotent_on_re_import(db: Session) -> None:
+    """Re-running the same import updates the existing source, not duplicate rows."""
+    from app.services.supplier_import import ImportRow, ingest_supplier_offers
+
+    supplier = _make_supplier(db, name="Vistar Idem", priority=10)
+    rows = [ImportRow(sku="X1", name="Item One", case_pack_qty=10, case_price=10.0)]
+
+    r1 = ingest_supplier_offers(db, supplier.id, rows)
+    assert r1.products_created == 1
+    assert r1.sources_created == 1
+
+    # Re-import same rows with a new price; should update in place.
+    rows[0].case_price = 11.00
+    r2 = ingest_supplier_offers(db, supplier.id, rows)
+    assert r2.products_created == 0
+    assert r2.products_updated == 1
+    assert r2.sources_created == 0
+    assert r2.sources_updated == 1
+
+    sources = (
+        db.query(ProductSource).filter(ProductSource.supplier_id == supplier.id).all()
+    )
+    assert len(sources) == 1
+    assert sources[0].case_price == 11.00
+
+
+def test_ingest_synthesizes_sku_when_missing(db: Session) -> None:
+    from app.services.supplier_import import ImportRow, ingest_supplier_offers
+
+    supplier = _make_supplier(db, name="Goldring Gulf", priority=20)
+    rows = [ImportRow(name="Red Bull 12oz", case_pack_qty=24, case_price=44.00)]
+    result = ingest_supplier_offers(db, supplier.id, rows)
+    assert result.products_created == 1
+    p = db.query(Product).filter(Product.name == "Red Bull 12oz").first()
+    assert p is not None
+    # Synthetic SKU is supplier-prefixed and slugified.
+    assert "red-bull" in p.sku.lower()
+
+
+def test_import_route_csv_ingests_rows(client: TestClient, db: Session) -> None:
+    supplier = _make_supplier(db, name="Vistar Route", priority=10)
+    csv_blob = (
+        "sku,name,case_pack_qty,case_price\n"
+        "RR1,Route One,12,25.00\n"
+        "RR2,Route Two,24,40.00\n"
+    )
+    resp = client.post(
+        f"/inventory/suppliers/{supplier.id}/import",
+        data={"mode": "csv", "payload": csv_blob},
+    )
+    assert resp.status_code == 200
+    assert "Import complete" in resp.text
+    assert db.query(ProductSource).filter(
+        ProductSource.supplier_id == supplier.id
+    ).count() == 2
+
+
+def test_import_route_empty_payload_shows_error(client: TestClient, db: Session) -> None:
+    supplier = _make_supplier(db, name="Vistar Empty", priority=10)
+    resp = client.post(
+        f"/inventory/suppliers/{supplier.id}/import",
+        data={"mode": "csv", "payload": "   "},
+    )
+    assert resp.status_code == 200
+    assert "Paste a CSV" in resp.text
+
+
+def test_research_task_7_2_renders_inventory_deep_link(
+    client: TestClient, db: Session
+) -> None:
+    """Task #7.2 gets a building-icon deep link to the Inventory > Suppliers tab."""
+    from app.models.research import ResearchTask
+
+    db.add(
+        ResearchTask(
+            task_number="7.2",
+            section=7,
+            section_name="Operational Setup",
+            what="Open wholesale supplier accounts before first machine load",
+            status="not_started",
+            priority="high",
+        )
+    )
+    db.commit()
+    resp = client.get("/research/")
+    assert resp.status_code == 200
+    assert "/inventory/?tab=suppliers" in resp.text
+
+
+# --- Catalog UX overhaul -----------------------------------------------------
+
+
+def test_product_create_auto_slugs_blank_sku(client: TestClient, db: Session) -> None:
+    """Submitting Add Product with a blank SKU derives a kebab-slug from name+brand."""
+    resp = client.post(
+        "/inventory/",
+        data={"sku": "", "name": "Coca-Cola Classic 12oz", "brand": "Coca-Cola"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    p = db.query(Product).first()
+    assert p is not None
+    assert p.sku == "coca-cola-coca-cola-classic-12oz"
+    assert p.name == "Coca-Cola Classic 12oz"
+
+
+def test_product_create_auto_slug_dedupes_on_collision(
+    client: TestClient, db: Session
+) -> None:
+    """Second blank-SKU submission with the same name appends a numeric suffix."""
+    payload = {"sku": "", "name": "Test Product Alpha"}
+    client.post("/inventory/", data=payload, follow_redirects=False)
+    client.post("/inventory/", data=payload, follow_redirects=False)
+    skus = sorted(row.sku for row in db.query(Product).all())
+    assert skus == ["test-product-alpha", "test-product-alpha-2"]
+
+
+def test_seed_starter_route_populates_catalog(client: TestClient, db: Session) -> None:
+    """The empty-state 'Seed starter catalog' button creates the canonical SKUs."""
+    from app.services.starter_catalog import STARTER_PRODUCTS
+
+    resp = client.post("/inventory/seed-starter", follow_redirects=False)
+    assert resp.status_code == 303
+    assert db.query(Product).count() == len(STARTER_PRODUCTS)
+    coke = db.query(Product).filter(Product.sku == "coke-12oz-can").first()
+    assert coke is not None
+    assert coke.brand == "Coca-Cola"
+    assert coke.case_pack_qty == 24
+
+
+def test_seed_starter_route_is_idempotent(client: TestClient, db: Session) -> None:
+    """Re-running the seed must not duplicate rows or clobber operator edits."""
+    from app.services.starter_catalog import STARTER_PRODUCTS
+
+    client.post("/inventory/seed-starter", follow_redirects=False)
+    initial_count = db.query(Product).count()
+    # Operator pins a sell price on one of the seeded rows.
+    coke = db.query(Product).filter(Product.sku == "coke-12oz-can").one()
+    coke.sell_price = 2.50
+    db.commit()
+
+    client.post("/inventory/seed-starter", follow_redirects=False)
+    assert db.query(Product).count() == initial_count == len(STARTER_PRODUCTS)
+    db.refresh(coke)
+    assert coke.sell_price == 2.50  # operator edit preserved
+
+
+def test_compare_tab_prefills_from_product_id(client: TestClient, db: Session) -> None:
+    """Catalog row → Find Prices link pre-binds the product to the comparator form."""
+    p = _make_product(db, sku="RB-8-4OZ", name="Red Bull 8.4oz")
+    resp = client.get(f"/inventory/?tab=compare&product_id={p.id}")
+    assert resp.status_code == 200
+    assert "Comparing prices for" in resp.text
+    assert "Red Bull 8.4oz" in resp.text
+    assert f'name="product_id" value="{p.id}"' in resp.text
+
+
+def test_candymachines_routes_offdomain_links_to_pseudo_vendor() -> None:
+    """Off-domain hrefs in the CandyMachines fallback get their own vendor key."""
+    from app.services.price_fetcher.candy_machines import _route_by_host
+
+    assert _route_by_host("https://www.candymachines.com/product/snickers.htm") == (
+        "candy_machines",
+        "CandyMachines",
+        "online_vending",
+        "scrape",
+    )
+    assert _route_by_host("https://www.boxncase.com/product/snickers") == (
+        "cm_ref_boxncase_com",
+        "boxncase.com",
+        "online_vending",
+        "cm_referral",
+    )
+    # Empty / unparseable host → safe default to candy_machines.
+    assert _route_by_host(None)[0] == "candy_machines"

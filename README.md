@@ -7,14 +7,14 @@ Internal management platform for Prime Micro Markets, a veteran-owned smart cool
 | Layer | Choice |
 |---|---|
 | Backend | FastAPI 0.115 + Uvicorn |
-| Database | SQLite + SQLAlchemy 2.0 (sync) + Alembic |
+| Database | SQLite (dev) / Postgres (prod, psycopg 3) + SQLAlchemy 2.0 (sync) + Alembic |
 | Templates | Jinja2 + Bootstrap 5.3 |
 | Dynamic UI | HTMX 1.9 |
 | Config | pydantic-settings + python-dotenv |
 | Google Sheets | gspread + google-auth (service account) |
 | AI / Lead Gen | Anthropic Claude + Tavily web search |
 | Chatbot AI | Multi-provider: Claude, Groq, OpenAI, Gemini, or Ollama (local) |
-| Public URL | Cloudflare Tunnel (primemicromarkets.com) |
+| Hosting | Render web service + managed Postgres (primemicromarkets.com) |
 | Lint / Format | Ruff |
 | Tests | pytest |
 
@@ -98,8 +98,6 @@ ALLOWED_EMAILS=comma,separated,list
 
 ## Running the app
 
-### Local only
-
 Double-click `start_local.bat` or run:
 
 ```bash
@@ -108,9 +106,7 @@ uvicorn app.main:app --reload
 
 Visit `http://127.0.0.1:8000`. The database tables are created automatically on first run.
 
-### Public (Cloudflare Tunnel)
-
-Double-click `start_public.bat`. This opens the Cloudflare Tunnel in a separate window and starts the app server. The app will be accessible at `https://primemicromarkets.com`.
+Production runs on Render at `https://primemicromarkets.com` (see [Deployment](#deployment) below).
 
 ---
 
@@ -162,96 +158,19 @@ A GPU VM (e.g. AWS `g4dn.xlarge` with NVIDIA T4) will run `llama3.2:3b` in under
 
 ---
 
-## Cloud Deployment Checklist
+## Deployment
 
-This app currently runs on a single Windows machine via Cloudflare Tunnel. When migrating to a cloud server:
+Production runs on **Render**, deployed from `main` via the `render.yaml` blueprint. Live site: `https://primemicromarkets.com` (apex; `www` 301-redirects to it). DNS + registrar: Cloudflare. Approx cost: ~$14/mo ($7 Starter web + $7 `basic-256mb` Postgres); the public chatbot uses Groq's free tier so client traffic is $0.
 
-### Database
+- **Resources:** web service `smart-vend`, managed Postgres `smart-vend-db`, region `virginia`.
+- **Pipeline:** push to `main` → build `pip install -r requirements.txt` → preDeploy `python scripts/init_db.py` → start `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. A failed build/preDeploy/health-check keeps the previous version live (zero-downtime).
+- **Schema bootstrap:** `scripts/init_db.py` runs `create_all` + Alembic stamp on an empty DB, else `alembic upgrade head`. The initial migration is an empty baseline, so a bare `alembic upgrade head` cannot build from scratch — always go through `init_db.py`.
+- **Secrets:** set as Render env vars in the dashboard, never committed. `DATABASE_URL` is injected from the managed Postgres; `SESSION_SECRET_KEY` is auto-generated.
+- **Service-account file:** `secrets/service_account.json` is uploaded as a Render Secret File mounted at `/etc/secrets/service_account.json` (matches `GOOGLE_SHEETS_CREDS_FILE` in `render.yaml`).
+- **OAuth redirect URIs:** every host the app answers on needs its own Google OAuth authorized URI at `/auth/callback` (the Render subdomain and `primemicromarkets.com` / `www.primemicromarkets.com`).
+- **One-time SQLite → Postgres migration:** `scripts/migrate_sqlite_to_postgres.py` (copies data only; preDeploy builds the schema first).
 
-SQLite works for single-instance deployments. For a managed cloud server switch to PostgreSQL:
-
-```ini
-# .env (production)
-DATABASE_URL=postgresql+psycopg2://user:password@host:5432/smart_vend
-```
-
-Install the adapter: `pip install psycopg2-binary`. Run `alembic upgrade head` on the new DB to apply migrations.
-
-### Environment variables
-
-Set all `.env` values as server environment variables (or use a secrets manager). Never commit `.env` to version control.
-
-Key variables to update for cloud:
-- `DATABASE_URL` → PostgreSQL connection string
-- `OLLAMA_BASE_URL` → URL of cloud Ollama VM (or remove if using Groq instead)
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` → add your cloud domain to Google OAuth authorized redirect URIs
-- `SESSION_SECRET_KEY` → generate a fresh value for production
-- `ALLOWED_EMAILS` → restrict to staff emails
-
-### Public access
-
-Two options:
-
-**Option A — Keep Cloudflare Tunnel** (simplest, no firewall config needed):
-```bash
-cloudflared tunnel run prime-markets
-```
-Install `cloudflared` on the cloud VM and authenticate it once. `start_public.bat` logic translates directly to a Linux systemd service.
-
-**Option B — Direct HTTPS** (nginx or Caddy reverse proxy):
-```nginx
-server {
-    listen 443 ssl;
-    server_name primemicromarkets.com;
-    location / { proxy_pass http://127.0.0.1:8000; }
-}
-```
-
-### Process management (Linux)
-
-Replace the `.bat` scripts with a `systemd` service:
-
-```ini
-# /etc/systemd/system/smart_vend.service
-[Unit]
-Description=Prime Micro Markets App
-After=network.target
-
-[Service]
-WorkingDirectory=/opt/smart_vend
-ExecStart=/opt/smart_vend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
-Restart=always
-EnvironmentFile=/opt/smart_vend/.env
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-systemctl enable --now smart_vend
-```
-
----
-
-## Cloudflare Tunnel setup (one-time)
-
-The tunnel `prime-markets` is already created and routed to `primemicromarkets.com`. If you ever need to recreate it on a new machine:
-
-```powershell
-# Install the tunnel agent
-winget install Cloudflare.cloudflared
-
-# Authenticate (opens browser)
-cloudflared tunnel login
-
-# Create the tunnel
-cloudflared tunnel create prime-markets
-
-# Point the subdomain at the tunnel
-cloudflared tunnel route dns prime-markets primemicromarkets.com
-```
-
-After setup, `start_public.bat` handles everything with one click.
+`CLAUDE.md` has additional internal ops notes (Render MCP server, service IDs).
 
 ---
 

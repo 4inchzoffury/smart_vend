@@ -1,21 +1,43 @@
 {% set is_edit = product is not none %}
 <form method="post" action="{{ '/inventory/' ~ product.id if is_edit else '/inventory/' }}">
+
+  {# Pep talk for first-time adders: explains what this SKU unlocks once saved. #}
+  {% if not is_edit %}
+  <div class="alert alert-info py-2 px-3 small mb-3 d-flex gap-2 align-items-start">
+    <i class="bi bi-info-circle mt-1 flex-shrink-0"></i>
+    <div>
+      <strong>What happens after I save?</strong> This SKU joins your catalog.
+      Use <em>Find Prices</em> to compare it across vendors, or open the product
+      page to add supplier offers manually. Once you set a par level and start
+      logging restocks, it'll show up in <em>Restock Run</em>.
+    </div>
+  </div>
+  {% endif %}
+
+  {# Essentials — the only block always visible. Name is the one truly required
+     field; SKU is auto-generated from the name when blank (slug + dedupe). #}
   <div class="row g-2">
     <div class="col-md-4">
-      <label class="form-label small fw-semibold">SKU <span class="text-danger">*</span></label>
-      <input type="text" name="sku" class="form-control form-control-sm" required
+      <label class="form-label small fw-semibold">SKU</label>
+      <input type="text" name="sku" class="form-control form-control-sm"
              value="{{ product.sku if is_edit else '' }}"
-             {% if is_edit %}readonly{% endif %}>
+             {% if is_edit %}readonly{% else %}placeholder="auto-generate"{% endif %}>
+      {% if not is_edit %}
+      <div class="form-text">Leave blank to auto-generate from the name.</div>
+      {% endif %}
     </div>
     <div class="col-md-8">
       <label class="form-label small fw-semibold">Name <span class="text-danger">*</span></label>
       <input type="text" name="name" class="form-control form-control-sm" required
-             value="{{ product.name if is_edit else '' }}">
+             value="{{ product.name if is_edit else '' }}"
+             placeholder="e.g. Coca-Cola Classic 12oz">
     </div>
     <div class="col-md-6">
-      <label class="form-label small fw-semibold">Brand</label>
-      <input type="text" name="brand" class="form-control form-control-sm"
-             value="{{ product.brand or '' if is_edit else '' }}">
+      <label class="form-label small fw-semibold">Sell Price ($)</label>
+      <input type="number" name="sell_price" class="form-control form-control-sm" min="0" step="0.25"
+             value="{{ product.sell_price or '' if is_edit else '' }}"
+             placeholder="e.g. 2.00">
+      <div class="form-text">Optional — you can set this later once you know your margin target.</div>
     </div>
     <div class="col-md-6">
       <label class="form-label small fw-semibold">Category</label>
@@ -30,65 +52,85 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-3">
-      <label class="form-label small fw-semibold">Unit Cost ($)</label>
-      <input type="number" name="unit_cost" class="form-control form-control-sm" min="0" step="0.01"
-             value="{{ product.unit_cost or '' if is_edit else '' }}">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label small fw-semibold">Sell Price ($)</label>
-      <input type="number" name="sell_price" class="form-control form-control-sm" min="0" step="0.25"
-             value="{{ product.sell_price or '' if is_edit else '' }}">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label small fw-semibold">Unit Size</label>
-      <input type="text" name="unit_size" class="form-control form-control-sm"
-             value="{{ product.unit_size or '' if is_edit else '' }}"
-             placeholder="e.g. 12oz">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label small fw-semibold">Case Pack Qty</label>
-      <input type="number" name="case_pack_qty" class="form-control form-control-sm" min="1"
-             value="{{ product.case_pack_qty or '' if is_edit else '' }}"
-             placeholder="units / case">
-      <div class="form-text">Default units per case for supplier pricing.</div>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label small fw-semibold">Par Level</label>
-      <input type="number" name="par_level" class="form-control form-control-sm" min="0"
-             value="{{ product.par_level or '' if is_edit else '' }}"
-             placeholder="Min on hand">
-    </div>
-    <div class="col-md-3 d-flex align-items-center">
-      <div class="form-check mt-3">
-        <input class="form-check-input" type="checkbox" name="is_seasonal" value="true"
-               id="seasonal-check" {% if is_edit and product.is_seasonal %}checked{% endif %}>
-        <label class="form-check-label small fw-semibold" for="seasonal-check">Seasonal item</label>
+  </div>
+
+  {# Catalog details — collapsed by default on Add, expanded by default on Edit
+     (where the operator likely came here to change one of these). #}
+  <div class="mt-3">
+    <button class="btn btn-sm btn-link p-0 text-decoration-none" type="button"
+            data-bs-toggle="collapse" data-bs-target="#productExtraFields"
+            aria-expanded="{{ 'true' if is_edit else 'false' }}">
+      <i class="bi bi-chevron-right me-1 toggle-chev"></i>Catalog details
+      <span class="text-muted small ms-2">brand, unit size, par level, supplier, restock notes</span>
+    </button>
+  </div>
+  <div class="collapse {% if is_edit %}show{% endif %} mt-2" id="productExtraFields">
+    <div class="card card-body bg-light border-0">
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">Brand</label>
+          <input type="text" name="brand" class="form-control form-control-sm"
+                 value="{{ product.brand or '' if is_edit else '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Unit Size</label>
+          <input type="text" name="unit_size" class="form-control form-control-sm"
+                 value="{{ product.unit_size or '' if is_edit else '' }}"
+                 placeholder="e.g. 12oz">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Case Pack Qty</label>
+          <input type="number" name="case_pack_qty" class="form-control form-control-sm" min="1"
+                 value="{{ product.case_pack_qty or '' if is_edit else '' }}"
+                 placeholder="units / case">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Unit Cost ($)</label>
+          <input type="number" name="unit_cost" class="form-control form-control-sm" min="0" step="0.01"
+                 value="{{ product.unit_cost or '' if is_edit else '' }}">
+          <div class="form-text">Falls back when no supplier sources are set.</div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Par Level</label>
+          <input type="number" name="par_level" class="form-control form-control-sm" min="0"
+                 value="{{ product.par_level or '' if is_edit else '' }}"
+                 placeholder="Min on hand">
+        </div>
+        <div class="col-md-6 d-flex align-items-end">
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="is_seasonal" value="true"
+                   id="seasonal-check" {% if is_edit and product.is_seasonal %}checked{% endif %}>
+            <label class="form-check-label small fw-semibold" for="seasonal-check">Seasonal item</label>
+          </div>
+        </div>
+        <div class="col-md-12">
+          <label class="form-label small fw-semibold">Primary Supplier</label>
+          <select name="primary_supplier_id" class="form-select form-select-sm">
+            <option value="">— Select —</option>
+            {% for s in suppliers %}
+            <option value="{{ s.id }}" {% if is_edit and product.primary_supplier_id == s.id %}selected{% elif not is_edit and selected_supplier_id == s.id %}selected{% endif %}>
+              {{ s.name }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if is_edit %}
+          <div class="form-text">
+            Compare prices across suppliers on the
+            <a href="/inventory/{{ product.id }}">product detail page</a>.
+          </div>
+          {% else %}
+          <div class="form-text">Pick a default supplier, or leave blank — you can attach offers later.</div>
+          {% endif %}
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-semibold">Restock Notes</label>
+          <textarea name="restock_notes" class="form-control form-control-sm" rows="2"
+                    placeholder="e.g. Sam's Club aisle 14, min order 4 cases">{{ product.restock_notes or '' if is_edit else '' }}</textarea>
+        </div>
       </div>
-    </div>
-    <div class="col-md-6">
-      <label class="form-label small fw-semibold">Primary Supplier</label>
-      <select name="primary_supplier_id" class="form-select form-select-sm">
-        <option value="">— Select —</option>
-        {% for s in suppliers %}
-        <option value="{{ s.id }}" {% if is_edit and product.primary_supplier_id == s.id %}selected{% elif not is_edit and selected_supplier_id == s.id %}selected{% endif %}>
-          {{ s.name }}
-        </option>
-        {% endfor %}
-      </select>
-      {% if is_edit %}
-      <div class="form-text">
-        Compare prices across suppliers on the
-        <a href="/inventory/{{ product.id }}">product detail page</a>.
-      </div>
-      {% endif %}
-    </div>
-    <div class="col-12">
-      <label class="form-label small fw-semibold">Restock Notes</label>
-      <textarea name="restock_notes" class="form-control form-control-sm" rows="2"
-                placeholder="e.g. Sam's Club aisle 14, min order 4 cases">{{ product.restock_notes or '' if is_edit else '' }}</textarea>
     </div>
   </div>
+
   <div class="d-flex justify-content-end gap-2 mt-3">
     {% if is_edit %}
     <a href="/inventory/" class="btn btn-secondary btn-sm">Cancel</a>
@@ -100,3 +142,21 @@
     </button>
   </div>
 </form>
+
+<script>
+  // Rotate the chevron when the Catalog Details panel toggles.
+  (function () {
+    var panel = document.getElementById('productExtraFields');
+    if (!panel) return;
+    var chev = document.querySelector('.toggle-chev');
+    panel.addEventListener('show.bs.collapse', function () {
+      if (chev) chev.classList.replace('bi-chevron-right', 'bi-chevron-down');
+    });
+    panel.addEventListener('hide.bs.collapse', function () {
+      if (chev) chev.classList.replace('bi-chevron-down', 'bi-chevron-right');
+    });
+    {% if is_edit %}
+    if (chev) chev.classList.replace('bi-chevron-right', 'bi-chevron-down');
+    {% endif %}
+  })();
+</script>

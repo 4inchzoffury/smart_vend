@@ -26,6 +26,21 @@ from app.services import cs_email_agent
 
 _log = logging.getLogger(__name__)
 
+
+class GmailReauthRequiredError(RuntimeError):
+    """Refresh token is dead (revoked, expired, or scope-mismatched).
+
+    Raised after the stored token rows have been cleared, so the next
+    poll iteration sees ``gmail_connected = False`` and skips silently
+    until an operator re-consents at ``/customer-service/gmail/connect``.
+    """
+
+
+# Errors from Google's token endpoint that mean the refresh token is gone for
+# good. Listed in https://datatracker.ietf.org/doc/html/rfc6749#section-5.2 —
+# the only practical recovery is a fresh consent.
+_DEAD_GRANT_ERRORS = frozenset({"invalid_grant", "invalid_client", "unauthorized_client"})
+
 # Look back this far on the very first poll (no high-water mark stored yet).
 _INITIAL_LOOKBACK_SECONDS = 7 * 24 * 3600
 # Re-scan this much before the last high-water mark each poll, so a message that
@@ -104,6 +119,24 @@ def store_tokens(db: Session, token_data: dict) -> None:
     expires_in = int(token_data.get("expires_in", 3600))
     expiry = (datetime.now(tz=UTC) + timedelta(seconds=expires_in)).isoformat()
     _set(db, "gmail_token_expiry", expiry)
+    # A fresh consent clears any pending reauth banner.
+    _set(db, "gmail_reauth_required", "")
+    _set(db, "gmail_reauth_at", "")
+    db.commit()
+
+
+def _clear_stored_tokens(db: Session, reason: str) -> None:
+    """Wipe dead OAuth state and flag the UI to prompt a reconnect.
+
+    Called when Google rejects the refresh token (revoked, expired past 6
+    months unused, or scope-mismatched). After this runs, ``_gmail_connected``
+    returns False so the poll loop short-circuits, and the UI surfaces a
+    "Reconnect Gmail" banner via the ``gmail_reauth_required`` flag.
+    """
+    for key in ("gmail_refresh_token", "gmail_access_token", "gmail_token_expiry"):
+        _set(db, key, "")
+    _set(db, "gmail_reauth_required", reason or "Gmail token rejected by Google")
+    _set(db, "gmail_reauth_at", datetime.now(tz=UTC).isoformat())
     db.commit()
 
 
@@ -138,6 +171,19 @@ def get_valid_access_token(db: Session) -> str:
                 "grant_type": "refresh_token",
             },
         )
+        if resp.status_code in (400, 401):
+            # Google encodes the dead-token signal as a JSON error field, not the
+            # HTTP status alone. Parse it so we only nuke the stored token when
+            # Google says the grant itself is gone (vs. a transient network/5xx
+            # that should just retry on the next poll).
+            try:
+                err = (resp.json() or {}).get("error", "")
+            except ValueError:
+                err = ""
+            if err in _DEAD_GRANT_ERRORS:
+                reason = f"Google rejected the refresh token ({err})."
+                _clear_stored_tokens(db, reason)
+                raise GmailReauthRequiredError(reason)
         resp.raise_for_status()
         token_data = resp.json()
 

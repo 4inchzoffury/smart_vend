@@ -6,7 +6,8 @@ import json
 import logging
 import secrets
 from collections import defaultdict
-from datetime import date as date_type, datetime, timedelta
+from datetime import date as date_type
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,16 @@ def _set_setting(db: Session, key: str, value: str) -> None:
 def _gmail_connected(db: Session) -> bool:
     row = db.get(AppSetting, "gmail_refresh_token")
     return bool(row and row.value)
+
+
+def _gmail_reauth_required(db: Session) -> str:
+    """Return the reason string if Gmail's token was revoked, else empty.
+
+    Populated by ``gmail_monitor._clear_stored_tokens`` when Google rejects
+    the refresh grant. Cleared on the next successful ``store_tokens``.
+    """
+    row = db.get(AppSetting, "gmail_reauth_required")
+    return row.value if row and row.value else ""
 
 
 # Buckets shown under "Other / Filtered" — everything that is not customer mail.
@@ -183,6 +194,7 @@ def cs_index(
             "active_nav": "customer_service",
             "user": user,
             "gmail_connected": _gmail_connected(db),
+            "gmail_reauth_reason": _gmail_reauth_required(db),
             "pending_emails": _pending_emails_count(db),
             "pending_escalations": _pending_escalations_count(db),
             "manager_msgs": manager_msgs,

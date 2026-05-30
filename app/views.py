@@ -1,9 +1,9 @@
 import json
 import re
-from markupsafe import Markup, escape
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 
 
 def _chat_format(text: str) -> Markup:

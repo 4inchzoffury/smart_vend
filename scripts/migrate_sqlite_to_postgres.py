@@ -1,8 +1,8 @@
 """One-time data migration: copy all rows from the local SQLite DB into Postgres.
 
-Phase 2 of RENDER_DEPLOYMENT_PLAN.md. This copies DATA ONLY — the target schema
-must already exist, which it does after the first successful deploy (the preDeploy
-step `scripts/init_db.py` builds it). Tables are copied parent-first (FK-safe),
+This copies DATA ONLY — the target schema must already exist, which it does after
+the first successful Render deploy (the preDeploy step `scripts/init_db.py` builds
+it). Tables are copied parent-first (FK-safe),
 Postgres identity sequences are
 then reset to MAX(pk) so the app's next INSERT can't collide with copied keys, and
 finally per-table row counts are verified source-vs-target.

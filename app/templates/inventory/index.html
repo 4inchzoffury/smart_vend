@@ -2,38 +2,47 @@
 {% block title %}Product Inventory – Prime Vending{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-1">
   <h1 class="h3 mb-0"><i class="bi bi-box me-2 text-primary"></i>Product Inventory</h1>
 </div>
+<p class="text-muted small mb-3">
+  Build your catalog, open supplier accounts, compare prices, and keep machines stocked.
+</p>
 
-<!-- Tab navigation -->
+{# Tab keys (`products`, `compare`, `suppliers`, `sourcing`) intentionally stay
+   the same so existing URLs (`?tab=compare`, `#suppliers`) keep working. Only
+   labels and icons change to better describe what each tab does. #}
 <ul class="nav nav-tabs mb-0" id="inventoryTabs" role="tablist">
   <li class="nav-item" role="presentation">
     <button class="nav-link {% if active_tab == 'products' %}active{% endif %}"
             id="tab-products" data-bs-toggle="tab" data-bs-target="#pane-products"
-            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'products' else 'false' }}">
-      <i class="bi bi-grid me-1"></i>Products
-    </button>
-  </li>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link {% if active_tab == 'compare' %}active{% endif %}"
-            id="tab-compare" data-bs-toggle="tab" data-bs-target="#pane-compare"
-            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'compare' else 'false' }}">
-      <i class="bi bi-bar-chart-line me-1"></i>Price Comparator
+            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'products' else 'false' }}"
+            title="What you sell">
+      <i class="bi bi-box-seam me-1"></i>Catalog
     </button>
   </li>
   <li class="nav-item" role="presentation">
     <button class="nav-link {% if active_tab == 'suppliers' %}active{% endif %}"
             id="tab-suppliers" data-bs-toggle="tab" data-bs-target="#pane-suppliers"
-            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'suppliers' else 'false' }}">
+            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'suppliers' else 'false' }}"
+            title="Who you buy from">
       <i class="bi bi-building me-1"></i>Suppliers
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if active_tab == 'compare' %}active{% endif %}"
+            id="tab-compare" data-bs-toggle="tab" data-bs-target="#pane-compare"
+            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'compare' else 'false' }}"
+            title="Compare a product across vendors">
+      <i class="bi bi-bar-chart-line me-1"></i>Find Prices
     </button>
   </li>
   <li class="nav-item" role="presentation">
     <button class="nav-link {% if active_tab == 'sourcing' %}active{% endif %}"
             id="tab-sourcing" data-bs-toggle="tab" data-bs-target="#pane-sourcing"
-            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'sourcing' else 'false' }}">
-      <i class="bi bi-robot me-1"></i>AI Sourcing
+            type="button" role="tab" aria-selected="{{ 'true' if active_tab == 'sourcing' else 'false' }}"
+            title="Search the web for new vendors">
+      <i class="bi bi-robot me-1"></i>Discover Suppliers
     </button>
   </li>
 </ul>
@@ -191,7 +200,11 @@
               {{ p.par_level or "–" }}
             </td>
             <td class="text-end text-nowrap">
-              <button class="btn btn-sm btn-outline-success py-0 px-1"
+              <a href="/inventory/?tab=compare&product_id={{ p.id }}&q={{ p.name | urlencode }}"
+                 class="btn btn-sm btn-outline-primary py-0 px-1" title="Find prices across vendors">
+                <i class="bi bi-bar-chart-line"></i>
+              </a>
+              <button class="btn btn-sm btn-outline-success py-0 px-1 ms-1"
                       title="Restock"
                       onclick="openRestock({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')"
                       data-bs-toggle="modal" data-bs-target="#restockModal">
@@ -222,18 +235,79 @@
       {% endif %}
     </div>
     {% else %}
-    <div class="text-center text-muted py-5">
-      <i class="bi bi-box fs-1 d-block mb-2"></i>
-      No products found. <button class="btn btn-primary btn-sm ms-2"
-        hx-get="/inventory/new" hx-target="#product-modal-body" hx-swap="innerHTML"
-        data-bs-toggle="modal" data-bs-target="#productModal">Add First Product</button>
+    {# Onboarding empty state — three concrete next steps so the team has a
+       working catalog in one click instead of being asked to fill in 14
+       fields about a SKU they don't have yet. #}
+    <div class="text-center text-muted mt-2 mb-3">
+      <i class="bi bi-box fs-1 d-block mb-2 text-primary opacity-50"></i>
+      <h5 class="mb-1 text-body">Your catalog is empty</h5>
+      <p class="small mb-0">Pick one of the three paths below to get going.</p>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <form method="post" action="/inventory/seed-starter" class="h-100">
+          <div class="card h-100 border-primary border-opacity-25">
+            <div class="card-body d-flex flex-column">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-magic fs-4 text-primary"></i>
+                <h6 class="mb-0">Seed a starter catalog</h6>
+              </div>
+              <p class="small text-muted flex-grow-1">
+                Drop in ~25 of the most-sold vending SKUs (Coke, Red Bull,
+                Doritos, Snickers, …) with categories and case packs filled in.
+                Prices stay blank — you set those from Find Prices.
+              </p>
+              <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Seed starter SKUs
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="bi bi-pencil-square fs-4 text-secondary"></i>
+              <h6 class="mb-0">Add a product manually</h6>
+            </div>
+            <p class="small text-muted flex-grow-1">
+              Just need one SKU? Give it a name; everything else is optional.
+              The form will auto-generate the SKU code from the name.
+            </p>
+            <button class="btn btn-outline-secondary btn-sm"
+                    hx-get="/inventory/new" hx-target="#product-modal-body" hx-swap="innerHTML"
+                    data-bs-toggle="modal" data-bs-target="#productModal">
+              <i class="bi bi-plus-lg me-1"></i>Add product
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="bi bi-file-earmark-spreadsheet fs-4 text-success"></i>
+              <h6 class="mb-0">Import a supplier price list</h6>
+            </div>
+            <p class="small text-muted flex-grow-1">
+              Paste a CSV or order-guide text on any supplier's page.
+              Products are created automatically and linked to that supplier
+              with case prices intact.
+            </p>
+            <a href="/inventory/?tab=suppliers" class="btn btn-outline-success btn-sm">
+              <i class="bi bi-building me-1"></i>Open Suppliers tab
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="text-center text-muted small">
+      No suppliers yet either?
+      <a href="/inventory/?tab=sourcing">Discover suppliers near Panama City</a>
+      with an AI search.
     </div>
     {% endif %}
-  </div>
-
-  <!-- ===================== TAB: PRICE COMPARATOR ===================== -->
-  <div class="tab-pane fade {% if active_tab == 'compare' %}show active{% endif %}" id="pane-compare" role="tabpanel">
-    {% include "inventory/_tab_comparator.html" %}
   </div>
 
   <!-- ===================== TAB: SUPPLIERS ===================== -->
@@ -241,7 +315,12 @@
     {% include "inventory/_tab_suppliers.html" %}
   </div>
 
-  <!-- ===================== TAB: AI SOURCING ===================== -->
+  <!-- ===================== TAB: FIND PRICES (was Price Comparator) ===================== -->
+  <div class="tab-pane fade {% if active_tab == 'compare' %}show active{% endif %}" id="pane-compare" role="tabpanel">
+    {% include "inventory/_tab_comparator.html" %}
+  </div>
+
+  <!-- ===================== TAB: DISCOVER SUPPLIERS (was AI Sourcing) ===================== -->
   <div class="tab-pane fade {% if active_tab == 'sourcing' %}show active{% endif %}" id="pane-sourcing" role="tabpanel">
     {% include "inventory/_tab_sourcing.html" %}
   </div>

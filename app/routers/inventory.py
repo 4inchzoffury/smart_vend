@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import unicodedata
 from datetime import date, datetime, timedelta
 
 from fastapi import (
@@ -90,12 +92,52 @@ def _to_float(value: str | None) -> float | None:
         return None
 
 
+_SLUG_BAD_CHARS = re.compile(r"[^a-z0-9]+")
+
+
+def _slugify(value: str) -> str:
+    """Lowercase ASCII-only kebab-case slug. Strips diacritics and punctuation."""
+    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    slug = _SLUG_BAD_CHARS.sub("-", normalized.lower()).strip("-")
+    return slug or "product"
+
+
+def _generate_sku(db: Session, name: str, brand: str = "") -> str:
+    """Build a unique SKU from product name (+optional brand prefix).
+
+    Used when the operator submits the Add Product form with a blank SKU — the
+    goal is to make SKU feel optional in the UI without sacrificing the unique
+    handle the rest of the catalog relies on. Appends ``-2``, ``-3`` … on
+    collision so the slug stays human-readable.
+    """
+    base = _slugify(f"{brand} {name}".strip()) if brand else _slugify(name)
+    candidate = base[:50]  # keep within the column width (String(50))
+    if not db.query(Product.id).filter(Product.sku == candidate).first():
+        return candidate
+    suffix = 2
+    while True:
+        # Trim the base so the suffix never pushes us past 50 chars.
+        room = 50 - len(f"-{suffix}")
+        candidate = f"{base[:room]}-{suffix}"
+        if not db.query(Product.id).filter(Product.sku == candidate).first():
+            return candidate
+        suffix += 1
+
+
 @router.get("/suppliers", response_class=HTMLResponse)
 def suppliers_index(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     suppliers = db.query(Supplier).order_by(Supplier.name).all()
     return templates.TemplateResponse(
         request, "inventory/suppliers.html", {"active_nav": "inventory", "suppliers": suppliers}
     )
+
+
+_VALID_ACCOUNT_STATUSES = {"not_started", "applied", "open"}
+
+
+def _normalize_status(value: str | None) -> str:
+    v = (value or "").strip().lower().replace(" ", "_")
+    return v if v in _VALID_ACCOUNT_STATUSES else "not_started"
 
 
 @router.post("/suppliers", response_class=HTMLResponse)
@@ -107,6 +149,9 @@ def supplier_create(
     contact_email: str = Form(""),
     contact_phone: str = Form(""),
     website: str = Form(""),
+    address: str = Form(""),
+    account_status: str = Form("not_started"),
+    priority: str = Form("100"),
     notes: str = Form(""),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
@@ -118,6 +163,9 @@ def supplier_create(
         contact_email=contact_email or None,
         contact_phone=contact_phone or None,
         website=website or None,
+        address=address or None,
+        account_status=_normalize_status(account_status),
+        priority=_to_int(priority) or 100,
         notes=notes or None,
     )
     try:
@@ -127,7 +175,7 @@ def supplier_create(
         db.rollback()
         logger.exception("Failed to create supplier %s", name)
         raise HTTPException(status_code=500, detail="Database error saving supplier")
-    return RedirectResponse(url="/inventory/suppliers", status_code=303)
+    return RedirectResponse(url="/inventory/?tab=suppliers", status_code=303)
 
 
 @router.get("/suppliers/{supplier_id}/edit", response_class=HTMLResponse)
@@ -143,6 +191,63 @@ def supplier_edit_form(
     )
 
 
+@router.post("/suppliers/{supplier_id}/import", response_class=HTMLResponse)
+def supplier_import_prices(
+    supplier_id: int,
+    request: Request,
+    mode: str = Form("csv"),
+    payload: str = Form(""),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Bulk-import this supplier's price list. See app/services/supplier_import.py."""
+    from app.services import supplier_import as si
+
+    supplier = db.get(Supplier, supplier_id)
+    if not supplier:
+        return Response(status_code=404)
+
+    ctx: dict[str, object] = {
+        "active_nav": "inventory",
+        "supplier": supplier,
+        "submitted_payload": payload,
+    }
+    if not payload.strip():
+        ctx["error"] = "Paste a CSV or catalog text first."
+        return templates.TemplateResponse(request, "inventory/supplier_edit.html", ctx)
+
+    try:
+        if mode == "ai":
+            rows = si.ai_extract_rows(payload)
+        else:
+            rows = si.parse_csv_text(payload)
+    except si.AIExtractError as e:
+        ctx["error"] = str(e)
+        return templates.TemplateResponse(request, "inventory/supplier_edit.html", ctx)
+    except Exception:
+        logger.exception("Supplier %d price import failed", supplier_id)
+        ctx["error"] = "Unexpected error parsing the payload. Check the server logs."
+        return templates.TemplateResponse(request, "inventory/supplier_edit.html", ctx)
+
+    if not rows:
+        ctx["error"] = (
+            "No rows recognized. CSV mode needs a header row with at least a "
+            "`sku` or `name` column. AI mode needs catalog-style text."
+        )
+        return templates.TemplateResponse(request, "inventory/supplier_edit.html", ctx)
+
+    try:
+        result = si.ingest_supplier_offers(db, supplier.id, rows)
+    except Exception:
+        logger.exception("Supplier %d ingest failed", supplier_id)
+        ctx["error"] = "Database error while saving rows. Check the server logs."
+        return templates.TemplateResponse(request, "inventory/supplier_edit.html", ctx)
+
+    # Clear the textarea on success — keep the result banner so the operator sees what happened.
+    ctx["submitted_payload"] = ""
+    ctx["result"] = result
+    return templates.TemplateResponse(request, "inventory/supplier_edit.html", ctx)
+
+
 @router.post("/suppliers/{supplier_id}", response_class=HTMLResponse)
 def supplier_update(
     supplier_id: int,
@@ -153,6 +258,9 @@ def supplier_update(
     contact_email: str = Form(""),
     contact_phone: str = Form(""),
     website: str = Form(""),
+    address: str = Form(""),
+    account_status: str = Form("not_started"),
+    priority: str = Form("100"),
     notes: str = Form(""),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
@@ -166,9 +274,12 @@ def supplier_update(
     supplier.contact_email = contact_email or None
     supplier.contact_phone = contact_phone or None
     supplier.website = website or None
+    supplier.address = address or None
+    supplier.account_status = _normalize_status(account_status)
+    supplier.priority = _to_int(priority) or 100
     supplier.notes = notes or None
     db.commit()
-    return RedirectResponse(url="/inventory/suppliers", status_code=303)
+    return RedirectResponse(url="/inventory/?tab=suppliers", status_code=303)
 
 
 @router.delete("/suppliers/{supplier_id}", response_class=HTMLResponse)
@@ -180,6 +291,36 @@ def supplier_delete(supplier_id: int, db: Session = Depends(get_db)) -> HTMLResp
     return HTMLResponse(content="", status_code=200)
 
 
+# Status cycle for the "Open These Accounts" banner. The pill on each row POSTs
+# the next status (client-side cycle: not_started → applied → open → not_started)
+# and the response is the updated banner partial so the row visibly moves out
+# once the account is open.
+@router.post("/suppliers/{supplier_id}/status", response_class=HTMLResponse)
+def supplier_status_update(
+    supplier_id: int,
+    request: Request,
+    account_status: str = Form(...),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    supplier = db.get(Supplier, supplier_id)
+    if not supplier:
+        return Response(status_code=404)
+    supplier.account_status = _normalize_status(account_status)
+    db.commit()
+    # Re-render the banner partial with the freshly sorted priority list.
+    priority_suppliers = (
+        db.query(Supplier)
+        .filter(Supplier.account_status != "open", Supplier.priority < 100)
+        .order_by(Supplier.priority, Supplier.name)
+        .all()
+    )
+    return templates.TemplateResponse(
+        request,
+        "inventory/_priority_suppliers.html",
+        {"priority_suppliers": priority_suppliers},
+    )
+
+
 @router.get("/", response_class=HTMLResponse)
 def inventory_index(
     request: Request,
@@ -189,6 +330,8 @@ def inventory_index(
     seasonal: bool = False,
     init_supplier: str | None = None,
     tab: str = "products",
+    product_id: str | None = None,
+    q: str | None = None,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     sid = int(supplier_id) if supplier_id else None
@@ -221,7 +364,18 @@ def inventory_index(
         "missing_cost": sum(1 for p in products if p.effective_cost is None),
         "sourced": sum(1 for p in products if p.source_count),
     }
-    suppliers = db.query(Supplier).order_by(Supplier.name).all()
+    # Suppliers tab: open accounts sort first, then by priority, then alpha.
+    # The list is small (~24 rows), so in-memory sort beats a multi-column SQL
+    # `case()` and lets the priority-section split reuse the same objects.
+    suppliers = sorted(
+        db.query(Supplier).all(),
+        key=lambda s: (s.account_status != "open", s.priority, s.name.lower()),
+    )
+    # Priority section on the Suppliers tab: not-yet-open suppliers explicitly
+    # ranked above the default priority. Lower number sorts to the top.
+    priority_suppliers = [
+        s for s in suppliers if s.account_status != "open" and s.priority < 100
+    ]
     db_cats = {r[0] for r in db.query(Product.category).distinct() if r[0]}
     categories = PRODUCT_CATEGORIES + [c for c in sorted(db_cats) if c not in PRODUCT_CATEGORIES]
     vendor_cfg = load_vendor_settings(db)
@@ -235,6 +389,14 @@ def inventory_index(
     search_provider = _get_setting(db, "inventory_search_provider", "duckduckgo")
     from app.config import settings as app_settings
     tavily_available = bool(app_settings.tavily_api_key)
+    firecrawl_available = bool(app_settings.firecrawl_api_key)
+    # Find Prices tab can be pre-bound to a product (clicked from a catalog row
+    # or supplier card). The hidden product_id flows through compare_run and the
+    # results page so "Save best" doesn't need a second product picker.
+    compare_product = None
+    compare_product_id = _to_int(product_id)
+    if compare_product_id:
+        compare_product = db.get(Product, compare_product_id)
     sourcing_jobs = (
         db.query(AgentJob)
         .filter(AgentJob.job_type == "inventory_research")
@@ -249,6 +411,7 @@ def inventory_index(
             "active_nav": "inventory",
             "products": products,
             "suppliers": suppliers,
+            "priority_suppliers": priority_suppliers,
             "categories": categories,
             "category_labels": CATEGORY_LABELS,
             "category_filter": category,
@@ -265,6 +428,9 @@ def inventory_index(
             "compare_jobs": compare_jobs,
             "search_provider": search_provider,
             "tavily_available": tavily_available,
+            "firecrawl_available": firecrawl_available,
+            "compare_product": compare_product,
+            "compare_query": (q or (compare_product.name if compare_product else "")),
             # AI sourcing
             "category_options": PRODUCT_CATEGORY_OPTIONS,
             "current_provider": search_provider,
@@ -482,8 +648,8 @@ def product_new_form(
 @router.post("/", response_class=HTMLResponse)
 def product_create(
     request: Request,
-    sku: str = Form(...),
     name: str = Form(...),
+    sku: str = Form(""),
     brand: str = Form(""),
     category: str = Form(""),
     unit_cost: str = Form(""),
@@ -510,8 +676,12 @@ def product_create(
     if parsed_par is not None and parsed_par < 0:
         raise HTTPException(status_code=422, detail="Par level cannot be negative")
 
+    # Blank SKU → derive from the name (+ brand prefix when set). Lets the form
+    # ask for one less thing without giving up the column's uniqueness guarantee.
+    resolved_sku = sku.strip() or _generate_sku(db, name, brand)
+
     product = Product(
-        sku=sku,
+        sku=resolved_sku,
         name=name,
         brand=brand or None,
         category=category or None,
@@ -529,8 +699,25 @@ def product_create(
         db.commit()
     except Exception:
         db.rollback()
-        logger.exception("Failed to create product %s", sku)
+        logger.exception("Failed to create product %s", resolved_sku)
         raise HTTPException(status_code=500, detail="Database error saving product")
+    return RedirectResponse(url="/inventory/", status_code=303)
+
+
+@router.post("/seed-starter", response_class=HTMLResponse)
+def seed_starter_products(db: Session = Depends(get_db)) -> HTMLResponse:
+    """Seed ~25 common vending SKUs from the empty-state onboarding card.
+
+    Unlike the CLI script, this path ignores the seed sentinel — the operator
+    clicked the button deliberately, so re-running on demand (e.g. after a
+    catalog wipe) is the intended behavior. Existing rows are never clobbered;
+    only blank fields are backfilled.
+    """
+    from app.services.starter_catalog import ensure_starter_products
+
+    created, backfilled = ensure_starter_products(db)
+    db.commit()
+    logger.info("Starter products seeded: %d created, %d backfilled", created, backfilled)
     return RedirectResponse(url="/inventory/", status_code=303)
 
 

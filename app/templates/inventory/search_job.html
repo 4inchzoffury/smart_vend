@@ -138,10 +138,23 @@
         {% endif %}
       </div>
       {% if s_db_id %}
-      <div class="card-footer bg-transparent pt-0 border-top-0">
-        <a href="/inventory/?init_supplier={{ s_db_id }}" class="btn btn-sm btn-outline-primary w-100">
-          <i class="bi bi-plus-lg me-1"></i>Add Product from this Supplier
+      {# Close the loop: a newly discovered supplier is useless until it's
+         attached to products. Offer the two paths that produce a ProductSource:
+         compare a SKU and save the cheapest, or paste their order guide. #}
+      <div class="card-footer bg-transparent pt-2 border-top-0 d-flex flex-column gap-1">
+        <a href="/inventory/?init_supplier={{ s_db_id }}" class="btn btn-sm btn-outline-primary">
+          <i class="bi bi-plus-lg me-1"></i>Add product from this supplier
         </a>
+        <div class="d-flex gap-1">
+          <a href="/inventory/?tab=compare" class="btn btn-sm btn-outline-secondary flex-fill"
+             title="Run Find Prices for a SKU and save the cheapest as a {{ s.supplier_name }} offer">
+            <i class="bi bi-bar-chart-line me-1"></i>Compare a SKU
+          </a>
+          <a href="/inventory/suppliers/{{ s_db_id }}/edit#import" class="btn btn-sm btn-outline-success flex-fill"
+             title="Paste {{ s.supplier_name }}'s CSV or order-guide text">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Import list
+          </a>
+        </div>
       </div>
       {% endif %}
     </div>

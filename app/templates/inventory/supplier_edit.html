@@ -4,25 +4,38 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h3 mb-0">Edit Supplier</h1>
-  <a href="/inventory/suppliers" class="btn btn-outline-secondary btn-sm">
+  <a href="/inventory/?tab=suppliers" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left me-1"></i>Back to Suppliers
   </a>
 </div>
 
-<div class="row justify-content-center">
-  <div class="col-lg-6 col-md-8">
+<div class="row g-4">
+  <div class="col-lg-5">
     <div class="card">
-      <div class="card-header py-2 fw-semibold small">{{ supplier.name }}</div>
+      <div class="card-header py-2 fw-semibold small">
+        {{ supplier.name }}
+        {% if supplier.account_status == 'open' %}
+          <span class="badge bg-success ms-2">Account Open</span>
+        {% elif supplier.account_status == 'applied' %}
+          <span class="badge bg-info ms-2">Applied</span>
+        {% else %}
+          <span class="badge bg-secondary ms-2">Not Started</span>
+        {% endif %}
+      </div>
       <div class="card-body">
         <form method="post" action="/inventory/suppliers/{{ supplier.id }}">
           {% include "inventory/_supplier_form_fields.html" %}
           <div class="d-flex gap-2 mt-3">
             <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
-            <a href="/inventory/suppliers" class="btn btn-outline-secondary btn-sm">Cancel</a>
+            <a href="/inventory/?tab=suppliers" class="btn btn-outline-secondary btn-sm">Cancel</a>
           </div>
         </form>
       </div>
     </div>
+  </div>
+
+  <div class="col-lg-7">
+    {% include "inventory/_supplier_import.html" %}
   </div>
 </div>
 {% endblock %}

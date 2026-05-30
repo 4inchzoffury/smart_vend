@@ -65,9 +65,22 @@
 
 {% if results %}
 
-{# Banner when all (or most) results are AI fallback estimates #}
-{% set ai_count = results | selectattr('source', 'equalto', 'ai_search') | list | length %}
-{% if ai_count == results | length %}
+{# Split off-domain hits surfaced by CandyMachines (boxncase.com etc.) from
+   the primary vendor rows. They're vendor *candidates*, not authoritative
+   prices, so they render in their own subsection below and don't compete for
+   the "Best" badge. #}
+{% set primary_results = results | rejectattr('source', 'equalto', 'cm_referral') | list %}
+{% set referral_results = results | selectattr('source', 'equalto', 'cm_referral') | list %}
+
+{# Vendors that were checked but returned no rows — surfaced as a one-line
+   "no hits" list so the operator knows the search ran but came up empty (and
+   why, when an error message was captured). #}
+{% set returning_keys = primary_results | map(attribute='vendor_key') | list | unique | list %}
+{% set silent_vendors = selected_vendors | reject('in', returning_keys) | list %}
+
+{# Banner when all (or most) primary results are AI fallback estimates #}
+{% set ai_count = primary_results | selectattr('source', 'equalto', 'ai_search') | list | length %}
+{% if primary_results and ai_count == primary_results | length %}
 <div class="alert alert-info py-2 small mb-3 d-flex align-items-start gap-2">
   <i class="bi bi-robot flex-shrink-0" style="margin-top:.15rem"></i>
   <span>
@@ -77,13 +90,14 @@
 </div>
 {% elif ai_count > 0 %}
 <div class="text-muted small mb-2">
-  <i class="bi bi-info-circle me-1"></i>{{ ai_count }} of {{ results | length }} results are AI estimates — direct fetch was unavailable for some vendors.
+  <i class="bi bi-info-circle me-1"></i>{{ ai_count }} of {{ primary_results | length }} results are AI estimates — direct fetch was unavailable for some vendors.
 </div>
 {% endif %}
 
-{# Determine best unit price per vendor group for highlighting #}
+{# "Best" is restricted to primary vendors so a $1 off-domain link can't steal
+   the badge from a real supplier offer. #}
 {% set best_price = namespace(val=None) %}
-{% for r in results %}
+{% for r in primary_results %}
   {% if r.unit_price is not none %}
     {% if best_price.val is none or r.unit_price < best_price.val %}
       {% set best_price.val = r.unit_price %}
@@ -91,6 +105,7 @@
   {% endif %}
 {% endfor %}
 
+{% if primary_results %}
 <div class="table-responsive">
   <table class="table table-sm table-hover align-middle">
     <thead class="table-light small">
@@ -105,7 +120,7 @@
       </tr>
     </thead>
     <tbody>
-      {% for r in results %}
+      {% for r in primary_results %}
       {% set meta = vendor_meta.get(r.vendor_key, {}) %}
       {% set is_best = best_price.val is not none and r.unit_price == best_price.val %}
       <tr {% if is_best %}class="table-success"{% endif %}>
@@ -188,6 +203,102 @@
   <strong>API</strong> = direct vendor API · <strong>Live</strong> = real-time page scrape ·
   <strong>AI Est.</strong> = AI-assisted web search fallback (verify before ordering)
 </div>
+{% endif %}
+
+{# Vendors checked but with no results — be explicit, don't leave the user
+   wondering whether the search ran. #}
+{% if silent_vendors %}
+<div class="alert alert-light border-secondary border-opacity-25 py-2 small mt-3 d-flex align-items-start gap-2">
+  <i class="bi bi-dash-circle text-muted flex-shrink-0" style="margin-top:.15rem"></i>
+  <div>
+    <strong class="text-muted">No hits from:</strong>
+    {% for vk in silent_vendors %}
+      {% set meta = vendor_meta.get(vk, {}) %}
+      <span class="badge bg-light text-muted border ms-1">{{ meta.get('label', vk) }}</span>
+    {% endfor %}
+    <span class="text-muted ms-1">— vendor markup may have changed or the product isn't carried.</span>
+  </div>
+</div>
+{% endif %}
+
+{# Off-domain candidates surfaced by CandyMachines. Saved as Suppliers when
+   the operator clicks bookmark — see candy_machines.py module docstring. #}
+{% if referral_results %}
+<div class="card border-0 mt-4">
+  <div class="card-header bg-info-subtle text-info-emphasis small py-2">
+    <i class="bi bi-stars me-1"></i>
+    <strong>Discovered via CandyMachines</strong>
+    <span class="text-muted ms-2">
+      Off-domain vendor candidates — verify before treating as a real price. Save any row to add the host as a new Supplier.
+    </span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light small">
+        <tr>
+          <th>Vendor (host)</th>
+          <th>Product / Link</th>
+          <th class="text-end">Listed Price</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in referral_results %}
+        <tr>
+          <td class="small">
+            <i class="bi bi-globe text-info me-1"></i>
+            <span class="fw-medium">{{ r.vendor_name }}</span>
+            <div class="text-muted" style="font-size:.7rem">via CandyMachines</div>
+          </td>
+          <td class="small">
+            {% if r.url %}
+            <a href="{{ r.url }}" target="_blank" rel="noopener" class="text-decoration-none text-truncate d-block" style="max-width:260px">
+              {{ r.product_name }}
+            </a>
+            {% else %}
+            <span class="text-truncate d-block" style="max-width:260px">{{ r.product_name }}</span>
+            {% endif %}
+          </td>
+          <td class="text-end small">
+            {% if r.unit_price is not none %}
+            ${{ "%.2f"|format(r.unit_price) }}
+            <i class="bi bi-exclamation-circle text-warning ms-1" title="Unverified — confirm on the vendor's site"></i>
+            {% else %}–{% endif %}
+          </td>
+          <td class="text-nowrap">
+            {% if r.url %}
+            <a href="{{ r.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary py-0 px-1">
+              <i class="bi bi-box-arrow-up-right"></i>
+            </a>
+            {% endif %}
+            {% if target_product %}
+            <form hx-post="/inventory/{{ target_product.id }}/sources/from-comparison"
+                  hx-target="this" hx-swap="outerHTML" class="d-inline ms-1">
+              <input type="hidden" name="vendor_name" value="{{ r.vendor_name }}">
+              <input type="hidden" name="vendor_key" value="{{ r.vendor_key }}">
+              <input type="hidden" name="unit_price" value="{{ r.unit_price if r.unit_price is not none else '' }}">
+              <input type="hidden" name="url" value="{{ r.url or '' }}">
+              <input type="hidden" name="notes" value="Discovered via CandyMachines — {{ r.product_name }}">
+              <button class="btn btn-sm btn-outline-info py-0 px-1" title="Add {{ r.vendor_name }} as a new Supplier and save this price">
+                <i class="bi bi-bookmark-plus"></i>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if not primary_results and not referral_results %}
+<div class="text-center text-muted py-4">
+  <i class="bi bi-search fs-2 d-block mb-2"></i>
+  No prices found. Try a different product name or check vendor settings.
+</div>
+{% endif %}
 
 {% else %}
 <div class="text-center text-muted py-4">

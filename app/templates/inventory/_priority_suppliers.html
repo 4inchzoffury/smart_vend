@@ -1,0 +1,85 @@
+{# Priority "Open These Accounts" banner — embedded at the top of _tab_suppliers.html.
+   Re-rendered on its own when a status pill is clicked (HTMX swap target #priority-suppliers). #}
+
+<div id="priority-suppliers" class="mb-4">
+{% if priority_suppliers %}
+  <div class="card border-warning border-opacity-50 shadow-sm">
+    <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center py-2">
+      <h6 class="mb-0">
+        <i class="bi bi-stars text-warning me-1"></i>
+        Open These Accounts
+        <span class="text-muted fw-normal small ms-2">before the first machine load</span>
+      </h6>
+      <a href="/research/?focus=7.2" class="small text-muted text-decoration-none" title="Research task #7.2">
+        <i class="bi bi-link-45deg"></i> Research #7.2
+      </a>
+    </div>
+    <ul class="list-group list-group-flush">
+      {% for s in priority_suppliers %}
+      {% set status = s.account_status %}
+      {% set next_status = 'applied' if status == 'not_started' else ('open' if status == 'applied' else 'not_started') %}
+      {% set badge = {
+        'not_started': ('secondary', 'Not Started'),
+        'applied':     ('info',      'Applied'),
+        'open':        ('success',   'Open'),
+      }[status] %}
+      <li class="list-group-item py-2">
+        <div class="d-flex flex-column flex-md-row align-items-md-center gap-2">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="badge bg-light text-muted border" title="Onboarding priority — lower opens first">#{{ s.priority }}</span>
+              <strong>{{ s.name }}</strong>
+              {% if s.supplier_type %}
+              <span class="badge bg-light text-muted border" style="font-size:.7rem">
+                {{ s.supplier_type | replace("_", " ") | title }}
+              </span>
+              {% endif %}
+            </div>
+            <div class="small text-muted mt-1 d-flex flex-wrap gap-3">
+              {% if s.contact_phone %}
+              <a href="tel:{{ s.contact_phone }}" class="text-muted text-decoration-none">
+                <i class="bi bi-telephone me-1"></i>{{ s.contact_phone }}
+              </a>
+              {% endif %}
+              {% if s.contact_email %}
+              <a href="mailto:{{ s.contact_email }}" class="text-muted text-decoration-none">
+                <i class="bi bi-envelope me-1"></i>{{ s.contact_email }}
+              </a>
+              {% endif %}
+              {% if s.website %}
+              <a href="{{ s.website }}" target="_blank" rel="noopener" class="text-decoration-none">
+                <i class="bi bi-globe me-1"></i>{{ s.website | replace("https://", "") | replace("http://", "") | truncate(36) }}
+              </a>
+              {% endif %}
+              {% if s.address %}
+              <span><i class="bi bi-geo-alt me-1"></i>{{ s.address }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <form method="post" action="/inventory/suppliers/{{ s.id }}/status"
+                  hx-post="/inventory/suppliers/{{ s.id }}/status"
+                  hx-target="#priority-suppliers"
+                  hx-swap="outerHTML">
+              <input type="hidden" name="account_status" value="{{ next_status }}">
+              <button type="submit"
+                      class="btn btn-sm btn-{{ badge[0] }}"
+                      title="Click to mark as {{ next_status | replace('_', ' ') | title }}">
+                {{ badge[1] }}
+              </button>
+            </form>
+            <a href="/inventory/suppliers/{{ s.id }}/edit"
+               class="btn btn-sm btn-outline-secondary" title="Edit supplier">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    <div class="card-footer bg-transparent small text-muted">
+      Open Vistar first — it's the primary distributor and the main lever on COGS.
+    </div>
+  </div>
+{% endif %}
+</div>

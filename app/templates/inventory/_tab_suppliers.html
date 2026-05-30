@@ -1,6 +1,8 @@
 {# Suppliers tab — embedded in inventory/index.html #}
 
 <div class="pt-1">
+  {% include "inventory/_priority_suppliers.html" %}
+
   <div class="d-flex justify-content-between align-items-center mb-2">
     <div class="text-muted small">{{ suppliers | length }} supplier{{ 's' if suppliers | length != 1 }}</div>
     <div class="d-flex align-items-center gap-2">
@@ -18,9 +20,11 @@
       <div class="card-body bg-info-subtle rounded small">
         <strong>Suppliers</strong> — Track vendors and distributors you order vending products from.
         <ul class="mb-0 mt-1">
+          <li>The yellow <strong>Open These Accounts</strong> banner at the top tracks priority suppliers that need an account opened before the first machine load (research task #7.2). Click a status pill to cycle Not Started → Applied → Open.</li>
           <li>Add contact info, account numbers, and minimum order quantities for each supplier.</li>
-          <li>Suppliers link to products — click <em>Products from this supplier</em> to filter the product list.</li>
+          <li>Suppliers link to products — click the product-count badge to filter the product list.</li>
           <li>Use the <strong>AI Sourcing</strong> tab to discover new suppliers automatically.</li>
+          <li>Opened the Vistar account? On Vistar's edit page, paste your order guide CSV or text into <strong>Import Prices</strong> to bulk-load <code>ProductSource</code> rows.</li>
         </ul>
       </div>
     </div>
@@ -33,7 +37,14 @@
       <div class="card h-100 shadow-sm">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-start mb-2">
-            <h6 class="card-title mb-0 fw-semibold">{{ s.name }}</h6>
+            <h6 class="card-title mb-0 fw-semibold">
+              {{ s.name }}
+              {% if s.account_status == 'open' %}
+              <i class="bi bi-check-circle-fill text-success small ms-1" title="Account open"></i>
+              {% elif s.account_status == 'applied' %}
+              <i class="bi bi-hourglass-split text-info small ms-1" title="Account application submitted"></i>
+              {% endif %}
+            </h6>
             {% if s.supplier_type %}
             <span class="badge bg-secondary ms-2 flex-shrink-0" style="font-size:.7rem">
               {{ s.supplier_type | replace("_", " ") | title }}
@@ -63,6 +74,9 @@
               </a>
             </div>
             {% endif %}
+            {% if s.address %}
+            <div class="text-muted"><i class="bi bi-geo-alt me-1"></i>{{ s.address }}</div>
+            {% endif %}
           </div>
 
           {% if s.notes %}
@@ -85,13 +99,24 @@
           {% endif %}
 
           {% set product_count = s.products | length %}
-          <div class="mt-2">
+          <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
             {% if product_count > 0 %}
             <a href="/inventory/?supplier_id={{ s.id }}&tab=products" class="badge bg-primary text-decoration-none">
-              <i class="bi bi-box me-1"></i>{{ product_count }} product{{ 's' if product_count != 1 }}
+              <i class="bi bi-box-seam me-1"></i>{{ product_count }} product{{ 's' if product_count != 1 }} linked
             </a>
             {% else %}
-            <span class="badge bg-light text-muted border">No products linked</span>
+            {# Zero linked products → nudge the operator toward the two flows
+               that turn a Supplier row into actual ProductSource offers:
+               compare-and-save, or paste an order guide. #}
+            <span class="badge bg-light text-muted border">
+              <i class="bi bi-box me-1"></i>No products linked
+            </span>
+            <a href="/inventory/?tab=compare" class="small text-decoration-none" title="Run Find Prices and save results to a product as a {{ s.name }} offer">
+              <i class="bi bi-bar-chart-line me-1"></i>Compare prices
+            </a>
+            <a href="/inventory/suppliers/{{ s.id }}/edit#import" class="small text-decoration-none" title="Paste {{ s.name }}'s CSV / order guide">
+              <i class="bi bi-file-earmark-spreadsheet me-1"></i>Import price list
+            </a>
             {% endif %}
           </div>
         </div>
