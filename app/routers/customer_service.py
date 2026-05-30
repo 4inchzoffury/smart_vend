@@ -93,18 +93,26 @@ def _format_last_poll(db: Session) -> str:
 
 
 def _email_queue_context(
-    db: Session, approvals: list[EmailApproval], status: str, category: str
+    db: Session,
+    approvals: list[EmailApproval],
+    status: str,
+    category: str,
+    poll_result: dict | None = None,
 ) -> dict:
     return {
         "approvals": approvals,
         "status": status,
         "category": category,
         "gmail_connected": _gmail_connected(db),
+        "gmail_reauth_reason": _gmail_reauth_required(db),
         "pending_count": _pending_emails_count(db),
         "last_poll_at": _format_last_poll(db),
         "autopoll_enabled": _get_setting(db, "gmail_autopoll_enabled", "1") != "0",
         "poll_interval": _get_setting(db, "gmail_poll_interval_minutes", _DEFAULT_POLL_INTERVAL)
         or _DEFAULT_POLL_INTERVAL,
+        # poll_result is only set after a manual "Poll now" so the banner shows once
+        # and disappears on the next 60s auto-render. Shape: {"count": int, "error": str|None}.
+        "poll_result": poll_result,
     }
 
 
@@ -598,16 +606,23 @@ def cs_gmail_poll(
             '<div class="alert alert-warning p-2 small mb-0">Gmail not connected.</div>'
         )
 
+    poll_result: dict = {"count": 0, "error": None}
     try:
-        gmail_monitor.poll_and_process(db)
+        created = gmail_monitor.poll_and_process(db)
+        poll_result["count"] = len(created)
+    except gmail_monitor.GmailReauthRequiredError as exc:
+        # Token was just cleared by the service; surface the reconnect prompt
+        # inline so the operator sees it without a full page reload.
+        poll_result["error"] = str(exc)
     except Exception as exc:  # noqa: BLE001 — surface the error, still render the queue
         logger.warning("Manual Gmail poll failed: %s", exc)
+        poll_result["error"] = f"Poll failed: {exc}"
 
     approvals = _query_email_queue(db, status, category)
     return templates.TemplateResponse(
         request,
         "customer_service/_email_queue.html",
-        _email_queue_context(db, approvals, status, category),
+        _email_queue_context(db, approvals, status, category, poll_result=poll_result),
     )
 
 

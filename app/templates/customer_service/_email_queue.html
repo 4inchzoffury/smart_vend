@@ -1,6 +1,7 @@
 {# Email Approval Queue tab content.
-   Context: approvals, status, category, gmail_connected, pending_count,
-            last_poll_at, autopoll_enabled, poll_interval #}
+   Context: approvals, status, category, gmail_connected, gmail_reauth_reason,
+            pending_count, last_poll_at, autopoll_enabled, poll_interval,
+            poll_result (only after a manual "Poll now") #}
 <div id="email-queue-content"
      hx-get="/customer-service/email-queue?status={{ status }}&category={{ category }}"
      hx-trigger="every 60s"
@@ -9,6 +10,29 @@
 
 {# Keep the tab badge in sync on every full render (including the 60s auto-refresh). #}
 <span id="email-tab-badge" hx-swap-oob="true">{% if pending_count and pending_count > 0 %}<span class="badge bg-danger ms-1">{{ pending_count }}</span>{% endif %}</span>
+
+{# Banner shown only after a manual "Poll now" — vanishes on the next 60s auto-render. #}
+{% if poll_result %}
+  {% if poll_result.error %}
+  <div class="alert alert-warning d-flex align-items-center py-2 small mb-2" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <div class="flex-grow-1">{{ poll_result.error }}</div>
+    <a href="/customer-service/gmail/connect" class="btn btn-sm btn-warning ms-2">
+      <i class="bi bi-arrow-repeat me-1"></i>Reconnect Gmail
+    </a>
+  </div>
+  {% elif poll_result.count and poll_result.count > 0 %}
+  <div class="alert alert-success d-flex align-items-center py-2 small mb-2" role="alert">
+    <i class="bi bi-envelope-check-fill me-2"></i>
+    <div>Polled inbox — {{ poll_result.count }} new email{{ '' if poll_result.count == 1 else 's' }} filed.</div>
+  </div>
+  {% else %}
+  <div class="alert alert-info d-flex align-items-center py-2 small mb-2" role="alert">
+    <i class="bi bi-check-circle me-2"></i>
+    <div>Polled inbox — no new mail since last check.</div>
+  </div>
+  {% endif %}
+{% endif %}
 
 <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
   <div>
@@ -44,6 +68,13 @@
       <span id="poll-spinner" class="spinner-border spinner-border-sm me-1 htmx-indicator"></span>
       <i class="bi bi-arrow-repeat me-1"></i>Poll now
     </button>
+    <!-- Force re-consent: mints a fresh refresh token even if the current one
+         still works. Useful after scope changes or before token expiry. -->
+    <a href="/customer-service/gmail/connect"
+       class="btn btn-sm btn-outline-secondary"
+       title="Re-run Google sign-in to mint a fresh refresh token">
+      <i class="bi bi-shield-lock me-1"></i>Refresh Gmail connection
+    </a>
     <!-- Clear resolved -->
     <form hx-post="/customer-service/email-queue/clear-resolved?status={{ status }}&category={{ category }}"
           hx-target="#email-content"
